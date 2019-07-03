@@ -137,8 +137,13 @@ func (x *lexer) Next() Token {
 		x.state = lexScript
 	case equal, command:
 		x.state = lexValue
-	case nl, script:
+	case nl, comma, rparen:
 		x.state = lexDefault
+	case script:
+		x.state = lexDefault
+		if t.Literal == "" {
+			return x.Next()
+		}
 	}
 	x.readRune()
 	return t
@@ -230,11 +235,22 @@ func (x *lexer) readIdent(t *Token) {
 
 func (x *lexer) readValue(t *Token) {
 	pos := x.pos
-	for x.char != space && x.char != nl {
-		x.readRune()
+	for {
+		switch x.char {
+		case space, nl, comma, rparen:
+			t.Literal, t.Type = string(x.inner[pos:x.pos]), value
+			x.unreadRune()
+
+			return
+		default:
+			x.readRune()
+		}
 	}
-	t.Literal, t.Type = string(x.inner[pos:x.pos]), value
-	x.unreadRune()
+	// for x.char != space && x.char != nl {
+	// 	x.readRune()
+	// }
+	// t.Literal, t.Type = string(x.inner[pos:x.pos]), value
+	// x.unreadRune()
 }
 
 func (x *lexer) readString(t *Token) {

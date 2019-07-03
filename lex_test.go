@@ -24,12 +24,11 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 			break
 		}
 		if i >= len(tokens) {
+			t.Logf("unexpected token! %s", k)
 			t.Fatalf("too many tokens produced (want: %d, got: %d)", len(tokens), i+1)
 		}
 		got, want := k.String(), tokens[i].String()
 		if got != want {
-			// t.Logf("got:  %x", got)
-			// t.Logf("want: %x", want)
 			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
 	}
@@ -50,10 +49,10 @@ multiline():
 
 empty:
 
-start(shell=bash):
+start(shell=bash,retry=5):
   sudo service %(TARGET) start
 
-stop(shell=bash):
+stop(shell=bash,retry=5):
   sudo service %(TARGET) stop
 
 restart(shell=bash): stop start
@@ -74,6 +73,18 @@ restart(shell=bash): stop start
 		{Type: script, Literal: "echo %(TARGET) %(PROPS)\necho %(TARGET) %(PROPS)\n\necho %(TARGET) %(PROPS)"},
 		{Type: ident, Literal: "empty"},
 		{Type: colon},
+		{Type: ident, Literal: "start"},
+		{Type: lparen},
+		{Type: ident, Literal: "shell"},
+		{Type: equal},
+		{Type: value, Literal: "bash"},
+		{Type: comma},
+		{Type: ident, Literal: "retry"},
+		{Type: equal},
+		{Type: value, Literal: "5"},
+		{Type: rparen},
+		{Type: colon},
+		{Type: script, Literal: "sudo service %(TARGET) start"},
 	}
 	testLexer(t, input, tokens)
 }
