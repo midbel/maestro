@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -48,6 +49,8 @@ func (t Token) String() string {
 		str = "variable"
 	case value:
 		str = "value"
+	case script:
+		str = "script"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
@@ -142,15 +145,27 @@ func (x *lexer) Next() Token {
 }
 
 func (x *lexer) nextScript(t *Token) {
-	x.readRune()
-	pos := x.pos
-	for {
-		if x.char == nl && x.peekRune() != tab {
-			break
+	done := func() bool {
+		if x.char == eof {
+			return true
 		}
+		peek := x.peekRune()
+		return x.char == nl && (!isSpace(peek) || peek == eof || peek == comment)
+	}
+
+	var str strings.Builder
+	for !done() {
+		if x.char == nl {
+			x.skipSpace()
+		}
+		if isComment(x.char) {
+			x.skipComment()
+			continue
+		}
+		str.WriteRune(x.char)
 		x.readRune()
 	}
-	t.Literal, t.Type = string(x.inner[pos:x.pos]), script
+	t.Literal, t.Type = str.String(), script
 }
 
 func (x *lexer) nextValue(t *Token) {

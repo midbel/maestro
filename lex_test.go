@@ -35,21 +35,25 @@ func testLexer(input string, tokens []Token) error {
 
 func testScanScripts(t *testing.T) {
 	input := `
-action:
+single:
   echo %(TARGET)
 
-action():
-  echo %(TARGET) %(PROPS)
+# comment
+# multiline():
+#   echo %(TARGET) %(PROPS)
+#   echo %(TARGET) %(PROPS)
+#
+#   echo %(TARGET) %(PROPS)
 `
 	tokens := []Token{
-		{Type: ident, Literal: "action"},
+		{Type: ident, Literal: "single"},
 		{Type: colon},
 		{Type: script, Literal: "echo %(TARGET)"},
-		{Type: ident, Literal: "action"},
+		{Type: ident, Literal: "multiline"},
 		{Type: lparen},
 		{Type: rparen},
 		{Type: colon},
-		{Type: script, Literal: "echo %(TARGET) %(PROPS)"},
+		{Type: script, Literal: "echo %(TARGET) %(PROPS)\necho %(TARGET) %(PROPS)\n\necho %(TARGET) %(PROPS)"},
 	}
 	if err := testLexer(input, tokens); err != nil {
 		t.Fatalf("unexpected error: %s", err)
