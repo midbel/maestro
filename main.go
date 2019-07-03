@@ -128,7 +128,6 @@ func (x *lexer) Next() Token {
 		x.nextValue(&t)
 	case lexScript:
 		x.nextScript(&t)
-	case lexDone:
 	default:
 		x.nextDefault(&t)
 	}
@@ -176,8 +175,8 @@ func (x *lexer) nextValue(t *Token) {
 		x.readRune()
 	}
 	switch {
-	case x.char == nl:
-		t.Type = nl
+	case x.char == nl || x.char == comma || x.char == rparen:
+		t.Type = x.char
 	case isQuote(x.char):
 		x.readString(t)
 	case x.char == percent:

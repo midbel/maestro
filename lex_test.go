@@ -28,6 +28,7 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 			t.Fatalf("too many tokens produced (want: %d, got: %d)", len(tokens), i+1)
 		}
 		got, want := k.String(), tokens[i].String()
+		t.Log(got, want)
 		if got != want {
 			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
@@ -49,11 +50,15 @@ multiline():
 
 empty:
 
-start(shell=bash,retry=5):
-  sudo service %(TARGET) start
+reload(shell=bash,retry=5):
+  sudo service %(TARGET) reload
 
-stop(shell=bash,retry=5):
-  sudo service %(TARGET) stop
+config(
+  shell=ksh,
+  env=true,
+  home=%(datadir),
+):
+  sudo service %(TARGET) test
 
 restart(shell=bash): stop start
   echo %(TARGET) "restarted"
@@ -73,7 +78,7 @@ restart(shell=bash): stop start
 		{Type: script, Literal: "echo %(TARGET) %(PROPS)\necho %(TARGET) %(PROPS)\n\necho %(TARGET) %(PROPS)"},
 		{Type: ident, Literal: "empty"},
 		{Type: colon},
-		{Type: ident, Literal: "start"},
+		{Type: ident, Literal: "reload"},
 		{Type: lparen},
 		{Type: ident, Literal: "shell"},
 		{Type: equal},
@@ -84,7 +89,34 @@ restart(shell=bash): stop start
 		{Type: value, Literal: "5"},
 		{Type: rparen},
 		{Type: colon},
-		{Type: script, Literal: "sudo service %(TARGET) start"},
+		{Type: script, Literal: "sudo service %(TARGET) reload"},
+		{Type: ident, Literal: "config"},
+		{Type: lparen},
+		{Type: ident, Literal: "shell"},
+		{Type: equal},
+		{Type: value, Literal: "ksh"},
+		{Type: comma},
+		{Type: ident, Literal: "env"},
+		{Type: equal},
+		{Type: value, Literal: "true"},
+		{Type: comma},
+		{Type: ident, Literal: "home"},
+		{Type: equal},
+		{Type: variable, Literal: "datadir"},
+		{Type: comma},
+		{Type: rparen},
+		{Type: colon},
+		{Type: script, Literal: "sudo service %(TARGET) test"},
+		{Type: ident, Literal: "restart"},
+		{Type: lparen},
+		{Type: ident, Literal: "shell"},
+		{Type: equal},
+		{Type: value, Literal: "bash"},
+		{Type: rparen},
+		{Type: colon},
+		{Type: ident, Literal: "start"},
+		{Type: ident, Literal: "stop"},
+		{Type: script, Literal: "echo %(TARGET) \"restarted\""},
 	}
 	testLexer(t, input, tokens)
 }
