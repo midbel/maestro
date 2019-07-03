@@ -7,17 +7,33 @@ import (
 
 func TestLexer(t *testing.T) {
 	input := `
-  # comment should be skipped
-  datadir = /var/data
-  tmpdir  = /var/tmp
-  welcom  = "hello world"
-  mode    = 644
+# comment should be skipped
+datadir = /var/data
+tmpdir  = /var/tmp
+welcom  = "hello world"
+mode    = 644
 
-  # assign datadir value to workdir
-  workdir = $(datadir)
-  env     = prod dev test
-  dirs    = $(datadir) $(tmpdir) $(workdir)
-  `
+# assign datadir value to workdir
+workdir = %(datadir)
+env     = prod dev test
+dirs    = %(datadir) %(tmpdir) %(workdir)
+
+include etc/xsk/globals.xsk
+include "etc/xsk/variables.xsk"
+
+export PATH /var/bin
+export HOME %(datadir)
+
+echo %(welcom)
+echo "data directory set" %(datadir)
+echo "working directory set" %(workdir)
+
+action:
+  echo %(TARGET)
+
+action():
+  echo %(TARGET) %(PROPS)
+`
 	tokens := []Token{
 		{Type: ident, Literal: "datadir"},
 		{Type: equal},
@@ -51,6 +67,39 @@ func TestLexer(t *testing.T) {
 		{Type: variable, Literal: "tmpdir"},
 		{Type: variable, Literal: "workdir"},
 		{Type: nl},
+		{Type: command, Literal: "include"},
+		{Type: value, Literal: "etc/xsk/globals.xsk"},
+		{Type: nl},
+		{Type: command, Literal: "include"},
+		{Type: value, Literal: "etc/xsk/variables.xsk"},
+		{Type: nl},
+		{Type: command, Literal: "export"},
+		{Type: value, Literal: "PATH"},
+		{Type: value, Literal: "/var/bin"},
+		{Type: nl},
+		{Type: command, Literal: "export"},
+		{Type: value, Literal: "HOME"},
+		{Type: variable, Literal: "datadir"},
+		{Type: nl},
+		{Type: command, Literal: "echo"},
+		{Type: variable, Literal: "welcom"},
+		{Type: nl},
+		{Type: command, Literal: "echo"},
+		{Type: value, Literal: "data directory set"},
+		{Type: variable, Literal: "datadir"},
+		{Type: nl},
+		{Type: command, Literal: "echo"},
+		{Type: value, Literal: "working directory set"},
+		{Type: variable, Literal: "workdir"},
+		{Type: nl},
+		{Type: ident, Literal: "action"},
+		{Type: colon},
+		{Type: script, Literal: "echo %(TARGET)"},
+		{Type: ident, Literal: "action"},
+		{Type: lparen},
+		{Type: rparen},
+		{Type: colon},
+		{Type: script, Literal: "echo %(TARGET) %(PROPS)"},
 	}
 	x, err := Lex(strings.NewReader(input))
 	if err != nil {

@@ -52,12 +52,19 @@ func (t Token) String() string {
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
 
+// map between recognized commands and their expected number of arguments
+var commands = map[string]int{
+	"echo":    -1,
+	"export":  2,
+	"include": 1,
+}
+
 const (
 	space   = ' '
 	tab     = '\t'
 	period  = '.'
 	colon   = ':'
-	dollar  = '$'
+	percent = '%'
 	lparen  = '('
 	rparen  = ')'
 	comment = '#'
@@ -73,13 +80,15 @@ const (
 	value
 	variable
 	command // include, export
+	script
 	invalid
 )
 
 const (
-	stateDefault = iota
-	stateValue
-	stateDone
+	lexDefault = iota
+	lexValue
+	lexScript
+	lexDone
 )
 
 type lexer struct {
@@ -99,7 +108,7 @@ func Lex(r io.Reader) (*lexer, error) {
 	}
 	x := lexer{
 		inner: xs,
-		state: stateDefault,
+		state: lexDefault,
 	}
 	x.readRune()
 	return &x, nil
@@ -112,11 +121,17 @@ func (x *lexer) Next() Token {
 		return t
 	}
 	switch x.state {
-	case stateValue:
+	case lexValue:
 		x.nextValue(&t)
-	case stateDone:
+	case lexDone:
 	default:
 		x.nextDefault(&t)
+	}
+	switch t.Type {
+	case equal, command:
+		x.state = lexValue
+	case nl:
+		x.state = lexDefault
 	}
 	x.readRune()
 	return t
@@ -129,10 +144,9 @@ func (x *lexer) nextValue(t *Token) {
 	switch {
 	case x.char == nl:
 		t.Type = nl
-		x.state = stateDefault
 	case isQuote(x.char):
 		x.readString(t)
-	case x.char == dollar:
+	case x.char == percent:
 		x.readVariable(t)
 	default:
 		x.readValue(t)
@@ -151,9 +165,6 @@ func (x *lexer) nextDefault(t *Token) {
 		x.nextDefault(t)
 	default:
 		t.Type = x.char
-		if t.Type == equal {
-			x.state = stateValue
-		}
 	}
 }
 
@@ -182,6 +193,9 @@ func (x *lexer) readIdent(t *Token) {
 		x.readRune()
 	}
 	t.Literal, t.Type = string(x.inner[pos:x.pos]), ident
+	if _, ok := commands[t.Literal]; ok {
+		t.Type = command
+	}
 }
 
 func (x *lexer) readValue(t *Token) {
