@@ -123,18 +123,34 @@ func (x *lexer) Next() Token {
 	switch x.state {
 	case lexValue:
 		x.nextValue(&t)
+	case lexScript:
+		x.nextScript(&t)
 	case lexDone:
 	default:
 		x.nextDefault(&t)
 	}
 	switch t.Type {
+	case colon:
+		x.state = lexScript
 	case equal, command:
 		x.state = lexValue
-	case nl:
+	case nl, script:
 		x.state = lexDefault
 	}
 	x.readRune()
 	return t
+}
+
+func (x *lexer) nextScript(t *Token) {
+	x.readRune()
+	pos := x.pos
+	for {
+		if x.char == nl && x.peekRune() != tab {
+			break
+		}
+		x.readRune()
+	}
+	t.Literal, t.Type = string(x.inner[pos:x.pos]), script
 }
 
 func (x *lexer) nextValue(t *Token) {
@@ -196,6 +212,7 @@ func (x *lexer) readIdent(t *Token) {
 	if _, ok := commands[t.Literal]; ok {
 		t.Type = command
 	}
+	x.unreadRune()
 }
 
 func (x *lexer) readValue(t *Token) {
