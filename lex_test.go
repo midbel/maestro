@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -12,10 +11,12 @@ func TestLexer(t *testing.T) {
 	t.Run("Scripts", testScanScripts)
 }
 
-func testLexer(input string, tokens []Token) error {
+func testLexer(t *testing.T, input string, tokens []Token) {
+	t.Helper()
+
 	x, err := Lex(strings.NewReader(input))
 	if err != nil {
-		return fmt.Errorf("fail to create lexer: %s", err)
+		t.Fatalf("fail to create lexer: %s", err)
 	}
 	for i := 0; ; i++ {
 		k := x.Next()
@@ -23,14 +24,15 @@ func testLexer(input string, tokens []Token) error {
 			break
 		}
 		if i >= len(tokens) {
-			return fmt.Errorf("too many tokens produced (want: %d, got: %d)", len(tokens), i)
+			t.Fatalf("too many tokens produced (want: %d, got: %d)", len(tokens), i+1)
 		}
 		got, want := k.String(), tokens[i].String()
 		if got != want {
-			return fmt.Errorf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
+			// t.Logf("got:  %x", got)
+			// t.Logf("want: %x", want)
+			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
 	}
-	return nil
 }
 
 func testScanScripts(t *testing.T) {
@@ -38,26 +40,42 @@ func testScanScripts(t *testing.T) {
 single:
   echo %(TARGET)
 
+  echo %(TARGET) %(PROPS)
+
+multiline():
+  echo %(TARGET) %(PROPS)
+  echo %(TARGET) %(PROPS)
+
+  echo %(TARGET) %(PROPS)
+
+empty:
+
+start(shell=bash):
+  sudo service %(TARGET) start
+
+stop(shell=bash):
+  sudo service %(TARGET) stop
+
+restart(shell=bash): stop start
+  echo %(TARGET) "restarted"
+
 # comment
-# multiline():
-#   echo %(TARGET) %(PROPS)
-#   echo %(TARGET) %(PROPS)
-#
-#   echo %(TARGET) %(PROPS)
+# singlebis:
+#  echo %(TARGET)
 `
 	tokens := []Token{
 		{Type: ident, Literal: "single"},
 		{Type: colon},
-		{Type: script, Literal: "echo %(TARGET)"},
+		{Type: script, Literal: "echo %(TARGET)\n\necho %(TARGET) %(PROPS)"},
 		{Type: ident, Literal: "multiline"},
 		{Type: lparen},
 		{Type: rparen},
 		{Type: colon},
 		{Type: script, Literal: "echo %(TARGET) %(PROPS)\necho %(TARGET) %(PROPS)\n\necho %(TARGET) %(PROPS)"},
+		{Type: ident, Literal: "empty"},
+		{Type: colon},
 	}
-	if err := testLexer(input, tokens); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
+	testLexer(t, input, tokens)
 }
 
 func testScanCommands(t *testing.T) {
@@ -99,9 +117,7 @@ echo "working directory set" %(workdir)
 		{Type: variable, Literal: "workdir"},
 		{Type: nl},
 	}
-	if err := testLexer(input, tokens); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
+	testLexer(t, input, tokens)
 }
 
 func testScanVariables(t *testing.T) {
@@ -151,7 +167,5 @@ dirs    = %(datadir) %(tmpdir) %(workdir)
 		{Type: variable, Literal: "workdir"},
 		{Type: nl},
 	}
-	if err := testLexer(input, tokens); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
+	testLexer(t, input, tokens)
 }

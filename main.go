@@ -155,17 +155,15 @@ func (x *lexer) nextScript(t *Token) {
 
 	var str strings.Builder
 	for !done() {
-		if x.char == nl {
+		if peek := x.peekRune(); x.char == nl && peek != nl {
+			str.WriteRune(x.char)
+			x.readRune()
 			x.skipSpace()
-		}
-		if isComment(x.char) {
-			x.skipComment()
-			continue
 		}
 		str.WriteRune(x.char)
 		x.readRune()
 	}
-	t.Literal, t.Type = str.String(), script
+	t.Literal, t.Type = strings.TrimSpace(str.String()), script
 }
 
 func (x *lexer) nextValue(t *Token) {
