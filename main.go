@@ -6,11 +6,14 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 )
+
+const DefaultShell = "/bin/sh"
 
 func main() {
 	file := flag.String("file", "maestro.mf", "")
@@ -27,7 +30,11 @@ func main() {
 	}
 	switch flag.Arg(0) {
 	case "help":
-		err = m.Help()
+		if act := flag.Arg(1); act == "" {
+			m.Summary()
+		} else {
+			m.Help(act)
+		}
 	case "version":
 		err = m.Version()
 	case "debug":
@@ -36,6 +43,7 @@ func main() {
 	case "":
 		err = m.Default()
 	default:
+		err = m.Execute(flag.Args())
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -61,8 +69,15 @@ type Maestro struct {
 	Actions map[string]Action
 }
 
-func (m Maestro) All() error {
+func (m Maestro) Execute(actions []string) error {
+	for _, a := range actions {
+		fmt.Println("execute:", a)
+	}
 	return nil
+}
+
+func (m Maestro) All() error {
+	return m.Execute(m.all)
 }
 
 func (m Maestro) Default() error {
@@ -74,7 +89,38 @@ func (m Maestro) Version() error {
 	return nil
 }
 
-func (m Maestro) Help() error {
+func (m Maestro) Help(action string) error {
+	a, ok := m.Actions[action]
+	if !ok {
+		return fmt.Errorf("no help available for %s", action)
+	}
+	fmt.Println(a.Help)
+	fmt.Println()
+	if a.Desc != "" {
+		fmt.Println(a.Desc)
+		fmt.Println()
+	}
+	fmt.Println("properties:")
+	fmt.Printf("shell  : %s\n", a.Shell)
+	fmt.Printf("workdir: %s\n", a.Workdir)
+	fmt.Printf("stdout : %s\n", a.Stdout)
+	fmt.Printf("stderr : %s\n", a.Stderr)
+	fmt.Printf("env    : %t\n", a.Env)
+	fmt.Printf("ignore : %t\n", a.Ignore)
+	fmt.Printf("retry  : %d\n", a.Retry)
+	fmt.Printf("delay  : %s\n", a.Delay)
+	fmt.Printf("timeout: %s\n", a.Timeout)
+	if len(a.Dependencies) > 0 {
+		fmt.Println()
+		fmt.Println("dependencies:")
+		for _, d := range a.Dependencies {
+			fmt.Printf("- %s\n", d)
+		}
+	}
+	return nil
+}
+
+func (m Maestro) Summary() error {
 	if m.about != "" {
 		fmt.Println(m.about)
 		fmt.Println()
@@ -82,7 +128,13 @@ func (m Maestro) Help() error {
 	if len(m.Actions) > 0 {
 		fmt.Println("available actions:")
 		fmt.Println()
-		for _, a := range m.Actions {
+		as := make([]string, 0, len(m.Actions))
+		for a := range m.Actions {
+			as = append(as, a)
+		}
+		sort.Strings(as)
+		for _, a := range as {
+			a := m.Actions[a]
 			help := a.Help
 			if help == "" {
 				help = "no description available"
@@ -97,13 +149,10 @@ func (m Maestro) Help() error {
 	return nil
 }
 
-func (m Maestro) executeAction(a Action) error {
-	return nil
-}
-
 type Action struct {
 	Name string
 	Help string
+	Desc string
 
 	Dependencies []string
 	// Dependencies []Action
@@ -125,13 +174,6 @@ type Action struct {
 	globals map[string]string
 
 	echo []string
-}
-
-func (a Action) Execute() error {
-	if a.Script == "" {
-		return nil
-	}
-	return nil
 }
 
 type Parser struct {
@@ -165,11 +207,12 @@ func ParseFile(file string) (*Parser, error) {
 }
 
 func (p *Parser) Parse() (*Maestro, error) {
-	var (
-		err error
-		mst Maestro
-	)
-	mst.Actions = make(map[string]Action)
+	mst := Maestro{
+		Actions: make(map[string]Action),
+		Shell:   DefaultShell,
+	}
+
+	var err error
 	for p.curr.Type != eof {
 		switch p.curr.Type {
 		case meta:
@@ -215,6 +258,7 @@ func (p *Parser) parseAction(m *Maestro) error {
 	}
 	p.nextToken()
 	for p.curr.Type == dependency {
+		a.Dependencies = append(a.Dependencies, p.curr.Literal)
 		p.nextToken()
 	}
 	a.Script = p.curr.Literal
@@ -223,6 +267,9 @@ func (p *Parser) parseAction(m *Maestro) error {
 	}
 	for k, v := range p.globals {
 		a.globals[k] = v
+	}
+	if a.Shell == "" {
+		a.Shell = m.Shell
 	}
 	m.Actions[a.Name] = a
 	return nil
