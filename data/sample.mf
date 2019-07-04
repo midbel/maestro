@@ -25,32 +25,33 @@ include "etc/maestro/variables.mf"
 export PATH /var/bin
 export HOME %(datadir)
 
-echo %(welcom)
-echo "data directory set" %(datadir)
-echo "working directory set" %(workdir)
+# echo %(welcom)
+# echo "data directory set" %(datadir)
+# echo "working directory set" %(workdir)
 
-single:
+single(help="echo single target"):
   echo %(TARGET)
 
   echo %(TARGET) %(PROPS)
 
-multiline():
+multiline(help="echo multiple target and props"):
   echo %(TARGET) %(PROPS)
   echo %(TARGET) %(PROPS)
 
   echo %(TARGET) %(PROPS)
 
-empty:
+empty(help="do nothing"):
 sleep(shell=bash): empty single
 	sleep 5
 
-reload(shell=bash,retry=5):
+reload(shell=bash,retry=5, help="reload service"):
   sudo service %(TARGET) reload
 
 config1(
   shell=ksh,
   env=true,
   workdir=%(datadir),
+	help="test configuration phase1",
 ):
   sudo service %(TARGET) test
 
@@ -59,8 +60,9 @@ config2(
   shell=ksh,
   env=true,
   workdir=%(datadir),
+	help="test configuration phase2"
 ):
   sudo service %(TARGET) test
 
-restart(shell=bash): stop start
+restart(shell=bash, help="stop and start service"): stop start
   echo %(TARGET) "restarted"

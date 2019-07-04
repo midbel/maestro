@@ -83,11 +83,11 @@ func (m Maestro) Help() error {
 		fmt.Println("available actions:")
 		fmt.Println()
 		for _, a := range m.Actions {
-			short := a.Short
-			if short == "" {
-				short = "no description available"
+			help := a.Help
+			if help == "" {
+				help = "no description available"
 			}
-			fmt.Printf("  %-12s %s\n", a.Name, short)
+			fmt.Printf("  %-12s %s\n", a.Name, help)
 		}
 		fmt.Println()
 	}
@@ -102,8 +102,8 @@ func (m Maestro) executeAction(a Action) error {
 }
 
 type Action struct {
-	Name  string
-	Short string
+	Name string
+	Help string
 
 	Dependencies []string
 	// Dependencies []Action
@@ -218,6 +218,12 @@ func (p *Parser) parseAction(m *Maestro) error {
 		p.nextToken()
 	}
 	a.Script = p.curr.Literal
+	for k, vs := range p.locals {
+		a.locals[k] = append(a.locals[k], vs...)
+	}
+	for k, v := range p.globals {
+		a.globals[k] = v
+	}
 	m.Actions[a.Name] = a
 	return nil
 }
@@ -238,6 +244,8 @@ func (p *Parser) parseProperties(a *Action) error {
 			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
 		case "shell":
 			a.Shell = p.valueOf()
+		case "help":
+			a.Help = p.valueOf()
 		case "env":
 			a.Env, err = strconv.ParseBool(p.valueOf())
 		case "ignore":
@@ -322,6 +330,8 @@ func (p *Parser) parseCommand() error {
 				err = p.executeDeclare(values)
 			case "include":
 				err = p.executeInclude(values)
+			default:
+				err = fmt.Errorf("%s: unrecognized command", ident)
 			}
 			return err
 		default:
