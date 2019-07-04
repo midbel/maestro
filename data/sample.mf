@@ -2,7 +2,7 @@
 .HELP    = help
 .USAGE   = "sample.mf <action...>"
 .ABOUT   = "how to use sample maestro file"
-.DEFAULT = help
+.DEFAULT = single
 .ECHO    = on
 .VERSION = "sample.mf 0.0.1"
 
@@ -31,6 +31,7 @@ export HOME %(datadir)
 
 single(
 	shell="/bin/bash",
+	args="-c",
 	help="echo single target",
 ):
   echo %(TARGET)

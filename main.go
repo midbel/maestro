@@ -95,7 +95,16 @@ func (m Maestro) All() error {
 }
 
 func (m Maestro) Default() error {
-	return m.Execute([]string{m.cmd})
+	switch m.cmd {
+	case "all":
+		return m.All()
+	case "help":
+		return m.Summary()
+	case "version":
+		return m.Version()
+	default:
+		return m.Execute([]string{m.cmd})
+	}
 }
 
 func (m Maestro) Version() error {
@@ -108,49 +117,7 @@ func (m Maestro) Help(action string) error {
 	if !ok {
 		return fmt.Errorf("no help available for %s", action)
 	}
-	fmt.Println(a.Help)
-	fmt.Println()
-	if a.Desc != "" {
-		fmt.Println(a.Desc)
-		fmt.Println()
-	}
-	fmt.Println("properties:")
-	fmt.Printf("- shell  : %s\n", a.Shell)
-	fmt.Printf("- workdir: %s\n", a.Workdir)
-	fmt.Printf("- stdout : %s\n", a.Stdout)
-	fmt.Printf("- stderr : %s\n", a.Stderr)
-	fmt.Printf("- env    : %t\n", a.Env)
-	fmt.Printf("- ignore : %t\n", a.Ignore)
-	fmt.Printf("- retry  : %d\n", a.Retry)
-	fmt.Printf("- delay  : %s\n", a.Delay)
-	fmt.Printf("- timeout: %s\n", a.Timeout)
-	if len(a.data) > 0 {
-		fmt.Println()
-		for k, vs := range a.data {
-			fmt.Printf("%s: %s\n", k, strings.Join(vs, " "))
-		}
-	}
-	if len(a.locals) > 0 {
-		fmt.Println()
-		fmt.Println("local variables:")
-		for k, vs := range a.locals {
-			fmt.Printf("- %s: %s\n", k, strings.Join(vs, " "))
-		}
-		fmt.Println()
-	}
-	if len(a.globals) > 0 {
-		fmt.Println("environment variables:")
-		for k, v := range a.globals {
-			fmt.Printf("- %s: %s\n", k, v)
-		}
-		fmt.Println()
-	}
-	if len(a.Dependencies) > 0 {
-		fmt.Println("dependencies:")
-		for _, d := range a.Dependencies {
-			fmt.Printf("- %s\n", d)
-		}
-	}
+	a.Usage()
 	return nil
 }
 
@@ -210,6 +177,56 @@ type Action struct {
 	data    map[string][]string
 
 	echo []string
+}
+
+func (a Action) Usage() {
+	fmt.Println(a.Help)
+	fmt.Println()
+	if a.Desc != "" {
+		fmt.Println(a.Desc)
+		fmt.Println()
+	}
+	shell := a.Shell
+	if len(a.Args) > 0 {
+		shell = fmt.Sprintf("%s %s", a.Shell, strings.Join(a.Args, " "))
+	}
+	fmt.Println("properties:")
+	fmt.Printf("- shell  : %s\n", shell)
+	fmt.Printf("- workdir: %s\n", a.Workdir)
+	fmt.Printf("- stdout : %s\n", a.Stdout)
+	fmt.Printf("- stderr : %s\n", a.Stderr)
+	fmt.Printf("- env    : %t\n", a.Env)
+	fmt.Printf("- ignore : %t\n", a.Ignore)
+	fmt.Printf("- retry  : %d\n", a.Retry)
+	fmt.Printf("- delay  : %s\n", a.Delay)
+	fmt.Printf("- timeout: %s\n", a.Timeout)
+	if len(a.data) > 0 {
+		fmt.Println()
+		for k, vs := range a.data {
+			fmt.Printf("%s: %s\n", k, strings.Join(vs, " "))
+		}
+	}
+	if len(a.locals) > 0 {
+		fmt.Println()
+		fmt.Println("local variables:")
+		for k, vs := range a.locals {
+			fmt.Printf("- %s: %s\n", k, strings.Join(vs, " "))
+		}
+		fmt.Println()
+	}
+	if len(a.globals) > 0 {
+		fmt.Println("environment variables:")
+		for k, v := range a.globals {
+			fmt.Printf("- %s: %s\n", k, v)
+		}
+		fmt.Println()
+	}
+	if len(a.Dependencies) > 0 {
+		fmt.Println("dependencies:")
+		for _, d := range a.Dependencies {
+			fmt.Printf("- %s\n", d)
+		}
+	}
 }
 
 func (a Action) String() string {
