@@ -6,27 +6,261 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
 func main() {
 	flag.Parse()
-	r, err := os.Open(flag.Arg(0))
+	p, err := ParseFile(flag.Arg(0))
 	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(123)
+	}
+	if err := p.Parse(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(125)
 	}
-	defer r.Close()
+}
 
-	x, err := Lex(r)
+type Action struct {
+	Name  string
+	Short string
+	Scope string
+
+	Dependencies []Action
+
+	Script string
+
+	Env     bool
+	Ignore  bool
+	Retry   int64
+	Delay   time.Duration
+	Timeout time.Duration
+	Workdir string
+	Shell   string // bash, sh, ksh, python,...
+	Stdout  string
+	Stderr  string
+}
+
+func (a Action) Execute() error {
+	for _, d := range a.Dependencies {
+		if err := d.Execute(); err != nil {
+			return err
+		}
+	}
+	if a.Script == "" {
+		return nil
+	}
+	return nil
+}
+
+type Parser struct {
+	lex *lexer
+
+	globals map[string][]string
+	locals  map[string][]string
+
+	curr Token
+	peek Token
+}
+
+func ParseFile(file string) (*Parser, error) {
+	r, err := os.Open(file)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(125)
+		return nil, err
 	}
-	for k := x.Next(); k.Type != eof; k = x.Next() {
-		fmt.Println(k)
+	lex, err := Lex(r)
+	if err != nil {
+		return nil, err
 	}
+	p := Parser{
+		lex:     lex,
+		globals: make(map[string][]string),
+		locals:  make(map[string][]string),
+	}
+	p.nextToken()
+	p.nextToken()
+
+	return &p, nil
+}
+
+func (p *Parser) Parse() error {
+	var err error
+	for p.curr.Type != eof {
+		switch p.curr.Type {
+		case ident:
+			switch p.peek.Type {
+			case equal:
+				err = p.parseIdentifier()
+			case colon, lparen:
+				err = p.parseAction()
+			default:
+				err = fmt.Errorf("syntax error: invalid token %s", p.peek)
+			}
+		case command:
+			err = p.parseCommand()
+		default:
+			err = fmt.Errorf("not yet supported: %s", p.curr)
+		}
+		if err != nil {
+			return err
+		}
+		p.nextToken()
+	}
+	return nil
+}
+
+func (p *Parser) parseAction() error {
+	fmt.Println("-> parseAction:", p.curr)
+	a := Action{
+		Name:  p.curr.Literal,
+		Scope: "",
+	}
+	p.nextToken()
+	if p.curr.Type == lparen {
+		// parsing action properties
+		if err := p.parseProperties(&a); err != nil {
+			return err
+		}
+	}
+	if p.peek.Type == ident {
+		return nil
+	}
+	p.nextToken()
+	for p.curr.Type == dependency {
+		p.nextToken()
+	}
+	a.Script = p.curr.Literal
+	return nil
+}
+
+func (p *Parser) parseProperties(a *Action) error {
+	p.nextToken() // consuming '(' token
+
+	var err error
+	for p.curr.Type != rparen {
+		lit := p.curr.Literal
+		p.nextToken()
+		if p.curr.Type != equal {
+			return fmt.Errorf("syntax error: invalid token %s", p.curr)
+		}
+		p.nextToken()
+		switch strings.ToLower(lit) {
+		default:
+			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
+		case "shell":
+			a.Shell = p.valueOf()
+		case "env":
+			a.Env, err = strconv.ParseBool(p.valueOf())
+		case "ignore":
+			a.Ignore, err = strconv.ParseBool(p.valueOf())
+		case "retry":
+			a.Retry, err = strconv.ParseInt(p.valueOf(), 0, 64)
+		case "timeout":
+			a.Timeout, err = time.ParseDuration(p.valueOf())
+		case "delay":
+			a.Delay, err = time.ParseDuration(p.valueOf())
+		case "workdir":
+			a.Workdir = p.valueOf()
+		case "stdout":
+			a.Stdout = p.valueOf()
+		case "stderr":
+			a.Stderr = p.valueOf()
+		}
+		if err != nil {
+			return err
+		}
+		if p.peek.Type == comma {
+			p.nextToken()
+		}
+		p.nextToken()
+	}
+	if p.peek.Type != colon {
+		return fmt.Errorf("syntax error: invalid token %s", p.peek)
+	} else {
+		p.nextToken()
+	}
+	return nil
+}
+
+func (p *Parser) valueOf() string {
+	var str string
+	switch p.curr.Type {
+	case value:
+		str = p.curr.Literal
+	case variable:
+		vs, ok := p.locals[p.curr.Literal]
+		if ok && len(vs) >= 1 {
+			str = vs[0]
+		}
+	}
+	return str
+}
+
+func (p *Parser) parseCommand() error {
+	fmt.Println("-> parseCommand:", p.curr)
+	ident := p.curr.Literal
+	n, ok := commands[ident]
+	if !ok {
+		return fmt.Errorf("%s: unknown command", ident)
+	}
+	x := n
+	if x < 0 {
+		x = 0
+	}
+	values := make([]string, 0, x)
+	for {
+		p.nextToken()
+		switch p.curr.Type {
+		case value:
+			values = append(values, p.curr.Literal)
+		case variable:
+			val, ok := p.locals[p.curr.Literal]
+			if !ok {
+				return fmt.Errorf("%s: not defined", p.curr.Literal)
+			}
+			values = append(values, val...)
+		case nl:
+			if n >= 0 && len(values) != n {
+				return fmt.Errorf("%s: wrong number of arguments (want: %d, got %d)", ident, n, len(values))
+			}
+			return nil
+		default:
+			return fmt.Errorf("syntax error: invalid token %s", p.curr)
+		}
+	}
+}
+
+func (p *Parser) parseIdentifier() error {
+	fmt.Println("-> parseIdentifier:", p.curr)
+	ident := p.curr.Literal
+
+	p.nextToken() // consuming '=' token
+	for {
+		p.nextToken()
+		switch p.curr.Type {
+		case value:
+			p.locals[ident] = append(p.locals[ident], p.curr.Literal)
+		case variable:
+			val, ok := p.locals[p.curr.Literal]
+			if !ok {
+				return fmt.Errorf("%s: not defined", p.curr.Literal)
+			}
+			p.locals[ident] = val
+		case nl:
+			return nil
+		default:
+			return fmt.Errorf("syntax error: invalid token %s", p.curr)
+		}
+	}
+}
+
+func (p *Parser) nextToken() {
+	p.curr = p.peek
+	p.peek = p.lex.Next()
 }
 
 type Token struct {

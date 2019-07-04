@@ -29,7 +29,7 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 			t.Fatalf("too many tokens produced (want: %d, got: %d)", len(tokens), i+1)
 		}
 		got, want := k.String(), tokens[i].String()
-		// t.Log(got, want)
+		t.Log(got, want)
 		if got != want {
 			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
@@ -107,6 +107,7 @@ restart(shell=bash): stop start
 		{Type: script, Literal: "echo %(TARGET) %(PROPS)\necho %(TARGET) %(PROPS)\n\necho %(TARGET) %(PROPS)"},
 		{Type: ident, Literal: "empty"},
 		{Type: colon},
+		// {Type: script, Literal: ""}
 		{Type: ident, Literal: "reload"},
 		{Type: lparen},
 		{Type: ident, Literal: "shell"},
