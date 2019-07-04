@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -76,7 +77,7 @@ func (m Maestro) Execute(actions []string) error {
 			return fmt.Errorf("%s: action not found!", a)
 		}
 		if err := act.Execute(); err != nil {
-			return err
+			return fmt.Errorf("%s: %s", a, err)
 		}
 	}
 	return nil
@@ -87,7 +88,7 @@ func (m Maestro) All() error {
 }
 
 func (m Maestro) Default() error {
-	return nil
+	return m.Execute([]string{m.cmd})
 }
 
 func (m Maestro) Version() error {
@@ -184,6 +185,8 @@ type Action struct {
 	// Dependencies []Action
 
 	Script string
+	Shell  string // bash, sh, ksh, python,...
+	Args   []string
 
 	Env     bool
 	Ignore  bool
@@ -191,7 +194,6 @@ type Action struct {
 	Delay   time.Duration
 	Timeout time.Duration
 	Workdir string
-	Shell   string // bash, sh, ksh, python,...
 	Stdout  string
 	Stderr  string
 
@@ -208,8 +210,30 @@ func (a Action) Execute() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(script)
-	return nil
+	var args []string
+	if len(a.Args) == 0 {
+		args = append(args, "-c")
+	} else {
+		args = append(args, a.Args...)
+	}
+	cmd := exec.Command(a.Shell, append(args, script)...)
+	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
+		cmd.Dir = a.Workdir
+	}
+	cmd.Stdin = strings.NewReader(script)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if a.Env {
+		var es []string
+		es = append(es, os.Environ()...)
+		for k, v := range a.globals {
+			es = append(es, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	if a.Delay > 0 {
+		time.Sleep(a.Delay)
+	}
+	return cmd.Run()
 }
 
 func (a Action) prepareScript() (string, error) {
@@ -375,6 +399,8 @@ func (p *Parser) parseProperties(a *Action) error {
 			// err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
 			lit = p.curr.Literal
 			a.data[lit] = append(a.data[lit], p.valueOf())
+		case "args":
+			a.Args = append(a.Args, p.valueOf())
 		case "shell":
 			a.Shell = p.valueOf()
 		case "help":

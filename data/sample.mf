@@ -29,7 +29,10 @@ export HOME %(datadir)
 # echo "data directory set" %(datadir)
 # echo "working directory set" %(workdir)
 
-single(help="echo single target"):
+single(
+	shell="/bin/bash",
+	help="echo single target",
+):
   echo %(TARGET)
 
   echo %(TARGET) %(PROPS)
