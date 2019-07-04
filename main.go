@@ -14,6 +14,11 @@ import (
 
 func main() {
 	flag.Parse()
+	switch flag.Arg(0) {
+	case "help":
+	case "version":
+	default:
+	}
 	p, err := ParseFile(flag.Arg(0))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

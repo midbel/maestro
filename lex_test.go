@@ -10,6 +10,7 @@ func TestLexer(t *testing.T) {
 	t.Run("Commands", testScanCommands)
 	t.Run("Scripts", testScanScripts)
 	t.Run("Scripts+Deps", testScanScriptsWithDependencies)
+	t.Run("Scripts+Specials", testScanScriptsSpecials)
 }
 
 func testLexer(t *testing.T, input string, tokens []Token) {
@@ -34,6 +35,32 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
 	}
+}
+
+func testScanScriptsSpecials(t *testing.T) {
+	input := `
+empty1:
+
+empty2:
+test: empty1 empty2
+
+sleep(shell=bash):
+	sleep 3
+`
+	tokens := []Token{
+		{Type: ident, Literal: "empty1"},
+		{Type: colon},
+		{Type: ident, Literal: "empty2"},
+		{Type: colon},
+		{Type: ident, Literal: "test"},
+		{Type: colon},
+		{Type: dependency, Literal: "empty1"},
+		{Type: dependency, Literal: "empty2"},
+		{Type: ident, Literal: "sleep"},
+		{Type: colon},
+		{Type: script, Literal: "sleep 3"},
+	}
+	testLexer(t, input, tokens)
 }
 
 func testScanScriptsWithDependencies(t *testing.T) {
