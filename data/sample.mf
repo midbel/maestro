@@ -4,6 +4,7 @@
 .ABOUT   = "how to use sample maestro file"
 .DEFAULT = help
 .ECHO    = on
+.VERSION = "sample.mf 0.0.1"
 
 # comment should be skipped
 datadir = /var/data
@@ -15,6 +16,8 @@ mode    = 644
 workdir = %(datadir)
 env     = prod dev test
 dirs    = %(datadir) %(tmpdir) %(workdir)
+
+declare hello world
 
 include etc/maestro/globals.mf
 include "etc/maestro/variables.mf"

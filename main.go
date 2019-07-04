@@ -13,20 +13,33 @@ import (
 )
 
 func main() {
+	file := flag.String("file", "maestro.mf", "")
 	flag.Parse()
-	switch flag.Arg(0) {
-	case "help":
-	case "version":
-	default:
-	}
-	p, err := ParseFile(flag.Arg(0))
+	p, err := ParseFile(*file)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(123)
 	}
-	if err := p.Parse(); err != nil {
+	m, err := p.Parse()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(125)
+	}
+	switch flag.Arg(0) {
+	case "help":
+		err = m.Help()
+	case "version":
+		err = m.Version()
+	case "debug":
+	case "all":
+		err = m.All()
+	case "":
+		err = m.Default()
+	default:
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(122)
 	}
 }
 
@@ -36,12 +49,13 @@ type Maestro struct {
 
 	// special variables for actions
 	all     []string // .ALL
-	cmd     *Action  // .DEFAULT
-	version *Action  // .VERSION
+	cmd     string   // .DEFAULT
+	version string   // .VERSION
 
-	about string  // .ABOUT
-	usage string  // .USAGE
-	help  *Action // .HELP
+	name  string // .NAME
+	about string // .ABOUT
+	usage string // .USAGE
+	help  string // .HELP
 
 	// actions
 	Actions map[string]Action
@@ -52,19 +66,12 @@ func (m Maestro) All() error {
 }
 
 func (m Maestro) Default() error {
-	var err error
-	if m.cmd != nil {
-		err = m.executeAction(*m.cmd)
-	}
-	return err
+	return nil
 }
 
 func (m Maestro) Version() error {
-	var err error
-	if m.version != nil {
-		err = m.executeAction(*m.version)
-	}
-	return err
+	fmt.Fprintln(os.Stdout, m.version)
+	return nil
 }
 
 func (m Maestro) Help() error {
@@ -72,13 +79,17 @@ func (m Maestro) Help() error {
 		fmt.Println(m.about)
 		fmt.Println()
 	}
-	fmt.Println("available actions:")
-	for _, a := range m.Actions {
-		short := a.Short
-		if short == "" {
-			short = "no description available"
+	if len(m.Actions) > 0 {
+		fmt.Println("available actions:")
+		fmt.Println()
+		for _, a := range m.Actions {
+			short := a.Short
+			if short == "" {
+				short = "no description available"
+			}
+			fmt.Printf("  %-12s %s\n", a.Name, short)
 		}
-		fmt.Printf("  %-12s %s\n", a.Name, short)
+		fmt.Println()
 	}
 	if m.usage != "" {
 		fmt.Println(m.usage)
@@ -126,7 +137,7 @@ func (a Action) Execute() error {
 type Parser struct {
 	lex *lexer
 
-	globals map[string][]string
+	globals map[string]string
 	locals  map[string][]string
 
 	curr Token
@@ -144,7 +155,7 @@ func ParseFile(file string) (*Parser, error) {
 	}
 	p := Parser{
 		lex:     lex,
-		globals: make(map[string][]string),
+		globals: make(map[string]string),
 		locals:  make(map[string][]string),
 	}
 	p.nextToken()
@@ -153,18 +164,22 @@ func ParseFile(file string) (*Parser, error) {
 	return &p, nil
 }
 
-func (p *Parser) Parse() error {
-	var err error
+func (p *Parser) Parse() (*Maestro, error) {
+	var (
+		err error
+		mst Maestro
+	)
+	mst.Actions = make(map[string]Action)
 	for p.curr.Type != eof {
 		switch p.curr.Type {
 		case meta:
-			err = p.parseMeta()
+			err = p.parseMeta(&mst)
 		case ident:
 			switch p.peek.Type {
 			case equal:
 				err = p.parseIdentifier()
 			case colon, lparen:
-				err = p.parseAction()
+				err = p.parseAction(&mst)
 			default:
 				err = fmt.Errorf("syntax error: invalid token %s", p.peek)
 			}
@@ -174,17 +189,19 @@ func (p *Parser) Parse() error {
 			err = fmt.Errorf("not yet supported: %s", p.curr)
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 		p.nextToken()
 	}
-	return nil
+	return &mst, nil
 }
 
-func (p *Parser) parseAction() error {
-	fmt.Println("-> parseAction:", p.curr)
+func (p *Parser) parseAction(m *Maestro) error {
+	// fmt.Println("-> parseAction:", p.curr)
 	a := Action{
-		Name: p.curr.Literal,
+		Name:    p.curr.Literal,
+		locals:  make(map[string][]string),
+		globals: make(map[string]string),
 	}
 	p.nextToken()
 	if p.curr.Type == lparen {
@@ -201,6 +218,7 @@ func (p *Parser) parseAction() error {
 		p.nextToken()
 	}
 	a.Script = p.curr.Literal
+	m.Actions[a.Name] = a
 	return nil
 }
 
@@ -268,7 +286,7 @@ func (p *Parser) valueOf() string {
 }
 
 func (p *Parser) parseCommand() error {
-	fmt.Println("-> parseCommand:", p.curr)
+	// fmt.Println("-> parseCommand:", p.curr)
 	ident := p.curr.Literal
 	n, ok := commands[ident]
 	if !ok {
@@ -294,15 +312,55 @@ func (p *Parser) parseCommand() error {
 			if n >= 0 && len(values) != n {
 				return fmt.Errorf("%s: wrong number of arguments (want: %d, got %d)", ident, n, len(values))
 			}
-			return nil
+			var err error
+			switch ident {
+			case "clear":
+				err = p.executeClear()
+			case "export":
+				err = p.executeExport(values)
+			case "declare":
+				err = p.executeDeclare(values)
+			case "include":
+				err = p.executeInclude(values)
+			}
+			return err
 		default:
 			return fmt.Errorf("syntax error: invalid token %s", p.curr)
 		}
 	}
 }
 
-func (p *Parser) parseMeta() error {
-	fmt.Println("-> parseMeta:", p.curr)
+func (p *Parser) executeInclude(files []string) error {
+	return nil
+}
+
+func (p *Parser) executeDeclare(values []string) error {
+	for _, v := range values {
+		vs, ok := p.locals[v]
+		if ok {
+			return fmt.Errorf("declare: %s already declared", v)
+		}
+		p.locals[v] = vs
+	}
+	return nil
+}
+
+func (p *Parser) executeExport(values []string) error {
+	if len(values) != 2 {
+		return fmt.Errorf("export: wrong number of arguments")
+	}
+	p.globals[values[0]] = values[1]
+	return nil
+}
+
+func (p *Parser) executeClear() error {
+	p.locals = make(map[string][]string)
+	p.globals = make(map[string]string)
+	return nil
+}
+
+func (p *Parser) parseMeta(m *Maestro) error {
+	// fmt.Println("-> parseMeta:", p.curr)
 	ident := p.curr.Literal
 
 	p.nextToken()
@@ -313,20 +371,27 @@ func (p *Parser) parseMeta() error {
 	if p.curr.Type != value {
 		return fmt.Errorf("syntax error: invalid token %s", p.curr)
 	}
-	switch ident {
+	switch lit := p.curr.Literal; ident {
 	case "ALL":
-		var vs []string
 		for p.peek.Type != nl {
 			if p.curr.Type != value {
 				return fmt.Errorf("syntax error: invalid token %s", p.curr)
 			}
-			vs = append(vs, p.curr.Literal)
+			m.all = append(m.all, p.curr.Literal)
 			p.nextToken()
 		}
+	case "NAME":
+		m.name = lit
+	case "VERSION":
+		m.version = lit
 	case "HELP":
+		m.help = lit
 	case "USAGE":
+		m.usage = lit
 	case "ABOUT":
+		m.about = lit
 	case "DEFAULT":
+		m.cmd = lit
 	case "ECHO":
 	}
 	if p.peek.Type != nl {
@@ -337,7 +402,7 @@ func (p *Parser) parseMeta() error {
 }
 
 func (p *Parser) parseIdentifier() error {
-	fmt.Println("-> parseIdentifier:", p.curr)
+	// fmt.Println("-> parseIdentifier:", p.curr)
 	ident := p.curr.Literal
 
 	p.nextToken() // consuming '=' token
