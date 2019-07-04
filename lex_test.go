@@ -9,6 +9,7 @@ func TestLexer(t *testing.T) {
 	t.Run("Variables", testScanVariables)
 	t.Run("Commands", testScanCommands)
 	t.Run("Scripts", testScanScripts)
+	t.Run("Scripts+Deps", testScanScriptsWithDependencies)
 }
 
 func testLexer(t *testing.T, input string, tokens []Token) {
@@ -28,11 +29,31 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 			t.Fatalf("too many tokens produced (want: %d, got: %d)", len(tokens), i+1)
 		}
 		got, want := k.String(), tokens[i].String()
-		t.Log(got, want)
+		// t.Log(got, want)
 		if got != want {
 			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
 	}
+}
+
+func testScanScriptsWithDependencies(t *testing.T) {
+	input := `
+restart(shell=bash): stop start
+  echo %(TARGET) "restarted"
+`
+	tokens := []Token{
+		{Type: ident, Literal: "restart"},
+		{Type: lparen},
+		{Type: ident, Literal: "shell"},
+		{Type: equal},
+		{Type: value, Literal: "bash"},
+		{Type: rparen},
+		{Type: colon},
+		{Type: dependency, Literal: "stop"},
+		{Type: dependency, Literal: "start"},
+		{Type: script, Literal: "echo %(TARGET) \"restarted\""},
+	}
+	testLexer(t, input, tokens)
 }
 
 func testScanScripts(t *testing.T) {
@@ -53,10 +74,18 @@ empty:
 reload(shell=bash,retry=5):
   sudo service %(TARGET) reload
 
-config(
+config1(
   shell=ksh,
   env=true,
   home=%(datadir),
+):
+  sudo service %(TARGET) test
+
+# same as config1 without the trailing comma after the home property
+config2(
+  shell=ksh,
+  env=true,
+  home=%(datadir)
 ):
   sudo service %(TARGET) test
 
@@ -90,7 +119,7 @@ restart(shell=bash): stop start
 		{Type: rparen},
 		{Type: colon},
 		{Type: script, Literal: "sudo service %(TARGET) reload"},
-		{Type: ident, Literal: "config"},
+		{Type: ident, Literal: "config1"},
 		{Type: lparen},
 		{Type: ident, Literal: "shell"},
 		{Type: equal},
@@ -107,6 +136,22 @@ restart(shell=bash): stop start
 		{Type: rparen},
 		{Type: colon},
 		{Type: script, Literal: "sudo service %(TARGET) test"},
+		{Type: ident, Literal: "config2"},
+		{Type: lparen},
+		{Type: ident, Literal: "shell"},
+		{Type: equal},
+		{Type: value, Literal: "ksh"},
+		{Type: comma},
+		{Type: ident, Literal: "env"},
+		{Type: equal},
+		{Type: value, Literal: "true"},
+		{Type: comma},
+		{Type: ident, Literal: "home"},
+		{Type: equal},
+		{Type: variable, Literal: "datadir"},
+		{Type: rparen},
+		{Type: colon},
+		{Type: script, Literal: "sudo service %(TARGET) test"},
 		{Type: ident, Literal: "restart"},
 		{Type: lparen},
 		{Type: ident, Literal: "shell"},
@@ -114,8 +159,8 @@ restart(shell=bash): stop start
 		{Type: value, Literal: "bash"},
 		{Type: rparen},
 		{Type: colon},
-		{Type: ident, Literal: "start"},
-		{Type: ident, Literal: "stop"},
+		{Type: dependency, Literal: "stop"},
+		{Type: dependency, Literal: "start"},
 		{Type: script, Literal: "echo %(TARGET) \"restarted\""},
 	}
 	testLexer(t, input, tokens)

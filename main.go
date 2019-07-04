@@ -51,6 +51,8 @@ func (t Token) String() string {
 		str = "value"
 	case script:
 		str = "script"
+	case dependency:
+		str = "dependency"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
@@ -82,22 +84,26 @@ const (
 	ident
 	value
 	variable
-	command // include, export
+	command // include, export, echo
 	script
+	dependency
 	invalid
 )
 
 const (
-	lexDefault = iota
+	lexDefault uint16 = iota << 8
 	lexValue
+	lexDeps
 	lexScript
-	lexDone
+
+	lexNoop uint16 = iota
+	lexProps
 )
 
 type lexer struct {
 	inner []byte
 
-	state int
+	state uint16
 
 	char rune
 	pos  int
@@ -123,29 +129,91 @@ func (x *lexer) Next() Token {
 		t.Type = x.char
 		return t
 	}
-	switch x.state {
+	switch state := x.state & 0xFF00; state {
 	case lexValue:
 		x.nextValue(&t)
+		if state, peek := x.state&0xFF, x.peekRune(); state == lexProps && isSpace(peek) {
+			x.readRune()
+			x.skipSpace()
+			x.unreadRune()
+		}
 	case lexScript:
 		x.nextScript(&t)
+	case lexDeps:
+		x.nextDependency(&t)
 	default:
 		x.nextDefault(&t)
 	}
 	switch t.Type {
 	case colon:
-		x.state = lexScript
+		// x.state = lexScript | lexNoop
+		x.state = lexDeps | lexNoop
 	case equal, command:
-		x.state = lexValue
-	case nl, comma, rparen:
-		x.state = lexDefault
+		x.state |= lexValue
+	case lparen, comma:
+		x.state = lexDefault | lexProps
+	case nl:
+		if state := x.state & 0xFF00; state == lexDeps {
+			x.state |= lexScript
+			return x.Next()
+		} else {
+			x.state = lexDefault | lexNoop
+		}
+	case rparen:
+		x.state = lexDefault | lexNoop
 	case script:
-		x.state = lexDefault
+		x.state = lexDefault | lexNoop
 		if t.Literal == "" {
 			return x.Next()
 		}
 	}
 	x.readRune()
 	return t
+}
+
+func (x *lexer) nextValue(t *Token) {
+	if x.char == space {
+		x.skipSpace()
+	}
+	switch {
+	case x.char == nl || x.char == comma || x.char == rparen:
+		t.Type = x.char
+	case isQuote(x.char):
+		x.readString(t)
+	case x.char == percent:
+		x.readVariable(t)
+	default:
+		x.readValue(t)
+	}
+}
+
+func (x *lexer) nextDependency(t *Token) {
+	if x.char == space {
+		x.skipSpace()
+	}
+	if isIdent(x.char) {
+		x.readIdent(t)
+		t.Type = dependency
+	} else if x.char == nl {
+		t.Type = x.char
+	} else {
+		t.Type = invalid
+	}
+}
+
+func (x *lexer) nextDefault(t *Token) {
+	x.skipSpace()
+	switch {
+	case isIdent(x.char):
+		x.readIdent(t)
+	case isQuote(x.char):
+		x.readString(t)
+	case isComment(x.char):
+		x.skipComment()
+		x.nextDefault(t)
+	default:
+		t.Type = x.char
+	}
 }
 
 func (x *lexer) nextScript(t *Token) {
@@ -168,37 +236,6 @@ func (x *lexer) nextScript(t *Token) {
 		x.readRune()
 	}
 	t.Literal, t.Type = strings.TrimSpace(str.String()), script
-}
-
-func (x *lexer) nextValue(t *Token) {
-	if x.char == space {
-		x.readRune()
-	}
-	switch {
-	case x.char == nl || x.char == comma || x.char == rparen:
-		t.Type = x.char
-	case isQuote(x.char):
-		x.readString(t)
-	case x.char == percent:
-		x.readVariable(t)
-	default:
-		x.readValue(t)
-	}
-}
-
-func (x *lexer) nextDefault(t *Token) {
-	x.skipSpace()
-	switch {
-	case isIdent(x.char):
-		x.readIdent(t)
-	case isQuote(x.char):
-		x.readString(t)
-	case isComment(x.char):
-		x.skipComment()
-		x.nextDefault(t)
-	default:
-		t.Type = x.char
-	}
 }
 
 func (x *lexer) readVariable(t *Token) {
@@ -245,11 +282,6 @@ func (x *lexer) readValue(t *Token) {
 			x.readRune()
 		}
 	}
-	// for x.char != space && x.char != nl {
-	// 	x.readRune()
-	// }
-	// t.Literal, t.Type = string(x.inner[pos:x.pos]), value
-	// x.unreadRune()
 }
 
 func (x *lexer) readString(t *Token) {
