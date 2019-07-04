@@ -157,6 +157,8 @@ func (p *Parser) Parse() error {
 	var err error
 	for p.curr.Type != eof {
 		switch p.curr.Type {
+		case meta:
+			err = p.parseMeta()
 		case ident:
 			switch p.peek.Type {
 			case equal:
@@ -299,6 +301,41 @@ func (p *Parser) parseCommand() error {
 	}
 }
 
+func (p *Parser) parseMeta() error {
+	fmt.Println("-> parseMeta:", p.curr)
+	ident := p.curr.Literal
+
+	p.nextToken()
+	if p.curr.Type != equal {
+		return fmt.Errorf("syntax error: invalid token %s", p.curr)
+	}
+	p.nextToken()
+	if p.curr.Type != value {
+		return fmt.Errorf("syntax error: invalid token %s", p.curr)
+	}
+	switch ident {
+	case "ALL":
+		var vs []string
+		for p.peek.Type != nl {
+			if p.curr.Type != value {
+				return fmt.Errorf("syntax error: invalid token %s", p.curr)
+			}
+			vs = append(vs, p.curr.Literal)
+			p.nextToken()
+		}
+	case "HELP":
+	case "USAGE":
+	case "ABOUT":
+	case "DEFAULT":
+	case "ECHO":
+	}
+	if p.peek.Type != nl {
+		return fmt.Errorf("syntax error: invalid token %s", p.peek)
+	}
+	p.nextToken()
+	return nil
+}
+
 func (p *Parser) parseIdentifier() error {
 	fmt.Println("-> parseIdentifier:", p.curr)
 	ident := p.curr.Literal
@@ -364,6 +401,7 @@ var commands = map[string]int{
 	"declare": -1,
 	"export":  2,
 	"include": 1,
+	"clear":   0,
 }
 
 const (

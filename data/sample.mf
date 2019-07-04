@@ -1,3 +1,10 @@
+.ALL     = reload config1 config2
+.HELP    = help
+.USAGE   = "sample.mf <action...>"
+.ABOUT   = "how to use sample maestro file"
+.DEFAULT = help
+.ECHO    = on
+
 # comment should be skipped
 datadir = /var/data
 tmpdir  = /var/tmp
