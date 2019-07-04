@@ -30,12 +30,72 @@ func main() {
 	}
 }
 
+type Maestro struct {
+	Shell string // .SHELL
+	Echo  bool   // .ECHO
+
+	// special variables for actions
+	all     []string // .ALL
+	cmd     *Action  // .DEFAULT
+	version *Action  // .VERSION
+
+	about string  // .ABOUT
+	usage string  // .USAGE
+	help  *Action // .HELP
+
+	// actions
+	Actions map[string]Action
+}
+
+func (m Maestro) All() error {
+	return nil
+}
+
+func (m Maestro) Default() error {
+	var err error
+	if m.cmd != nil {
+		err = m.executeAction(*m.cmd)
+	}
+	return err
+}
+
+func (m Maestro) Version() error {
+	var err error
+	if m.version != nil {
+		err = m.executeAction(*m.version)
+	}
+	return err
+}
+
+func (m Maestro) Help() error {
+	if m.about != "" {
+		fmt.Println(m.about)
+		fmt.Println()
+	}
+	fmt.Println("available actions:")
+	for _, a := range m.Actions {
+		short := a.Short
+		if short == "" {
+			short = "no description available"
+		}
+		fmt.Printf("  %-12s %s\n", a.Name, short)
+	}
+	if m.usage != "" {
+		fmt.Println(m.usage)
+	}
+	return nil
+}
+
+func (m Maestro) executeAction(a Action) error {
+	return nil
+}
+
 type Action struct {
 	Name  string
 	Short string
-	Scope string
 
-	Dependencies []Action
+	Dependencies []string
+	// Dependencies []Action
 
 	Script string
 
@@ -48,14 +108,15 @@ type Action struct {
 	Shell   string // bash, sh, ksh, python,...
 	Stdout  string
 	Stderr  string
+
+	// environment variables + locals variables
+	locals  map[string][]string
+	globals map[string]string
+
+	echo []string
 }
 
 func (a Action) Execute() error {
-	for _, d := range a.Dependencies {
-		if err := d.Execute(); err != nil {
-			return err
-		}
-	}
 	if a.Script == "" {
 		return nil
 	}
@@ -121,8 +182,7 @@ func (p *Parser) Parse() error {
 func (p *Parser) parseAction() error {
 	fmt.Println("-> parseAction:", p.curr)
 	a := Action{
-		Name:  p.curr.Literal,
-		Scope: "",
+		Name: p.curr.Literal,
 	}
 	p.nextToken()
 	if p.curr.Type == lparen {
@@ -292,6 +352,8 @@ func (t Token) String() string {
 		str = "script"
 	case dependency:
 		str = "dependency"
+	case meta:
+		str = "meta"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
@@ -299,6 +361,7 @@ func (t Token) String() string {
 // map between recognized commands and their expected number of arguments
 var commands = map[string]int{
 	"echo":    -1,
+	"declare": -1,
 	"export":  2,
 	"include": 1,
 }
@@ -320,10 +383,11 @@ const (
 
 const (
 	eof rune = -(iota + 1)
+	meta
 	ident
 	value
 	variable
-	command // include, export, echo
+	command // include, export, echo, declare
 	script
 	dependency
 	invalid
@@ -334,9 +398,12 @@ const (
 	lexValue
 	lexDeps
 	lexScript
+)
 
+const (
 	lexNoop uint16 = iota
 	lexProps
+	lexMeta
 )
 
 type lexer struct {
@@ -385,7 +452,6 @@ func (x *lexer) Next() Token {
 	}
 	switch t.Type {
 	case colon:
-		// x.state = lexScript | lexNoop
 		x.state = lexDeps | lexNoop
 	case equal, command:
 		x.state |= lexValue
@@ -450,6 +516,10 @@ func (x *lexer) nextDefault(t *Token) {
 	case isComment(x.char):
 		x.skipComment()
 		x.nextDefault(t)
+	case x.char == period:
+		x.readRune()
+		x.readIdent(t)
+		t.Type = meta
 	default:
 		t.Type = x.char
 	}

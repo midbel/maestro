@@ -9,6 +9,7 @@ func TestLexer(t *testing.T) {
 	t.Run("Variables", testScanVariables)
 	t.Run("Commands", testScanCommands)
 	t.Run("Scripts", testScanScripts)
+	t.Run("Specials", testScanSpecialVariables)
 	t.Run("Scripts+Deps", testScanScriptsWithDependencies)
 	t.Run("Scripts+Specials", testScanScriptsSpecials)
 }
@@ -231,6 +232,43 @@ echo "working directory set" %(workdir)
 		{Type: command, Literal: "echo"},
 		{Type: value, Literal: "working directory set"},
 		{Type: variable, Literal: "workdir"},
+		{Type: nl},
+	}
+	testLexer(t, input, tokens)
+}
+
+func testScanSpecialVariables(t *testing.T) {
+	input := `
+.ALL     = xxh md5 sha1
+.DEFAULT = all
+.ECHO = on
+
+.ABOUT = "test scan special variables"
+.USAGE = "go test -v -cover"
+`
+
+	tokens := []Token{
+		{Type: meta, Literal: "ALL"},
+		{Type: equal},
+		{Type: value, Literal: "xxh"},
+		{Type: value, Literal: "md5"},
+		{Type: value, Literal: "sha1"},
+		{Type: nl},
+		{Type: meta, Literal: "DEFAULT"},
+		{Type: equal},
+		{Type: value, Literal: "all"},
+		{Type: nl},
+		{Type: meta, Literal: "ECHO"},
+		{Type: equal},
+		{Type: value, Literal: "on"},
+		{Type: nl},
+		{Type: meta, Literal: "ABOUT"},
+		{Type: equal},
+		{Type: value, Literal: "test scan special variables"},
+		{Type: nl},
+		{Type: meta, Literal: "USAGE"},
+		{Type: equal},
+		{Type: value, Literal: "go test -v -cover"},
 		{Type: nl},
 	}
 	testLexer(t, input, tokens)
