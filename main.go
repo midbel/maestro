@@ -71,7 +71,13 @@ type Maestro struct {
 
 func (m Maestro) Execute(actions []string) error {
 	for _, a := range actions {
-		fmt.Println("execute:", a)
+		act, ok := m.Actions[a]
+		if !ok {
+			return fmt.Errorf("%s: action not found!", a)
+		}
+		if err := act.Execute(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -101,17 +107,37 @@ func (m Maestro) Help(action string) error {
 		fmt.Println()
 	}
 	fmt.Println("properties:")
-	fmt.Printf("shell  : %s\n", a.Shell)
-	fmt.Printf("workdir: %s\n", a.Workdir)
-	fmt.Printf("stdout : %s\n", a.Stdout)
-	fmt.Printf("stderr : %s\n", a.Stderr)
-	fmt.Printf("env    : %t\n", a.Env)
-	fmt.Printf("ignore : %t\n", a.Ignore)
-	fmt.Printf("retry  : %d\n", a.Retry)
-	fmt.Printf("delay  : %s\n", a.Delay)
-	fmt.Printf("timeout: %s\n", a.Timeout)
-	if len(a.Dependencies) > 0 {
+	fmt.Printf("- shell  : %s\n", a.Shell)
+	fmt.Printf("- workdir: %s\n", a.Workdir)
+	fmt.Printf("- stdout : %s\n", a.Stdout)
+	fmt.Printf("- stderr : %s\n", a.Stderr)
+	fmt.Printf("- env    : %t\n", a.Env)
+	fmt.Printf("- ignore : %t\n", a.Ignore)
+	fmt.Printf("- retry  : %d\n", a.Retry)
+	fmt.Printf("- delay  : %s\n", a.Delay)
+	fmt.Printf("- timeout: %s\n", a.Timeout)
+	if len(a.data) > 0 {
 		fmt.Println()
+		for k, vs := range a.data {
+			fmt.Printf("%s: %s\n", k, strings.Join(vs, " "))
+		}
+	}
+	if len(a.locals) > 0 {
+		fmt.Println()
+		fmt.Println("local variables:")
+		for k, vs := range a.locals {
+			fmt.Printf("- %s: %s\n", k, strings.Join(vs, " "))
+		}
+		fmt.Println()
+	}
+	if len(a.globals) > 0 {
+		fmt.Println("environment variables:")
+		for k, v := range a.globals {
+			fmt.Printf("- %s: %s\n", k, v)
+		}
+		fmt.Println()
+	}
+	if len(a.Dependencies) > 0 {
 		fmt.Println("dependencies:")
 		for _, d := range a.Dependencies {
 			fmt.Printf("- %s\n", d)
@@ -172,8 +198,65 @@ type Action struct {
 	// environment variables + locals variables
 	locals  map[string][]string
 	globals map[string]string
+	data    map[string][]string
 
 	echo []string
+}
+
+func (a Action) Execute() error {
+	script, err := a.prepareScript()
+	if err != nil {
+		return err
+	}
+	fmt.Println(script)
+	return nil
+}
+
+func (a Action) prepareScript() (string, error) {
+	var (
+		b strings.Builder
+		n int
+	)
+
+	script := []byte(a.Script)
+	for {
+		k, nn := utf8.DecodeRune(script[n:])
+		if k == utf8.RuneError {
+			if nn == 0 {
+				break
+			} else {
+				return "", fmt.Errorf("invalid character found in script!!!")
+			}
+		}
+		n += nn
+		if k == percent {
+			x := n
+			for k != rparen {
+				k, nn = utf8.DecodeRune(script[x:])
+				x += nn
+			}
+			str := strings.Trim(string(script[n:x]), "()")
+			if len(str) == 0 {
+				return "", fmt.Errorf("script: invalid syntax")
+			}
+			if str == "TARGET" {
+				str = a.Name
+			} else if str == "PROPS" {
+				// to be written
+			} else if s, ok := a.locals[str]; ok {
+				str = strings.Join(s, " ")
+			} else if s, ok := a.data[str]; ok {
+				str = strings.Join(s, " ")
+			} else {
+				return "", fmt.Errorf("%s: variable not defined", str)
+			}
+			b.WriteString(str)
+			n = x
+		} else {
+			b.WriteRune(k)
+		}
+	}
+	return b.String(), nil
 }
 
 type Parser struct {
@@ -245,6 +328,7 @@ func (p *Parser) parseAction(m *Maestro) error {
 		Name:    p.curr.Literal,
 		locals:  make(map[string][]string),
 		globals: make(map[string]string),
+		data:    make(map[string][]string),
 	}
 	p.nextToken()
 	if p.curr.Type == lparen {
@@ -288,7 +372,9 @@ func (p *Parser) parseProperties(a *Action) error {
 		p.nextToken()
 		switch strings.ToLower(lit) {
 		default:
-			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
+			// err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
+			lit = p.curr.Literal
+			a.data[lit] = append(a.data[lit], p.valueOf())
 		case "shell":
 			a.Shell = p.valueOf()
 		case "help":
@@ -473,7 +559,7 @@ func (p *Parser) parseIdentifier() error {
 			if !ok {
 				return fmt.Errorf("%s: not defined", p.curr.Literal)
 			}
-			p.locals[ident] = val
+			p.locals[ident] = append(p.locals[ident], val...)
 		case nl:
 			return nil
 		default:
