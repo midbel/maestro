@@ -17,6 +17,7 @@ import (
 const DefaultShell = "/bin/sh"
 
 func main() {
+	debug := flag.Bool("debug", false, "debug")
 	file := flag.String("file", "maestro.mf", "")
 	flag.Parse()
 	p, err := ParseFile(*file)
@@ -29,6 +30,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(125)
 	}
+	m.Debug = *debug
 	switch flag.Arg(0) {
 	case "help":
 		if act := flag.Arg(1); act == "" {
@@ -38,7 +40,6 @@ func main() {
 		}
 	case "version":
 		err = m.Version()
-	case "debug":
 	case "all":
 		err = m.All()
 	case "":
@@ -68,6 +69,7 @@ type Maestro struct {
 
 	// actions
 	Actions map[string]Action
+	Debug   bool
 }
 
 func (m Maestro) Execute(actions []string) error {
@@ -76,8 +78,13 @@ func (m Maestro) Execute(actions []string) error {
 		if !ok {
 			return fmt.Errorf("%s: action not found!", a)
 		}
-		if err := act.Execute(); err != nil {
-			return fmt.Errorf("%s: %s", a, err)
+		if m.Debug {
+			fmt.Printf("> %s\n", a)
+			fmt.Println(act.String())
+		} else {
+			if err := act.Execute(); err != nil {
+				return fmt.Errorf("%s: %s", a, err)
+			}
 		}
 	}
 	return nil
@@ -205,6 +212,14 @@ type Action struct {
 	echo []string
 }
 
+func (a Action) String() string {
+	s, err := a.prepareScript()
+	if err != nil {
+		s = err.Error()
+	}
+	return s
+}
+
 func (a Action) Execute() error {
 	script, err := a.prepareScript()
 	if err != nil {
@@ -212,7 +227,7 @@ func (a Action) Execute() error {
 	}
 	var args []string
 	if len(a.Args) == 0 {
-		args = append(args, "-c")
+		// args = append(args, "-c")
 	} else {
 		args = append(args, a.Args...)
 	}
@@ -221,8 +236,12 @@ func (a Action) Execute() error {
 		cmd.Dir = a.Workdir
 	}
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if a.Stdout == "" {
+		cmd.Stdout = os.Stdout
+	}
+	if a.Stderr == "" {
+		cmd.Stderr = os.Stderr
+	}
 	if a.Env {
 		var es []string
 		es = append(es, os.Environ()...)
