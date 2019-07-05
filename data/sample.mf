@@ -104,6 +104,8 @@ restart(shell=bash, help="stop and start service"): stop start
 
 # namespace
 legacy {
+	.USAGE = "legacy actions before regression"
+
 	config = "etc/legacy.toml"
 	dummy  = dummy
 

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 	"unicode/utf8"
 )
@@ -38,16 +39,16 @@ func main() {
 	switch flag.Arg(0) {
 	case "help":
 		if act := flag.Arg(1); act == "" {
-			m.Summary()
+			err = m.Summary()
 		} else {
-			m.Help(act)
+			m.ExecuteHelp(act)
 		}
 	case "version":
-		err = m.Version()
+		err = m.ExecuteVersion()
 	case "all":
-		err = m.All()
+		err = m.ExecuteAll()
 	case "":
-		err = m.Default()
+		err = m.ExecuteDefault()
 	default:
 		err = m.Execute(flag.Args())
 	}
@@ -62,14 +63,14 @@ type Maestro struct {
 	Echo  bool   // .ECHO
 
 	// special variables for actions
-	all     []string // .ALL
-	cmd     string   // .DEFAULT
-	version string   // .VERSION
+	all []string // .ALL
+	cmd string   // .DEFAULT
 
-	name  string // .NAME
-	about string // .ABOUT
-	usage string // .USAGE
-	help  string // .HELP
+	Version string // .VERSION
+	Name    string // .NAME
+	About   string // .ABOUT
+	Usage   string // .USAGE
+	Help    string // .HELP
 
 	// actions
 	Actions map[string]Action
@@ -152,29 +153,29 @@ func (m Maestro) dependencies(act Action) ([]string, error) {
 	return reverse(deps), nil
 }
 
-func (m Maestro) All() error {
+func (m Maestro) ExecuteAll() error {
 	return m.Execute(m.all)
 }
 
-func (m Maestro) Default() error {
+func (m Maestro) ExecuteDefault() error {
 	switch m.cmd {
 	case "all":
-		return m.All()
+		return m.ExecuteAll()
 	case "help":
 		return m.Summary()
 	case "version":
-		return m.Version()
+		return m.ExecuteVersion()
 	default:
 		return m.Execute([]string{m.cmd})
 	}
 }
 
-func (m Maestro) Version() error {
-	fmt.Fprintln(os.Stdout, m.version)
+func (m Maestro) ExecuteVersion() error {
+	fmt.Fprintln(os.Stdout, m.Version)
 	return nil
 }
 
-func (m Maestro) Help(action string) error {
+func (m Maestro) ExecuteHelp(action string) error {
 	a, ok := m.Actions[action]
 	if !ok {
 		return fmt.Errorf("no help available for %s", action)
@@ -183,33 +184,46 @@ func (m Maestro) Help(action string) error {
 	return nil
 }
 
+var summary = `
+{{if .About}}{{.About}}{{end}}
+{{if .Actions}}
+Available actions:
+
+{{range $k, $v := .Actions}}
+	{{- printf "  %-12s %s" $k (usage $v.Help)}}
+{{end}}
+{{- end}}
+
+{{- if .Namespaces}}
+Available namespaces:
+
+{{range $k, $v := .Namespaces}}
+	{{- printf "  %-12s %s" $k (usage $v.Usage)}}
+{{end}}
+{{end}}
+{{- if .Usage}}
+	{{- .Usage}}
+{{else}}
+	try maestro help <action|namespace> for more information about that topic!
+{{end}}
+`
+
+func strUsage(u string) string {
+	if u == "" {
+		u = "no description available"
+	}
+	return u
+}
+
 func (m Maestro) Summary() error {
-	if m.about != "" {
-		fmt.Println(m.about)
-		fmt.Println()
+	fs := template.FuncMap{
+		"usage": strUsage,
 	}
-	if len(m.Actions) > 0 {
-		fmt.Println("available actions:")
-		fmt.Println()
-		as := make([]string, 0, len(m.Actions))
-		for a := range m.Actions {
-			as = append(as, a)
-		}
-		sort.Strings(as)
-		for _, a := range as {
-			a := m.Actions[a]
-			help := a.Help
-			if help == "" {
-				help = "no description available"
-			}
-			fmt.Printf("  %-12s %s\n", a.Name, help)
-		}
-		fmt.Println()
+	t, err := template.New("summary").Funcs(fs).Parse(strings.TrimSpace(summary))
+	if err != nil {
+		return err
 	}
-	if m.usage != "" {
-		fmt.Println(m.usage)
-	}
-	return nil
+	return t.Execute(os.Stdout, m)
 }
 
 type Action struct {
@@ -782,15 +796,15 @@ func (p *Parser) parseMeta(m *Maestro) error {
 			p.nextToken()
 		}
 	case "NAME":
-		m.name = lit
+		m.Name = lit
 	case "VERSION":
-		m.version = lit
+		m.Version = lit
 	case "HELP":
-		m.help = lit
+		m.Help = lit
 	case "USAGE":
-		m.usage = lit
+		m.Usage = lit
 	case "ABOUT":
-		m.about = lit
+		m.About = lit
 	case "DEFAULT":
 		m.cmd = lit
 	case "ECHO":
