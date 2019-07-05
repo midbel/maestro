@@ -815,6 +815,8 @@ func (t Token) String() string {
 		str = "dependency"
 	case meta:
 		str = "meta"
+	case namespace:
+		str = "namespace"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
@@ -834,6 +836,8 @@ const (
 	period    = '.'
 	colon     = ':'
 	percent   = '%'
+	lcurly    = '{'
+	rcurly    = '}'
 	lparen    = '('
 	rparen    = ')'
 	comment   = '#'
@@ -854,6 +858,7 @@ const (
 	command // include, export, echo, declare
 	script
 	dependency
+	namespace
 	invalid
 )
 
@@ -862,6 +867,7 @@ const (
 	lexValue
 	lexDeps
 	lexScript
+	lexNamespace
 )
 
 const (
@@ -911,10 +917,15 @@ func (x *lexer) Next() Token {
 		x.nextScript(&t)
 	case lexDeps:
 		x.nextDependency(&t)
+	case lexNamespace:
+		// fmt.Printf("current char: %02x - peek char: %02x\n", x.char, x.peekRune())
+		x.nextNamespace(&t)
 	default:
 		x.nextDefault(&t)
 	}
 	switch t.Type {
+	case lcurly:
+		x.state = lexNamespace | lexNoop
 	case colon:
 		x.state = lexDeps | lexNoop
 	case equal, command:
@@ -928,7 +939,7 @@ func (x *lexer) Next() Token {
 		} else {
 			x.state = lexDefault | lexNoop
 		}
-	case rparen:
+	case rparen, namespace:
 		x.state = lexDefault | lexNoop
 	case script:
 		x.state = lexDefault | lexNoop
@@ -938,6 +949,15 @@ func (x *lexer) Next() Token {
 	}
 	x.readRune()
 	return t
+}
+
+func (x *lexer) nextNamespace(t *Token) {
+	pos := x.pos
+	for x.char != rcurly {
+		x.readRune()
+	}
+	t.Literal, t.Type = string(x.inner[pos:x.pos]), namespace
+	x.unreadRune()
 }
 
 func (x *lexer) nextValue(t *Token) {

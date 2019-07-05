@@ -90,7 +90,7 @@ dummy = dummy
 purge:
 	sudo service %(dummy) purge
 
-test:
+test: purge
 	sudo service %(dummy) test
 
 stop:
@@ -102,15 +102,14 @@ start: purge test
 restart(shell=bash, help="stop and start service"): stop start
   echo %(TARGET) "restarted"
 
-# namespace - to be implemented
-# <name> { instructions }
-# legacy {
-# 	config = "etc/legacy.toml"
-# 	dummy  = dummy
-#
-# 	start:
-# 		sudo service %(dummy) start
-#
-# 	stop:
-# 		sudo service %(dummy) start
-# }
+# namespace
+legacy {
+	config = "etc/legacy.toml"
+	dummy  = dummy
+
+	start:
+		sudo service %(dummy) start
+
+	stop:
+		sudo service %(dummy) start
+}
