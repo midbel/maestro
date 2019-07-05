@@ -173,9 +173,6 @@ type Action struct {
 	// environment variables + locals variables
 	locals  map[string][]string
 	globals map[string]string
-	data    map[string][]string
-
-	echo []string
 }
 
 func (a Action) Usage() {
@@ -195,12 +192,7 @@ func (a Action) Usage() {
 	fmt.Printf("- retry  : %d\n", a.Retry)
 	fmt.Printf("- delay  : %s\n", a.Delay)
 	fmt.Printf("- timeout: %s\n", a.Timeout)
-	if len(a.data) > 0 {
-		fmt.Println()
-		for k, vs := range a.data {
-			fmt.Printf("%s: %s\n", k, strings.Join(vs, " "))
-		}
-	}
+
 	if len(a.locals) > 0 {
 		fmt.Println()
 		fmt.Println("local variables:")
@@ -443,7 +435,6 @@ func (p *Parser) parseAction(m *Maestro) error {
 		Name:    p.curr.Literal,
 		locals:  make(map[string][]string),
 		globals: make(map[string]string),
-		data:    make(map[string][]string),
 	}
 	p.nextToken()
 	if p.curr.Type == lparen {
@@ -492,8 +483,6 @@ func (p *Parser) parseProperties(a *Action) error {
 		switch strings.ToLower(lit) {
 		default:
 			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
-			// lit = p.curr.Literal
-			// a.data[lit] = append(a.data[lit], p.valueOf())
 		case "shell":
 			a.Shell = p.valueOf()
 		case "help":
