@@ -91,7 +91,7 @@ func (m Maestro) Execute(actions []string) error {
 		for _, d := range deps {
 			a := m.Actions[d]
 			if m.Debug {
-				fmt.Printf("> %s\n", a.Name)
+				fmt.Printf("> %s (%s)\n", a.Name, a.Help)
 				fmt.Println(a.String())
 			} else {
 				if err := a.Execute(); err != nil {
@@ -104,6 +104,9 @@ func (m Maestro) Execute(actions []string) error {
 }
 
 func (m Maestro) dependencies(act Action) ([]string, error) {
+	if m.Nodeps {
+		return []string{act.Name}, nil
+	}
 	reverse := func(vs []string) []string {
 		for i, j := 0, len(vs)-1; i < len(vs)/2; i, j = i+1, j-1 {
 			vs[i], vs[j] = vs[j], vs[i]
