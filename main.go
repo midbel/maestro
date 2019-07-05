@@ -42,7 +42,7 @@ func main() {
 		if act := flag.Arg(1); act == "" {
 			err = m.Summary()
 		} else {
-			m.ExecuteHelp(act)
+			err = m.ExecuteHelp(act)
 		}
 	case "version":
 		err = m.ExecuteVersion()
@@ -181,8 +181,7 @@ func (m Maestro) ExecuteHelp(action string) error {
 	if !ok {
 		return fmt.Errorf("no help available for %s", action)
 	}
-	a.Usage()
-	return nil
+	return a.Usage()
 }
 
 var summary = `
@@ -252,45 +251,65 @@ type Action struct {
 	globals map[string]string
 }
 
-func (a Action) Usage() {
-	if a.Desc != "" {
-		fmt.Println(a.Desc)
-	} else {
-		fmt.Println(a.Help)
-	}
-	fmt.Println()
-	fmt.Println("properties:")
-	fmt.Printf("- shell  : %s\n", a.Shell)
-	fmt.Printf("- workdir: %s\n", a.Workdir)
-	fmt.Printf("- stdout : %s\n", a.Stdout)
-	fmt.Printf("- stderr : %s\n", a.Stderr)
-	fmt.Printf("- env    : %t\n", a.Env)
-	fmt.Printf("- ignore : %t\n", a.Ignore)
-	fmt.Printf("- retry  : %d\n", a.Retry)
-	fmt.Printf("- delay  : %s\n", a.Delay)
-	fmt.Printf("- timeout: %s\n", a.Timeout)
+var usage = `
+{{- if .Desc}}
+	{{- .Desc}}
+{{else}}
+	{{- .Help}}
 
-	if len(a.locals) > 0 {
-		fmt.Println()
-		fmt.Println("local variables:")
-		for k, vs := range a.locals {
-			fmt.Printf("- %s: %s\n", k, strings.Join(vs, " "))
-		}
-		fmt.Println()
+{{ end -}}
+Properties:
+
+- shell  : {{.Shell}}
+- workdir: {{.Workdir}}
+- stdout : {{.Stdout}}
+- stderr : {{.Stderr}}
+- env    : {{.Env}}
+- ignore : {{.Ignore}}
+- retry  : {{.Retry}}
+- delay  : {{.Delay}}
+- timeout: {{.Timeout}}
+
+{{if .Locals -}}
+Local variables:
+
+{{range $k, $vs := .Locals}}
+	{{- printf "- %-12s: %s" $k (join $vs " ")}}
+{{end}}
+{{- end}}
+{{- if .Globals}}
+Environment Variables:
+
+{{range $k, $v := .Globals}}
+	{{- printf "- %-12s: %s" $k $v}}
+{{end}}
+{{- end}}
+{{if .Dependencies}}
+Dependencies:
+{{range .Dependencies}}
+- {{ . -}}
+{{end}}
+{{end}}
+`
+
+func (a Action) Usage() error {
+	fs := template.FuncMap{
+		"join": strings.Join,
 	}
-	if len(a.globals) > 0 {
-		fmt.Println("environment variables:")
-		for k, v := range a.globals {
-			fmt.Printf("- %s: %s\n", k, v)
-		}
-		fmt.Println()
+	t, err := template.New("usage").Funcs(fs).Parse(strings.TrimSpace(usage))
+	if err != nil {
+		return err
 	}
-	if len(a.Dependencies) > 0 {
-		fmt.Println("dependencies:")
-		for _, d := range a.Dependencies {
-			fmt.Printf("- %s\n", d)
-		}
+	d := struct {
+		Action
+		Locals  map[string][]string
+		Globals map[string]string
+	}{
+		Action:  a,
+		Locals:  a.locals,
+		Globals: a.globals,
 	}
+	return t.Execute(os.Stdout, d)
 }
 
 func (a Action) String() string {
