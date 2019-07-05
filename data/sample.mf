@@ -107,9 +107,9 @@ legacy {
 	config = "etc/legacy.toml"
 	dummy  = dummy
 
-	start:
+	startlegacy:
 		sudo service %(dummy) start
 
-	stop:
+	stoplegacy:
 		sudo service %(dummy) start
 }

@@ -76,6 +76,8 @@ type Maestro struct {
 	Debug   bool
 	Nodeps  bool
 	Noskip  bool
+
+	Namespaces map[string]*Maestro
 }
 
 func (m Maestro) Execute(actions []string) error {
@@ -397,6 +399,16 @@ func ParseFile(file string) (*Parser, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
+
+	p, err := parseReader(r)
+	if err == nil {
+		p.includes = append(p.includes, file)
+	}
+	return p, err
+}
+
+func parseReader(r io.Reader) (*Parser, error) {
 	lex, err := Lex(r)
 	if err != nil {
 		return nil, err
@@ -406,7 +418,6 @@ func ParseFile(file string) (*Parser, error) {
 		globals: make(map[string]string),
 		locals:  make(map[string][]string),
 	}
-	p.includes = append(p.includes, file)
 	p.nextToken()
 	p.nextToken()
 
@@ -456,8 +467,9 @@ func (p *Parser) parseFile(file string, mst *Maestro) error {
 
 func (p *Parser) Parse() (*Maestro, error) {
 	mst := Maestro{
-		Actions: make(map[string]Action),
-		Shell:   DefaultShell,
+		Actions:    make(map[string]Action),
+		Namespaces: make(map[string]*Maestro),
+		Shell:      DefaultShell,
 	}
 
 	var err error
@@ -471,6 +483,8 @@ func (p *Parser) Parse() (*Maestro, error) {
 				err = p.parseIdentifier()
 			case colon, lparen:
 				err = p.parseAction(&mst)
+			case lcurly:
+				err = p.parseNamespace(&mst)
 			default:
 				err = fmt.Errorf("syntax error: invalid token %s", p.peek)
 			}
@@ -485,6 +499,29 @@ func (p *Parser) Parse() (*Maestro, error) {
 		p.nextToken()
 	}
 	return &mst, nil
+}
+
+func (p *Parser) parseNamespace(mst *Maestro) error {
+	ident := p.curr.Literal
+	p.nextToken()
+	if p.peek.Type != namespace {
+		return fmt.Errorf("syntax error: invalid token %s", p.peek)
+	}
+	p.nextToken()
+	ps, err := parseReader(strings.NewReader(p.curr.Literal))
+	if err != nil {
+		return err
+	}
+	m, err := ps.Parse()
+	if err != nil {
+		return err
+	}
+	mst.Namespaces[ident] = m
+	if p.peek.Type != rcurly {
+		return fmt.Errorf("syntax error: invalid token %s", p.peek)
+	}
+	p.nextToken()
+	return nil
 }
 
 func (p *Parser) parseAction(m *Maestro) error {
@@ -918,7 +955,6 @@ func (x *lexer) Next() Token {
 	case lexDeps:
 		x.nextDependency(&t)
 	case lexNamespace:
-		// fmt.Printf("current char: %02x - peek char: %02x\n", x.char, x.peekRune())
 		x.nextNamespace(&t)
 	default:
 		x.nextDefault(&t)
