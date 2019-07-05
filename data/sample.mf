@@ -47,13 +47,13 @@ its properties.
 this help text is only there for the demo of multiline parsing of maestro.
 `
 single(
-	shell="/bin/bash -c",
+	shell="/bin/bash",
 	help="echo single target",
 	desc=%(desc)
 ):
   echo %(TARGET)
 
-  echo %(TARGET) %(var)
+  echo %(TARGET) %(datadir)
 
 multiline(help="echo multiple target and props"):
   echo %(TARGET) %(PROPS)

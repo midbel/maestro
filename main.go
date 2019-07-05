@@ -295,26 +295,70 @@ func (a Action) Execute() error {
 	if len(args) == 0 {
 		return fmt.Errorf("%s: fail to parse shell", a.Shell)
 	}
-	cmd := exec.Command(args[0], append(args[1:], script)...)
-	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
-		cmd.Dir = a.Workdir
+	if a.Retry <= 0 {
+		a.Retry = 1
 	}
-	cmd.Stdin = strings.NewReader(script)
+	var wout, werr io.Writer
 	if a.Stdout == "" {
-		cmd.Stdout = os.Stdout
+		wout = os.Stdout
+	} else if a.Stdout == "discard" {
+		wout = ioutil.Discard
+	} else {
+		w, err := os.OpenFile(a.Stdout+".out", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		wout = w
 	}
 	if a.Stderr == "" {
-		cmd.Stderr = os.Stderr
+		werr = os.Stderr
+	} else if a.Stderr == "discard" {
+		werr = ioutil.Discard
+	} else {
+		w, err := os.OpenFile(a.Stderr+".err", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		werr = w
 	}
+
+	for i := int64(0); i < a.Retry; i++ {
+		if err = a.executeScript(args, script, wout, werr); err == nil {
+			break
+		}
+	}
+	if a.Ignore && err != nil {
+		err = nil
+	}
+	return err
+}
+
+func (a Action) executeScript(args []string, script string, stdout, stderr io.Writer) error {
+	if a.Delay > 0 {
+		time.Sleep(a.Delay)
+	}
+	cmd := exec.Command(args[0], args[1:]...)
+	// cmd := exec.Command(args[0], append(args[1:], script)...)
+	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
+		cmd.Dir = a.Workdir
+	} else {
+		if a.Workdir != "" {
+			return fmt.Errorf("%s: not a directory", a.Workdir)
+		}
+	}
+
+	cmd.Stdin = strings.NewReader(script)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
 	if a.Env {
 		var es []string
 		es = append(es, os.Environ()...)
 		for k, v := range a.globals {
 			es = append(es, fmt.Sprintf("%s=%s", k, v))
 		}
-	}
-	if a.Delay > 0 {
-		time.Sleep(a.Delay)
 	}
 	return cmd.Run()
 }
@@ -386,7 +430,7 @@ func (a Action) prepareScript() (string, error) {
 type Parser struct {
 	lex *lexer
 
-	includes []string // list of files already includes; usefull for cyclic include
+	includes []string // list of files already includes; usefull to detect cyclic include
 	globals  map[string]string
 	locals   map[string][]string
 
@@ -455,6 +499,9 @@ func (p *Parser) parseFile(file string, mst *Maestro) error {
 	} else {
 		for k, a := range m.Actions {
 			mst.Actions[k] = a
+		}
+		for k, n := range m.Namespaces {
+			mst.Namespaces[k] = n
 		}
 	}
 
