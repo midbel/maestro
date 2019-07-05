@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 )
 
-const DefaultShell = "/bin/sh"
+const DefaultShell = "/bin/sh -c"
 
 func main() {
 	debug := flag.Bool("debug", false, "debug")
@@ -160,7 +160,6 @@ type Action struct {
 
 	Script string
 	Shell  string // bash, sh, ksh, python,...
-	Args   []string
 
 	Env     bool
 	Ignore  bool
@@ -186,12 +185,8 @@ func (a Action) Usage() {
 		fmt.Println(a.Help)
 	}
 	fmt.Println()
-	shell := a.Shell
-	if len(a.Args) > 0 {
-		shell = fmt.Sprintf("%s %s", a.Shell, strings.Join(a.Args, " "))
-	}
 	fmt.Println("properties:")
-	fmt.Printf("- shell  : %s\n", shell)
+	fmt.Printf("- shell  : %s\n", a.Shell)
 	fmt.Printf("- workdir: %s\n", a.Workdir)
 	fmt.Printf("- stdout : %s\n", a.Stdout)
 	fmt.Printf("- stderr : %s\n", a.Stderr)
@@ -242,13 +237,11 @@ func (a Action) Execute() error {
 	if err != nil {
 		return err
 	}
-	var args []string
-	if len(a.Args) == 0 {
-		// args = append(args, "-c")
-	} else {
-		args = append(args, a.Args...)
+	args := ParseShell(a.Shell)
+	if len(args) == 0 {
+		return fmt.Errorf("%s: fail to parse shell", a.Shell)
 	}
-	cmd := exec.Command(a.Shell, append(args, script)...)
+	cmd := exec.Command(args[0], append(args[1:], script)...)
 	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
 		cmd.Dir = a.Workdir
 	}
@@ -301,14 +294,33 @@ func (a Action) prepareScript() (string, error) {
 			}
 			if str == "TARGET" {
 				str = a.Name
-			} else if str == "PROPS" {
-				// to be written
 			} else if s, ok := a.locals[str]; ok {
 				str = strings.Join(s, " ")
 			} else if s, ok := a.data[str]; ok {
 				str = strings.Join(s, " ")
 			} else {
-				return "", fmt.Errorf("%s: variable not defined", str)
+				switch str {
+				case "shell":
+					str = a.Shell
+				case "workdir":
+					str = a.Workdir
+				case "stdout":
+					str = a.Stdout
+				case "stderr":
+					str = a.Stderr
+				case "env":
+					str = strconv.FormatBool(a.Env)
+				case "ignore":
+					str = strconv.FormatBool(a.Ignore)
+				case "retry":
+					str = strconv.FormatInt(a.Retry, 10)
+				case "delay":
+					str = a.Delay.String()
+				case "timeout":
+					str = a.Timeout.String()
+				default:
+					return "", fmt.Errorf("%s: variable not defined", str)
+				}
 			}
 			b.WriteString(str)
 			n = x
