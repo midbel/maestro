@@ -295,9 +295,7 @@ func (a Action) Execute() error {
 	if len(args) == 0 {
 		return fmt.Errorf("%s: fail to parse shell", a.Shell)
 	}
-	if a.Retry <= 0 {
-		a.Retry = 1
-	}
+
 	var wout, werr io.Writer
 	if a.Stdout == "" {
 		wout = os.Stdout
@@ -637,6 +635,9 @@ func (p *Parser) parseProperties(a *Action) error {
 			a.Ignore, err = strconv.ParseBool(p.valueOf())
 		case "retry":
 			a.Retry, err = strconv.ParseInt(p.valueOf(), 0, 64)
+			if err == nil && a.Retry <= 0 {
+				a.Retry = 1
+			}
 		case "timeout":
 			a.Timeout, err = time.ParseDuration(p.valueOf())
 		case "delay":
