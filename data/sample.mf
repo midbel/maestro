@@ -28,11 +28,18 @@ export HOME %(datadir)
 # echo %(welcom)
 # echo "data directory set" %(datadir)
 # echo "working directory set" %(workdir)
+desc = `
+single is a standard action available in a maestro file.
 
+it only prints on stdout the name of its target and then the values of some
+its properties.
+
+this help text is only there for the demo of multiline parsing of maestro.
+`
 single(
 	shell="/bin/bash",
-	args="-c",
 	help="echo single target",
+	desc=%(desc)
 ):
   echo %(TARGET)
 

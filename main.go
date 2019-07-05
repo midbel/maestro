@@ -407,7 +407,11 @@ func (p *Parser) parseAction(m *Maestro) error {
 	}
 	a.Script = p.curr.Literal
 	for k, vs := range p.locals {
-		a.locals[k] = append(a.locals[k], vs...)
+		switch k {
+		case "help", "desc":
+		default:
+			a.locals[k] = append(a.locals[k], vs...)
+		}
 	}
 	for k, v := range p.globals {
 		a.globals[k] = v
@@ -435,12 +439,12 @@ func (p *Parser) parseProperties(a *Action) error {
 			// err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
 			lit = p.curr.Literal
 			a.data[lit] = append(a.data[lit], p.valueOf())
-		case "args":
-			a.Args = append(a.Args, p.valueOf())
 		case "shell":
 			a.Shell = p.valueOf()
 		case "help":
 			a.Help = p.valueOf()
+		case "desc":
+			a.Desc = p.valueOf()
 		case "env":
 			a.Env, err = strconv.ParseBool(p.valueOf())
 		case "ignore":
@@ -684,9 +688,11 @@ const (
 	rparen  = ')'
 	comment = '#'
 	quote   = '"'
+	tick    = '`'
 	equal   = '='
 	comma   = ','
 	nl      = '\n'
+	backslash = '\\'
 )
 
 const (
@@ -902,12 +908,30 @@ func (x *lexer) readValue(t *Token) {
 }
 
 func (x *lexer) readString(t *Token) {
+	ticky := x.char == tick
+	var eos rune
+	if ticky {
+		eos = tick
+	} else {
+		eos = quote
+	}
 	x.readRune()
-	pos := x.pos
-	for !isQuote(x.char) {
+
+	var b strings.Builder
+	for x.char != eos {
+		if !ticky && x.char == backslash {
+			if peek := x.peekRune(); peek == quote {
+				x.readRune()
+			}
+		}
+		b.WriteRune(x.char)
 		x.readRune()
 	}
-	t.Literal, t.Type = string(x.inner[pos:x.pos]), value
+	t.Literal, t.Type = b.String(), value
+	if ticky {
+		t.Literal = strings.TrimLeft(t.Literal, "\n\t ")
+	}
+	// t.Literal, t.Type = string(x.inner[pos:x.pos]), value
 }
 
 func (x *lexer) readRune() {
@@ -953,7 +977,7 @@ func (x *lexer) skipSpace() {
 }
 
 func isQuote(x rune) bool {
-	return x == quote
+	return x == quote || x == tick
 }
 
 func isSpace(x rune) bool {

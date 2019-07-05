@@ -41,10 +41,8 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 func testScanScriptsSpecials(t *testing.T) {
 	input := `
 empty1:
-
 empty2:
 test: empty1 empty2
-
 sleep(shell=bash):
 	sleep 3
 `
@@ -58,6 +56,11 @@ sleep(shell=bash):
 		{Type: dependency, Literal: "empty1"},
 		{Type: dependency, Literal: "empty2"},
 		{Type: ident, Literal: "sleep"},
+		{Type: lparen},
+		{Type: ident, Literal: "shell"},
+		{Type: equal},
+		{Type: value, Literal: "bash"},
+		{Type: rparen},
 		{Type: colon},
 		{Type: script, Literal: "sleep 3"},
 	}
@@ -277,10 +280,11 @@ func testScanSpecialVariables(t *testing.T) {
 func testScanVariables(t *testing.T) {
 	input := `
 # comment should be skipped
-datadir = /var/data
-tmpdir  = /var/tmp
-welcom  = "hello world"
-mode    = 644
+datadir  = /var/data
+tmpdir   = /var/tmp
+welcom1  = "hello world"
+welcom2  = "hello \"world\""
+mode     = 644
 
 # assign datadir value to workdir
 workdir = %(datadir)
@@ -296,9 +300,13 @@ dirs    = %(datadir) %(tmpdir) %(workdir)
 		{Type: equal},
 		{Type: value, Literal: "/var/tmp"},
 		{Type: nl},
-		{Type: ident, Literal: "welcom"},
+		{Type: ident, Literal: "welcom1"},
 		{Type: equal},
 		{Type: value, Literal: "hello world"},
+		{Type: nl},
+		{Type: ident, Literal: "welcom2"},
+		{Type: equal},
+		{Type: value, Literal: "hello \"world\""},
 		{Type: nl},
 		{Type: ident, Literal: "mode"},
 		{Type: equal},
