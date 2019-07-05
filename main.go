@@ -19,6 +19,7 @@ const DefaultShell = "/bin/sh -c"
 
 func main() {
 	debug := flag.Bool("debug", false, "debug")
+	echo := flag.Bool("echo", false, "echo")
 	// incl := flag.String("include", "", "")
 	file := flag.String("file", "maestro.mf", "")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
@@ -37,6 +38,7 @@ func main() {
 	m.Debug = *debug
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
+	m.Echo = *echo
 
 	switch flag.Arg(0) {
 	case "help":
@@ -588,7 +590,6 @@ func (p *Parser) parseNamespace(mst *Maestro) error {
 		return fmt.Errorf("syntax error: invalid token %s", p.peek)
 	}
 	p.nextToken()
-	fmt.Println(p.curr.Literal)
 	ps, err := parseReader(strings.NewReader(p.curr.Literal))
 	if err != nil {
 		return err
@@ -618,7 +619,6 @@ func (p *Parser) parseNamespace(mst *Maestro) error {
 }
 
 func (p *Parser) parseAction(m *Maestro) error {
-	// fmt.Println("-> parseAction:", p.curr)
 	a := Action{
 		Name:    p.curr.Literal,
 		locals:  make(map[string][]string),
@@ -731,7 +731,6 @@ func (p *Parser) valueOf() string {
 }
 
 func (p *Parser) parseCommand(m *Maestro) error {
-	// fmt.Println("-> parseCommand:", p.curr)
 	ident := p.curr.Literal
 	n, ok := commands[ident]
 	if !ok {
@@ -812,7 +811,6 @@ func (p *Parser) executeClear() error {
 }
 
 func (p *Parser) parseMeta(m *Maestro) error {
-	// fmt.Println("-> parseMeta:", p.curr)
 	ident := p.curr.Literal
 
 	p.nextToken()
@@ -854,7 +852,6 @@ func (p *Parser) parseMeta(m *Maestro) error {
 }
 
 func (p *Parser) parseIdentifier() error {
-	// fmt.Println("-> parseIdentifier:", p.curr)
 	ident := p.curr.Literal
 
 	p.nextToken() // consuming '=' token
@@ -1089,6 +1086,10 @@ func (x *lexer) Next() Token {
 func (x *lexer) nextNamespace(t *Token) {
 	pos := x.pos
 	for x.char != rcurly {
+		// TODO: ugly trick to allow readScript to detect script boundaries properly
+		if x.char == tab && x.peekRune() == tab {
+			x.readRune()
+		}
 		x.readRune()
 	}
 	t.Literal, t.Type = string(x.inner[pos:x.pos]), namespace
@@ -1154,6 +1155,13 @@ func (x *lexer) nextScript(t *Token) {
 	}
 
 	var str strings.Builder
+	// if x.char == nl {
+	// 	x.readRune()
+	// }
+	// delim := x.char
+	// indent := x.countRuneUntil(isIdent)
+	// prefix := x.inner[x.pos:x.pos+indent+1]
+	// fmt.Printf("start script with %02x -> %d => %s\n", delim, indent, prefix)
 	for !done() {
 		if peek := x.peekRune(); x.char == nl && peek != nl {
 			str.WriteRune(x.char)
@@ -1164,6 +1172,22 @@ func (x *lexer) nextScript(t *Token) {
 		x.readRune()
 	}
 	t.Literal, t.Type = strings.TrimSpace(str.String()), script
+}
+
+func (x *lexer) countRuneUntil(fn func(rune)bool) int {
+	var (
+		i int
+		n = x.pos
+	)
+	for {
+		k, nn := utf8.DecodeRune(x.inner[n:])
+		if fn(k) || k == utf8.RuneError {
+			break
+		}
+		n+=nn
+		i++
+	}
+	return i
 }
 
 func (x *lexer) readVariable(t *Token) {

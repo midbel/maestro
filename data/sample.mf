@@ -26,7 +26,7 @@ declare hello world
 # syntax 1
 include tmp/globals.mf
 include "tmp/variables.mf"
-# syntax 2 - to be implemented
+# syntax 2: TODO
 # include (
 # 	"etc/maestro/globals.mf"
 # 	"etc/maestro/variables.mf"
@@ -36,20 +36,10 @@ export PATH /var/bin
 export HOME %(datadir)
 
 # echo %(welcom)
-# echo "data directory set" %(datadir)
-# echo "working directory set" %(workdir)
-desc = `
-single is a standard action available in a maestro file.
 
-it only prints on stdout the name of its target and then the values of some
-its properties.
-
-this help text is only there for the demo of multiline parsing of maestro.
-`
 single(
 	shell="/bin/bash",
 	help="echo single target",
-	desc=%(desc)
 ):
   echo %(TARGET)
 
@@ -88,7 +78,8 @@ config2(
 dummy = dummy
 
 purge:
-	sudo service %(dummy) purge
+	rm -rf %(datadir)
+	rm -rf %(cachedir)
 
 test: purge
 	sudo service %(dummy) test
