@@ -19,6 +19,7 @@ const DefaultShell = "/bin/sh -c"
 
 func main() {
 	debug := flag.Bool("debug", false, "debug")
+	// incl := flag.String("include", "", "")
 	file := flag.String("file", "maestro.mf", "")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
@@ -185,7 +186,7 @@ func (m Maestro) ExecuteHelp(action string) error {
 }
 
 var summary = `
-{{if .About}}{{.About}}{{end}}
+{{usage .About}}
 {{if .Actions}}
 Available actions:
 
@@ -587,6 +588,7 @@ func (p *Parser) parseNamespace(mst *Maestro) error {
 		return fmt.Errorf("syntax error: invalid token %s", p.peek)
 	}
 	p.nextToken()
+	fmt.Println(p.curr.Literal)
 	ps, err := parseReader(strings.NewReader(p.curr.Literal))
 	if err != nil {
 		return err

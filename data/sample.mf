@@ -113,5 +113,5 @@ legacy {
 		sudo service %(dummy) start
 
 	stoplegacy:
-		sudo service %(dummy) start
+		sudo service %(dummy) stop
 }
