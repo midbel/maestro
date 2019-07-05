@@ -36,6 +36,7 @@ func main() {
 	m.Debug = *debug
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
+
 	switch flag.Arg(0) {
 	case "help":
 		if act := flag.Arg(1); act == "" {
@@ -571,11 +572,23 @@ func (p *Parser) parseNamespace(mst *Maestro) error {
 	if err != nil {
 		return err
 	}
+	// namespace inherit locals and globals from parent
+	for k, vs := range p.locals {
+		ps.locals[k] = vs
+	}
+	for k, v := range p.globals {
+		ps.globals[k] = v
+	}
 	m, err := ps.Parse()
 	if err != nil {
 		return err
 	}
+
+	m.Debug = mst.Debug
+	m.Nodeps = mst.Nodeps
+	m.Noskip = mst.Noskip
 	mst.Namespaces[ident] = m
+
 	if p.peek.Type != rcurly {
 		return fmt.Errorf("syntax error: invalid token %s", p.peek)
 	}
@@ -618,6 +631,9 @@ func (p *Parser) parseAction(m *Maestro) error {
 	}
 	if a.Shell == "" {
 		a.Shell = m.Shell
+	}
+	if a.Retry <= 0 {
+		a.Retry = 1
 	}
 	m.Actions[a.Name] = a
 	return nil
