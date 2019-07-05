@@ -6,6 +6,10 @@
 .ECHO    = on
 .VERSION = "sample.mf 0.0.1"
 
+# meta varialbe - to be implemented
+# .TIMEOUT =
+# .NOCONFLICT =
+
 # comment should be skipped
 datadir = /var/data
 tmpdir  = /var/tmp
@@ -19,8 +23,14 @@ dirs    = %(datadir) %(tmpdir) %(workdir)
 
 declare hello world
 
-include etc/maestro/globals.mf
-include "etc/maestro/variables.mf"
+# syntax 1
+include tmp/globals.mf
+include "tmp/variables.mf"
+# syntax 2 - to be implemented
+# include (
+# 	"etc/maestro/globals.mf"
+# 	"etc/maestro/variables.mf"
+# )
 
 export PATH /var/bin
 export HOME %(datadir)
@@ -77,3 +87,16 @@ config2(
 
 restart(shell=bash, help="stop and start service"): stop start
   echo %(TARGET) "restarted"
+
+# namespace - to be implemented
+# <name> { instructions }
+# legacy {
+# 	config = "etc/legacy.toml"
+# 	dummy  = dummy
+#
+# 	start:
+# 		sudo service %(dummy) start
+#
+# 	stop:
+# 		sudo service %(dummy) start
+# }

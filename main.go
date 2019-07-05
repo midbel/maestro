@@ -180,12 +180,12 @@ type Action struct {
 }
 
 func (a Action) Usage() {
-	fmt.Println(a.Help)
-	fmt.Println()
 	if a.Desc != "" {
 		fmt.Println(a.Desc)
-		fmt.Println()
+	} else {
+		fmt.Println(a.Help)
 	}
+	fmt.Println()
 	shell := a.Shell
 	if len(a.Args) > 0 {
 		shell = fmt.Sprintf("%s %s", a.Shell, strings.Join(a.Args, " "))
@@ -322,8 +322,9 @@ func (a Action) prepareScript() (string, error) {
 type Parser struct {
 	lex *lexer
 
-	globals map[string]string
-	locals  map[string][]string
+	includes []string // list of files already includes; usefull for cyclic include
+	globals  map[string]string
+	locals   map[string][]string
 
 	curr Token
 	peek Token
@@ -343,10 +344,52 @@ func ParseFile(file string) (*Parser, error) {
 		globals: make(map[string]string),
 		locals:  make(map[string][]string),
 	}
+	p.includes = append(p.includes, file)
 	p.nextToken()
 	p.nextToken()
 
 	return &p, nil
+}
+
+func (p *Parser) parseFile(file string, mst *Maestro) error {
+	sort.Strings(p.includes)
+	ix := sort.SearchStrings(p.includes, file)
+	if ix < len(p.includes) && p.includes[ix] == file {
+		return fmt.Errorf("%s: cyclic include detected!", file)
+	}
+	p.includes = append(p.includes, file)
+
+	r, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	x, err := Lex(r)
+	if err != nil {
+		return err
+	}
+	// save current state of parser
+	curr, peek := p.curr, p.peek
+	x, p.lex = p.lex, x
+
+	// init curr and peek token from  new lexer
+	p.nextToken()
+	p.nextToken()
+
+	if m, err := p.Parse(); err != nil {
+		return err
+	} else {
+		for k, a := range m.Actions {
+			mst.Actions[k] = a
+		}
+	}
+
+	// restore state of parser (TODO: using kind of frame could make code cleaner)
+	p.lex = x
+	p.curr, p.peek = curr, peek
+
+	return nil
 }
 
 func (p *Parser) Parse() (*Maestro, error) {
@@ -370,7 +413,7 @@ func (p *Parser) Parse() (*Maestro, error) {
 				err = fmt.Errorf("syntax error: invalid token %s", p.peek)
 			}
 		case command:
-			err = p.parseCommand()
+			err = p.parseCommand(&mst)
 		default:
 			err = fmt.Errorf("not yet supported: %s", p.curr)
 		}
@@ -436,9 +479,9 @@ func (p *Parser) parseProperties(a *Action) error {
 		p.nextToken()
 		switch strings.ToLower(lit) {
 		default:
-			// err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
-			lit = p.curr.Literal
-			a.data[lit] = append(a.data[lit], p.valueOf())
+			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
+			// lit = p.curr.Literal
+			// a.data[lit] = append(a.data[lit], p.valueOf())
 		case "shell":
 			a.Shell = p.valueOf()
 		case "help":
@@ -492,7 +535,7 @@ func (p *Parser) valueOf() string {
 	return str
 }
 
-func (p *Parser) parseCommand() error {
+func (p *Parser) parseCommand(m *Maestro) error {
 	// fmt.Println("-> parseCommand:", p.curr)
 	ident := p.curr.Literal
 	n, ok := commands[ident]
@@ -528,7 +571,7 @@ func (p *Parser) parseCommand() error {
 			case "declare":
 				err = p.executeDeclare(values)
 			case "include":
-				err = p.executeInclude(values)
+				err = p.executeInclude(m, values)
 			default:
 				err = fmt.Errorf("%s: unrecognized command", ident)
 			}
@@ -539,7 +582,12 @@ func (p *Parser) parseCommand() error {
 	}
 }
 
-func (p *Parser) executeInclude(files []string) error {
+func (p *Parser) executeInclude(m *Maestro, files []string) error {
+	for _, f := range files {
+		if err := p.parseFile(f, m); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -639,6 +687,49 @@ func (p *Parser) nextToken() {
 	p.peek = p.lex.Next()
 }
 
+func ParseShell(str string) []string {
+	const (
+		single byte = '\''
+		double      = '"'
+		space       = ' '
+		equal       = '='
+	)
+
+	skipN := func(b byte) int {
+		var i int
+		if b == space || b == single || b == double {
+			i++
+		}
+		return i
+	}
+
+	var (
+		ps  []string
+		j   int
+		sep byte = space
+	)
+	for i := 0; i < len(str); i++ {
+		if str[i] == sep || str[i] == equal {
+			if i > j {
+				j += skipN(str[j])
+				ps, j = append(ps, str[j:i]), i+1
+				if sep == single || sep == double {
+					sep = space
+				}
+			}
+			continue
+		}
+		if sep == space && (str[i] == single || str[i] == double) {
+			sep, j = str[i], i+1
+		}
+	}
+	if str := str[j:]; len(str) > 0 {
+		i := skipN(str[0])
+		ps = append(ps, str[i:])
+	}
+	return ps
+}
+
 type Token struct {
 	Literal string
 	Type    rune
@@ -679,19 +770,19 @@ var commands = map[string]int{
 }
 
 const (
-	space   = ' '
-	tab     = '\t'
-	period  = '.'
-	colon   = ':'
-	percent = '%'
-	lparen  = '('
-	rparen  = ')'
-	comment = '#'
-	quote   = '"'
-	tick    = '`'
-	equal   = '='
-	comma   = ','
-	nl      = '\n'
+	space     = ' '
+	tab       = '\t'
+	period    = '.'
+	colon     = ':'
+	percent   = '%'
+	lparen    = '('
+	rparen    = ')'
+	comment   = '#'
+	quote     = '"'
+	tick      = '`'
+	equal     = '='
+	comma     = ','
+	nl        = '\n'
 	backslash = '\\'
 )
 
