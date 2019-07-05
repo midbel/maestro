@@ -85,6 +85,20 @@ config2(
 ):
   sudo service %(TARGET) test
 
+dummy = dummy
+
+purge:
+	sudo service %(dummy) purge
+
+test:
+	sudo service %(dummy) test
+
+stop:
+	sudo service %(dummy) stop
+
+start: purge test
+	sudo service %(dummy) start
+
 restart(shell=bash, help="stop and start service"): stop start
   echo %(TARGET) "restarted"
 

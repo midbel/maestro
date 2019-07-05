@@ -19,6 +19,8 @@ const DefaultShell = "/bin/sh -c"
 func main() {
 	debug := flag.Bool("debug", false, "debug")
 	file := flag.String("file", "maestro.mf", "")
+	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
+	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
 	flag.Parse()
 	p, err := ParseFile(*file)
 	if err != nil {
@@ -31,6 +33,8 @@ func main() {
 		os.Exit(125)
 	}
 	m.Debug = *debug
+	m.Nodeps = *nodeps
+	m.Noskip = *noskip
 	switch flag.Arg(0) {
 	case "help":
 		if act := flag.Arg(1); act == "" {
@@ -70,6 +74,8 @@ type Maestro struct {
 	// actions
 	Actions map[string]Action
 	Debug   bool
+	Nodeps  bool
+	Noskip  bool
 }
 
 func (m Maestro) Execute(actions []string) error {
@@ -78,16 +84,67 @@ func (m Maestro) Execute(actions []string) error {
 		if !ok {
 			return fmt.Errorf("%s: action not found!", a)
 		}
-		if m.Debug {
-			fmt.Printf("> %s\n", a)
-			fmt.Println(act.String())
-		} else {
-			if err := act.Execute(); err != nil {
-				return fmt.Errorf("%s: %s", a, err)
+		deps, err := m.dependencies(act)
+		if err != nil {
+			return err
+		}
+		for _, d := range deps {
+			a := m.Actions[d]
+			if m.Debug {
+				fmt.Printf("> %s\n", a.Name)
+				fmt.Println(a.String())
+			} else {
+				if err := a.Execute(); err != nil {
+					return fmt.Errorf("%s: %s", a, err)
+				}
 			}
 		}
 	}
 	return nil
+}
+
+func (m Maestro) dependencies(act Action) ([]string, error) {
+	reverse := func(vs []string) []string {
+		for i, j := 0, len(vs)-1; i < len(vs)/2; i, j = i+1, j-1 {
+			vs[i], vs[j] = vs[j], vs[i]
+		}
+		return vs
+	}
+	var (
+		walk func(Action, int) error
+		deps []string
+		seen = make(map[string]struct{})
+	)
+
+	walk = func(a Action, lvl int) error {
+		if lvl > 0 && a.Name == act.Name {
+			return fmt.Errorf("%s: cyclic dependency for %s action!", act.Name, a.Name)
+		}
+		lvl++
+		deps = append(deps, a.Name)
+		for _, d := range reverse(a.Dependencies) {
+			if lvl > 0 && d == act.Name {
+				return fmt.Errorf("%s: cyclic dependency for %s action!", act.Name, a.Name)
+			}
+			if _, ok := seen[d]; !m.Noskip && ok {
+				continue
+			}
+			a, ok := m.Actions[d]
+			if !ok {
+				return fmt.Errorf("%s: dependency not resolved", d)
+			}
+			seen[d] = struct{}{}
+
+			if err := walk(a, lvl); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := walk(act, 0); err != nil {
+		return nil, err
+	}
+	return reverse(deps), nil
 }
 
 func (m Maestro) All() error {
@@ -287,8 +344,6 @@ func (a Action) prepareScript() (string, error) {
 			if str == "TARGET" {
 				str = a.Name
 			} else if s, ok := a.locals[str]; ok {
-				str = strings.Join(s, " ")
-			} else if s, ok := a.data[str]; ok {
 				str = strings.Join(s, " ")
 			} else {
 				switch str {
