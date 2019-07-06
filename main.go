@@ -21,7 +21,6 @@ func main() {
 	debug := flag.Bool("debug", false, "debug")
 	echo := flag.Bool("echo", false, "echo")
 	// incl := flag.String("include", "", "")
-	space := flag.String("ns", "", "namespace")
 	file := flag.String("file", "maestro.mf", "")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
@@ -40,17 +39,6 @@ func main() {
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
 	m.Echo = *echo
-
-	switch *space {
-	case "", "default":
-	default:
-		ns, ok := m.Namespaces[*space]
-		if !ok {
-			fmt.Fprintf(os.Stderr, "%s: namespace not defined\n", *space)
-			os.Exit(121)
-		}
-		m = ns
-	}
 
 	switch flag.Arg(0) {
 	case "help":
@@ -93,8 +81,6 @@ type Maestro struct {
 	Debug   bool
 	Nodeps  bool
 	Noskip  bool
-
-	Namespaces map[string]*Maestro
 }
 
 func (m Maestro) Execute(actions []string) error {
@@ -209,13 +195,6 @@ Available actions:
 {{end}}
 {{- end}}
 
-{{- if .Namespaces}}
-Available namespaces:
-
-{{range $k, $v := .Namespaces}}
-	{{- printf "  %-12s %s" $k (usage $v.Usage)}}
-{{end}}
-{{end}}
 {{- if .Usage}}
 	{{- .Usage}}
 {{else}}
@@ -555,9 +534,6 @@ func (p *Parser) parseFile(file string, mst *Maestro) error {
 		for k, a := range m.Actions {
 			mst.Actions[k] = a
 		}
-		for k, n := range m.Namespaces {
-			mst.Namespaces[k] = n
-		}
 	}
 
 	// restore state of parser (TODO: using kind of frame could make code cleaner)
@@ -569,9 +545,8 @@ func (p *Parser) parseFile(file string, mst *Maestro) error {
 
 func (p *Parser) Parse() (*Maestro, error) {
 	mst := Maestro{
-		Actions:    make(map[string]Action),
-		Namespaces: make(map[string]*Maestro),
-		Shell:      DefaultShell,
+		Actions: make(map[string]Action),
+		Shell:   DefaultShell,
 	}
 
 	var err error
@@ -585,8 +560,6 @@ func (p *Parser) Parse() (*Maestro, error) {
 				err = p.parseIdentifier()
 			case colon, lparen:
 				err = p.parseAction(&mst)
-			case lcurly:
-				err = p.parseNamespace(&mst)
 			default:
 				err = fmt.Errorf("syntax error: invalid token %s", p.peek)
 			}
@@ -601,41 +574,6 @@ func (p *Parser) Parse() (*Maestro, error) {
 		p.nextToken()
 	}
 	return &mst, nil
-}
-
-func (p *Parser) parseNamespace(mst *Maestro) error {
-	ident := p.curr.Literal
-	p.nextToken()
-	if p.peek.Type != namespace {
-		return fmt.Errorf("syntax error: invalid token %s", p.peek)
-	}
-	p.nextToken()
-	ps, err := parseReader(strings.NewReader(p.curr.Literal))
-	if err != nil {
-		return err
-	}
-	// namespace inherit locals and globals from parent
-	for k, vs := range p.locals {
-		ps.locals[k] = vs
-	}
-	for k, v := range p.globals {
-		ps.globals[k] = v
-	}
-	m, err := ps.Parse()
-	if err != nil {
-		return err
-	}
-
-	m.Debug = mst.Debug
-	m.Nodeps = mst.Nodeps
-	m.Noskip = mst.Noskip
-	mst.Namespaces[ident] = m
-
-	if p.peek.Type != rcurly {
-		return fmt.Errorf("syntax error: invalid token %s", p.peek)
-	}
-	p.nextToken()
-	return nil
 }
 
 func (p *Parser) parseAction(m *Maestro) error {
@@ -905,14 +843,18 @@ func (p *Parser) pushFrame(file string) error {
 		return err
 	}
 	x, err := Lex(r)
-	if err != nil {
-		return err
-	}
-	f := frame{lex: x}
-	f.nextToken()
-	f.nextToken()
+	if err == nil {
+		f := frame{
+			lex:     x,
+			locals:  make(map[string][]string),
+			globals: make(map[string]string),
+		}
+		f.nextToken()
+		f.nextToken()
 
-	p.frames = append(p.frame, &f)
+		p.frames = append(p.frames, &f)
+	}
+	return err
 }
 
 func (p *Parser) popFrame() {
@@ -928,6 +870,9 @@ func (p *Parser) popFrame() {
 
 type frame struct {
 	lex *lexer
+
+	locals  map[string][]string
+	globals map[string]string
 
 	curr Token
 	peek Token
@@ -1007,8 +952,6 @@ func (t Token) String() string {
 		str = "dependency"
 	case meta:
 		str = "meta"
-	case namespace:
-		str = "namespace"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
@@ -1028,8 +971,6 @@ const (
 	period    = '.'
 	colon     = ':'
 	percent   = '%'
-	lcurly    = '{'
-	rcurly    = '}'
 	lparen    = '('
 	rparen    = ')'
 	comment   = '#'
@@ -1050,7 +991,6 @@ const (
 	command // include, export, echo, declare
 	script
 	dependency
-	namespace
 	invalid
 )
 
@@ -1059,7 +999,6 @@ const (
 	lexValue
 	lexDeps
 	lexScript
-	lexNamespace
 )
 
 const (
@@ -1109,14 +1048,10 @@ func (x *lexer) Next() Token {
 		x.nextScript(&t)
 	case lexDeps:
 		x.nextDependency(&t)
-	case lexNamespace:
-		x.nextNamespace(&t)
 	default:
 		x.nextDefault(&t)
 	}
 	switch t.Type {
-	case lcurly:
-		x.state = lexNamespace | lexNoop
 	case colon:
 		x.state = lexDeps | lexNoop
 	case equal, command:
@@ -1130,7 +1065,7 @@ func (x *lexer) Next() Token {
 		} else {
 			x.state = lexDefault | lexNoop
 		}
-	case rparen, namespace:
+	case rparen:
 		x.state = lexDefault | lexNoop
 	case script:
 		x.state = lexDefault | lexNoop
@@ -1140,19 +1075,6 @@ func (x *lexer) Next() Token {
 	}
 	x.readRune()
 	return t
-}
-
-func (x *lexer) nextNamespace(t *Token) {
-	pos := x.pos
-	for x.char != rcurly {
-		// TODO: ugly trick to allow readScript to detect script boundaries properly
-		if x.char == tab && x.peekRune() == tab {
-			x.readRune()
-		}
-		x.readRune()
-	}
-	t.Literal, t.Type = string(x.inner[pos:x.pos]), namespace
-	x.unreadRune()
 }
 
 func (x *lexer) nextScript(t *Token) {

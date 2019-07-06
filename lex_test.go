@@ -12,7 +12,6 @@ func TestLexer(t *testing.T) {
 	t.Run("Specials", testScanSpecialVariables)
 	t.Run("Scripts+Deps", testScanScriptsWithDependencies)
 	t.Run("Scripts+Specials", testScanScriptsSpecials)
-	t.Run("Namespaces", testScanNamespaces)
 }
 
 func testLexer(t *testing.T, input string, tokens []Token) {
@@ -37,32 +36,6 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 			t.Fatalf("%d) unesxpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
 	}
-}
-
-func testScanNamespaces(t *testing.T) {
-	input := `
-namespace1 {config = "etc/legacy.toml"}
-
-namespace2 {
-	config = "etc/legacy.toml"
-	binary = dummy
-}
-`
-	multiline := `
-	config = "etc/legacy.toml"
-	binary = dummy
-`
-	tokens := []Token{
-		{Type: ident, Literal: "namespace1"},
-		{Type: lcurly},
-		{Type: namespace, Literal: "config = \"etc/legacy.toml\""},
-		{Type: rcurly},
-		{Type: ident, Literal: "namespace2"},
-		{Type: lcurly},
-		{Type: namespace, Literal: multiline},
-		{Type: rcurly},
-	}
-	testLexer(t, input, tokens)
 }
 
 func testScanScriptsSpecials(t *testing.T) {

@@ -92,17 +92,3 @@ start: purge test
 
 restart(shell=bash, help="stop and start service"): stop start
 	echo %(TARGET) "restarted"
-
-# namespace
-legacy {
-	.USAGE = "legacy actions before regression"
-
-	config = "etc/legacy.toml"
-	dummy  = dummy
-
-	startlegacy:
-		sudo service %(dummy) start
-
-	stoplegacy:
-		sudo service %(dummy) stop
-}
