@@ -483,6 +483,8 @@ type Parser struct {
 
 	curr Token
 	peek Token
+
+	frames []*frame
 }
 
 func ParseFile(file string) (*Parser, error) {
@@ -498,6 +500,12 @@ func ParseFile(file string) (*Parser, error) {
 	}
 	return p, err
 }
+
+// func ParseFileWithIncludes(file string, inc ...string) (*Parser, error) {
+// 	// 1: parse all files to be included
+// 	// 2: parse main file
+// 	return nil, nil
+// }
 
 func parseReader(r io.Reader) (*Parser, error) {
 	lex, err := Lex(r)
@@ -891,6 +899,45 @@ func (p *Parser) nextToken() {
 	p.peek = p.lex.Next()
 }
 
+func (p *Parser) pushFrame(file string) error {
+	r, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	x, err := Lex(r)
+	if err != nil {
+		return err
+	}
+	f := frame{lex: x}
+	f.nextToken()
+	f.nextToken()
+
+	p.frames = append(p.frame, &f)
+}
+
+func (p *Parser) popFrame() {
+	if len(p.frames) == 0 {
+		return
+	}
+	n := len(p.frames) - 1
+	if n < 0 {
+		return
+	}
+	p.frames = p.frames[:n]
+}
+
+type frame struct {
+	lex *lexer
+
+	curr Token
+	peek Token
+}
+
+func (f *frame) nextToken() {
+	f.curr = f.peek
+	f.peek = f.lex.Next()
+}
+
 func ParseShell(str string) []string {
 	const (
 		single byte = '\''
@@ -1108,6 +1155,28 @@ func (x *lexer) nextNamespace(t *Token) {
 	x.unreadRune()
 }
 
+func (x *lexer) nextScript(t *Token) {
+	done := func() bool {
+		if x.char == eof {
+			return true
+		}
+		peek := x.peekRune()
+		return x.char == nl && (!isSpace(peek) || peek == eof || peek == comment)
+	}
+
+	var str strings.Builder
+	for !done() {
+		if peek := x.peekRune(); x.char == nl && peek != nl {
+			str.WriteRune(x.char)
+			x.readRune()
+			x.skipSpace()
+		}
+		str.WriteRune(x.char)
+		x.readRune()
+	}
+	t.Literal, t.Type = strings.TrimSpace(str.String()), script
+}
+
 func (x *lexer) nextValue(t *Token) {
 	if x.char == space {
 		x.skipSpace()
@@ -1155,28 +1224,6 @@ func (x *lexer) nextDefault(t *Token) {
 	default:
 		t.Type = x.char
 	}
-}
-
-func (x *lexer) nextScript(t *Token) {
-	done := func() bool {
-		if x.char == eof {
-			return true
-		}
-		peek := x.peekRune()
-		return x.char == nl && (!isSpace(peek) || peek == eof || peek == comment)
-	}
-
-	var str strings.Builder
-	for !done() {
-		if peek := x.peekRune(); x.char == nl && peek != nl {
-			str.WriteRune(x.char)
-			x.readRune()
-			x.skipSpace()
-		}
-		str.WriteRune(x.char)
-		x.readRune()
-	}
-	t.Literal, t.Type = strings.TrimSpace(str.String()), script
 }
 
 func (x *lexer) countRuneUntil(fn func(rune) bool) int {
