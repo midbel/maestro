@@ -21,6 +21,7 @@ func main() {
 	debug := flag.Bool("debug", false, "debug")
 	echo := flag.Bool("echo", false, "echo")
 	// incl := flag.String("include", "", "")
+	space := flag.String("ns", "", "namespace")
 	file := flag.String("file", "maestro.mf", "")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
@@ -39,6 +40,17 @@ func main() {
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
 	m.Echo = *echo
+
+	switch *space {
+	case "", "default":
+	default:
+		ns, ok := m.Namespaces[*space]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "%s: namespace not defined\n", *space)
+			os.Exit(121)
+		}
+		m = ns
+	}
 
 	switch flag.Arg(0) {
 	case "help":
@@ -1155,13 +1167,6 @@ func (x *lexer) nextScript(t *Token) {
 	}
 
 	var str strings.Builder
-	// if x.char == nl {
-	// 	x.readRune()
-	// }
-	// delim := x.char
-	// indent := x.countRuneUntil(isIdent)
-	// prefix := x.inner[x.pos:x.pos+indent+1]
-	// fmt.Printf("start script with %02x -> %d => %s\n", delim, indent, prefix)
 	for !done() {
 		if peek := x.peekRune(); x.char == nl && peek != nl {
 			str.WriteRune(x.char)
@@ -1174,7 +1179,7 @@ func (x *lexer) nextScript(t *Token) {
 	t.Literal, t.Type = strings.TrimSpace(str.String()), script
 }
 
-func (x *lexer) countRuneUntil(fn func(rune)bool) int {
+func (x *lexer) countRuneUntil(fn func(rune) bool) int {
 	var (
 		i int
 		n = x.pos
@@ -1184,7 +1189,7 @@ func (x *lexer) countRuneUntil(fn func(rune)bool) int {
 		if fn(k) || k == utf8.RuneError {
 			break
 		}
-		n+=nn
+		n += nn
 		i++
 	}
 	return i

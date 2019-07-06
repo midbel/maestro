@@ -24,8 +24,8 @@ dirs    = %(datadir) %(tmpdir) %(workdir)
 declare hello world
 
 # syntax 1
-include tmp/globals.mf
-include "tmp/variables.mf"
+# include tmp/globals.mf
+# include "tmp/variables.mf"
 # syntax 2: TODO
 # include (
 # 	"etc/maestro/globals.mf"
@@ -41,39 +41,39 @@ single(
 	shell="/bin/bash",
 	help="echo single target",
 ):
-  echo %(TARGET)
+	echo %(TARGET)
 
-  echo %(TARGET) %(datadir)
+	echo %(TARGET) %(datadir)
 
 multiline(help="echo multiple target and props"):
-  echo %(TARGET) %(PROPS)
-  echo %(TARGET) %(PROPS)
+	echo %(TARGET) %(PROPS)
+	echo %(TARGET) %(PROPS)
 
-  echo %(TARGET) %(PROPS)
+	echo %(TARGET) %(PROPS)
 
 empty(help="do nothing"):
 sleep(shell=bash): empty single
 	sleep 5
 
 reload(shell=bash,retry=5, help="reload service"):
-  sudo service %(TARGET) reload
+	sudo service %(TARGET) reload
 
 config1(
-  shell=ksh,
-  env=true,
-  workdir=%(datadir),
+	shell=ksh,
+	env=true,
+	workdir=%(datadir),
 	help="test configuration phase1",
 ):
   sudo service %(TARGET) test
 
 # same as config1 without the trailing comma after the home property
 config2(
-  shell=ksh,
-  env=true,
-  workdir=%(datadir),
+	shell=ksh,
+	env=true,
+	workdir=%(datadir),
 	help="test configuration phase2"
 ):
-  sudo service %(TARGET) test
+	sudo service %(TARGET) test
 
 dummy = dummy
 
@@ -91,7 +91,7 @@ start: purge test
 	sudo service %(dummy) start
 
 restart(shell=bash, help="stop and start service"): stop start
-  echo %(TARGET) "restarted"
+	echo %(TARGET) "restarted"
 
 # namespace
 legacy {
