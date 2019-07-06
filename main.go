@@ -224,6 +224,7 @@ type Action struct {
 	Name string
 	Help string
 	Desc string
+	Tags []string
 
 	Dependencies []string
 	// Dependencies []Action
@@ -621,6 +622,20 @@ func (p *Parser) parseAction(m *Maestro) error {
 func (p *Parser) parseProperties(a *Action) error {
 	p.nextToken() // consuming '(' token
 
+	valueOf := func() string {
+		var str string
+		switch p.curr.Type {
+		case value:
+			str = p.curr.Literal
+		case variable:
+			vs, ok := p.locals[p.curr.Literal]
+			if ok && len(vs) >= 1 {
+				str = vs[0]
+			}
+		}
+		return str
+	}
+
 	var err error
 	for p.curr.Type != rparen {
 		lit := p.curr.Literal
@@ -632,31 +647,33 @@ func (p *Parser) parseProperties(a *Action) error {
 		switch strings.ToLower(lit) {
 		default:
 			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
+		case "tag":
+			a.Tags = append(a.Tags, valueOf())
 		case "shell":
-			a.Shell = p.valueOf()
+			a.Shell = valueOf()
 		case "help":
-			a.Help = p.valueOf()
+			a.Help = valueOf()
 		case "desc":
-			a.Desc = p.valueOf()
+			a.Desc = valueOf()
 		case "env":
-			a.Env, err = strconv.ParseBool(p.valueOf())
+			a.Env, err = strconv.ParseBool(valueOf())
 		case "ignore":
-			a.Ignore, err = strconv.ParseBool(p.valueOf())
+			a.Ignore, err = strconv.ParseBool(valueOf())
 		case "retry":
-			a.Retry, err = strconv.ParseInt(p.valueOf(), 0, 64)
+			a.Retry, err = strconv.ParseInt(valueOf(), 0, 64)
 			if err == nil && a.Retry <= 0 {
 				a.Retry = 1
 			}
 		case "timeout":
-			a.Timeout, err = time.ParseDuration(p.valueOf())
+			a.Timeout, err = time.ParseDuration(valueOf())
 		case "delay":
-			a.Delay, err = time.ParseDuration(p.valueOf())
+			a.Delay, err = time.ParseDuration(valueOf())
 		case "workdir":
-			a.Workdir = p.valueOf()
+			a.Workdir = valueOf()
 		case "stdout":
-			a.Stdout = p.valueOf()
+			a.Stdout = valueOf()
 		case "stderr":
-			a.Stderr = p.valueOf()
+			a.Stderr = valueOf()
 		}
 		if err != nil {
 			return err
@@ -672,20 +689,6 @@ func (p *Parser) parseProperties(a *Action) error {
 		p.nextToken()
 	}
 	return nil
-}
-
-func (p *Parser) valueOf() string {
-	var str string
-	switch p.curr.Type {
-	case value:
-		str = p.curr.Literal
-	case variable:
-		vs, ok := p.locals[p.curr.Literal]
-		if ok && len(vs) >= 1 {
-			str = vs[0]
-		}
-	}
-	return str
 }
 
 func (p *Parser) parseCommand(m *Maestro) error {
