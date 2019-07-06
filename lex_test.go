@@ -242,6 +242,7 @@ tmpdir   = /var/tmp
 welcom1  = "hello world"
 welcom2  = "hello \"world\""
 mode     = 644
+discard  = -
 
 # assign datadir value to workdir
 workdir = %(datadir)
@@ -268,6 +269,10 @@ dirs    = %(datadir) %(tmpdir) %(workdir)
 		{Type: ident, Literal: "mode"},
 		{Type: equal},
 		{Type: value, Literal: "644"},
+		{Type: nl},
+		{Type: ident, Literal: "discard"},
+		{Type: equal},
+		{Type: value, Literal: "-"},
 		{Type: nl},
 		{Type: ident, Literal: "workdir"},
 		{Type: equal},

@@ -25,6 +25,7 @@ func main() {
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
 	flag.Parse()
+
 	p, err := ParseFile(*file)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -193,7 +194,7 @@ Available actions:
 {{range $k, $v := .Actions}}
 	{{- printf "  %-12s %s" $k (usage $v.Help)}}
 {{end}}
-{{- end}}
+{{end}}
 
 {{- if .Usage}}
 	{{- .Usage}}
@@ -381,10 +382,9 @@ func (a Action) executeScript(args []string, script string, stdout, stderr io.Wr
 	cmd.Stderr = stderr
 
 	if a.Env {
-		var es []string
-		es = append(es, os.Environ()...)
+		cmd.Env = append(cmd.Env, os.Environ()...)
 		for k, v := range a.globals {
-			es = append(es, fmt.Sprintf("%s=%s", k, v))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
 	return cmd.Run()
@@ -820,7 +820,14 @@ func (p *Parser) parseIdentifier() error {
 		p.nextToken()
 		switch p.curr.Type {
 		case value:
-			p.locals[ident] = append(p.locals[ident], p.curr.Literal)
+			switch lit := p.curr.Literal; lit {
+			case "-":
+				p.locals[ident] = p.locals[ident][:0]
+			case "":
+				delete(p.locals, ident)
+			default:
+				p.locals[ident] = append(p.locals[ident], lit)
+			}
 		case variable:
 			val, ok := p.locals[p.curr.Literal]
 			if !ok {
@@ -1109,6 +1116,8 @@ func (x *lexer) nextValue(t *Token) {
 	switch {
 	case x.char == nl || x.char == comma || x.char == rparen:
 		t.Type = x.char
+	case x.char == '-':
+		t.Literal, t.Type = "-", value
 	case isQuote(x.char):
 		x.readString(t)
 	case x.char == percent:

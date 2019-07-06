@@ -1,41 +1,87 @@
-.ALL     = reload config1 config2
+.ALL     = reload config1 config2 # maestro all
+.DEFAULT = single # default action when no arguments is given to maestro
+
+# defines version, usage, about and help of this maestro file
 .HELP    = help
 .USAGE   = "sample.mf <action...>"
 .ABOUT   = "how to use sample maestro file"
-.DEFAULT = single
-.ECHO    = on
 .VERSION = "sample.mf 0.0.1"
 
-# meta varialbe - to be implemented
-# .TIMEOUT =
-# .NOCONFLICT =
+# other variables
+# .BIN  =       # directory where script will be written after variable subsitution
+# .ECHO =       # tell maestro to echo commands/scripts executed
+# .TIMEOUT =    # timeout to give to each executed commands
+# .NOCONFLICT = # behaviour of maestro when multiple commands have the same name
 
-# comment should be skipped
+# variables declaration
 datadir = /var/data
 tmpdir  = /var/tmp
 welcom  = "hello world"
 mode    = 644
-
-# assign datadir value to workdir
-workdir = %(datadir)
 env     = prod dev test
+
+# - delete the values of a variable without removing it
+env = -
+
+# assign value of variables to new variables
+workdir = %(datadir)
 dirs    = %(datadir) %(tmpdir) %(workdir)
 
+# declare add new variables in scope without assigning any values
 declare hello world
 
+# include variables/actions from other files
 # syntax 1
 # include tmp/globals.mf
 # include "tmp/variables.mf"
-# syntax 2: TODO
+# syntax 2
 # include (
 # 	"etc/maestro/globals.mf"
 # 	"etc/maestro/variables.mf"
 # )
 
+# declare variables that will be available in environment of executed commands
 export PATH /var/bin
 export HOME %(datadir)
 
-# echo %(welcom)
+# actionns
+# syntax
+# identifier[(properties)]: [dependencies]
+# 	[script]
+
+# action properties
+# shell:   shell used to execute commands of the script
+# help:    short help message
+# desc:    help of action
+# env:     include environment variables set via export command
+# ignore:  ignore errors of commands if any
+# retry:   re execute commands X times if it fails
+# delay:   wait X seconds before executing script
+# timeout: kill scripts X seconds after having executed script
+# workdir: set working directory of script
+# tag:     list of tags for an action (help to classify actions)
+# ...:     TBD
+
+# action dependencies
+# space separated list of actions
+# list actions that should be executed before the action itself
+# dependencies are executed sequentially in the given order
+# depedencies can be executed in parallel with TBD
+
+# actions script
+# each command of a script must start with at least one:
+# - space
+# - tab
+# blank lines are allowed between command of script
+# commands on multiple line are one and only one "script",
+# same as they were written in an unique file.sh
+# variables defined in maestro file will be replace by their values
+
+# empty actions:
+# name: dep dep
+# name: dep dep\n\t
+# name:\n\t
+# name:
 
 single(
 	shell="/bin/bash",
