@@ -13,8 +13,8 @@ type Parser struct {
 	// list of files already includes; usefull to detect cyclic include
 	includes []string
 
-	globals map[string]string
-	locals  map[string][]string
+	globals  map[string]string
+	locals   map[string][]string
 
 	frames []*frame
 }
@@ -27,7 +27,7 @@ func Parse(file string, is ...string) (*Parser, error) {
 	if err := p.pushFrame(file); err != nil {
 		return nil, err
 	}
-	for i := len(is) - 1; i >= 0; i-- {
+	for i := len(is)-1; i >= 0; i-- {
 		if err := p.pushFrame(is[i]); err != nil {
 			return nil, err
 		}
@@ -86,9 +86,9 @@ func (p *Parser) parseAction(m *Maestro) error {
 		locals:  make(map[string][]string),
 		globals: make(map[string]string),
 	}
-	p.nextToken()
-	if p.currIs(lparen) {
-		if err := p.parseProperties(&a); err != nil {
+
+	if err := p.nextExpect(lparen); err == nil {
+		if err = p.parseProperties(&a); err != nil {
 			return err
 		}
 	}
@@ -100,7 +100,7 @@ func (p *Parser) parseAction(m *Maestro) error {
 	for p.currIs(dependency) {
 		a.Dependencies = append(a.Dependencies, p.currLiteral())
 		if err := p.peekExpect(plus); err == nil {
-			// TBD
+			// dependency can be executed in parallel
 		}
 		p.nextToken()
 	}
@@ -129,8 +129,10 @@ func (p *Parser) parseProperties(a *Action) error {
 	p.nextToken() // consuming '(' token
 
 	valueOf := func() string {
+		p.nextToken()
 		var str string
 		switch lit := p.currLiteral(); p.currType() {
+		default:
 		case value:
 			str = lit
 		case variable:
@@ -148,7 +150,7 @@ func (p *Parser) parseProperties(a *Action) error {
 		if err := p.nextExpect(equal); err != nil {
 			return err
 		}
-		p.nextToken()
+
 		switch strings.ToLower(lit) {
 		default:
 			err = fmt.Errorf("%s: unknown option %s", a.Name, lit)
@@ -190,12 +192,7 @@ func (p *Parser) parseProperties(a *Action) error {
 		}
 		p.nextToken()
 	}
-	if !p.peekIs(colon) {
-		return p.peekError()
-	} else {
-		p.nextToken()
-	}
-	return nil
+	return p.peekExpect(colon)
 }
 
 func (p *Parser) parseCommand(m *Maestro) error {
@@ -444,7 +441,7 @@ func (p *Parser) peekError() error {
 	if len(p.frames) == 0 {
 		return fmt.Errorf("no tokens available")
 	}
-	n := len(p.frames) - 1
+	n := len(p.frames)-1
 	return p.frames[n].peekError()
 }
 
@@ -452,7 +449,7 @@ func (p *Parser) currError() error {
 	if len(p.frames) == 0 {
 		return fmt.Errorf("no tokens available")
 	}
-	n := len(p.frames) - 1
+	n := len(p.frames)-1
 	return p.frames[n].currError()
 }
 
