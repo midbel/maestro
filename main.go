@@ -63,16 +63,83 @@ func main() {
 	}
 }
 
+var usage = `
+{{- if .Desc}}
+	{{- .Desc}}
+{{else}}
+	{{- .Help}}
+
+{{ end -}}
+Properties:
+
+- shell  : {{.Shell}}
+- workdir: {{.Workdir}}
+- stdout : {{.Stdout}}
+- stderr : {{.Stderr}}
+- env    : {{.Env}}
+- ignore : {{.Ignore}}
+- retry  : {{.Retry}}
+- delay  : {{.Delay}}
+- timeout: {{.Timeout}}
+
+{{if .Locals -}}
+Local variables:
+
+{{range $k, $vs := .Locals}}
+	{{- printf "- %-12s: %s" $k (join $vs " ")}}
+{{end}}
+{{- end}}
+{{- if .Globals}}
+Environment Variables:
+
+{{range $k, $v := .Globals}}
+	{{- printf "- %-12s: %s" $k $v}}
+{{end}}
+{{- end}}
+{{if .Dependencies}}
+Dependencies:
+{{range .Dependencies}}
+- {{ . -}}
+{{end}}
+{{end}}
+`
+
+var summary = `
+{{usage .About}}
+{{if .Actions}}
+Available actions:
+
+{{range $k, $v := .Actions}}
+	{{- printf "  %-12s %s" $k (usage $v.Help)}}
+{{end}}
+{{end}}
+
+{{- if .Usage}}
+	{{- .Usage}}
+{{else}}
+	try maestro help <action|namespace> for more information about that topic!
+{{end}}
+`
+
+func strUsage(u string) string {
+	if u == "" {
+		u = "no description available"
+	}
+	return u
+}
+
 type Maestro struct {
 	Shell string // .SHELL
-	Echo  bool   // .ECHO
+
+	Parallel int  // .PARALLEL
+	Echo     bool // .ECHO
 
 	// special variables for actions
 	all []string // .ALL
 	cmd string   // .DEFAULT
 
-	Version string // .VERSION
 	Name    string // .NAME
+	Version string // .VERSION
 	About   string // .ABOUT
 	Usage   string // .USAGE
 	Help    string // .HELP
@@ -186,30 +253,6 @@ func (m Maestro) ExecuteHelp(action string) error {
 	return a.Usage()
 }
 
-var summary = `
-{{usage .About}}
-{{if .Actions}}
-Available actions:
-
-{{range $k, $v := .Actions}}
-	{{- printf "  %-12s %s" $k (usage $v.Help)}}
-{{end}}
-{{end}}
-
-{{- if .Usage}}
-	{{- .Usage}}
-{{else}}
-	try maestro help <action|namespace> for more information about that topic!
-{{end}}
-`
-
-func strUsage(u string) string {
-	if u == "" {
-		u = "no description available"
-	}
-	return u
-}
-
 func (m Maestro) Summary() error {
 	fs := template.FuncMap{
 		"usage": strUsage,
@@ -227,6 +270,7 @@ type Action struct {
 	Desc string
 	Tags []string
 
+	Parallel     int
 	Dependencies []string
 	// Dependencies []Action
 
@@ -247,47 +291,6 @@ type Action struct {
 	locals  map[string][]string
 	globals map[string]string
 }
-
-var usage = `
-{{- if .Desc}}
-	{{- .Desc}}
-{{else}}
-	{{- .Help}}
-
-{{ end -}}
-Properties:
-
-- shell  : {{.Shell}}
-- workdir: {{.Workdir}}
-- stdout : {{.Stdout}}
-- stderr : {{.Stderr}}
-- env    : {{.Env}}
-- ignore : {{.Ignore}}
-- retry  : {{.Retry}}
-- delay  : {{.Delay}}
-- timeout: {{.Timeout}}
-
-{{if .Locals -}}
-Local variables:
-
-{{range $k, $vs := .Locals}}
-	{{- printf "- %-12s: %s" $k (join $vs " ")}}
-{{end}}
-{{- end}}
-{{- if .Globals}}
-Environment Variables:
-
-{{range $k, $v := .Globals}}
-	{{- printf "- %-12s: %s" $k $v}}
-{{end}}
-{{- end}}
-{{if .Dependencies}}
-Dependencies:
-{{range .Dependencies}}
-- {{ . -}}
-{{end}}
-{{end}}
-`
 
 func (a Action) Usage() error {
 	fs := template.FuncMap{
@@ -602,6 +605,9 @@ func (p *Parser) parseAction(m *Maestro) error {
 	p.nextToken()
 	for p.curr.Type == dependency {
 		a.Dependencies = append(a.Dependencies, p.curr.Literal)
+		if p.peek.Type == plus {
+			p.nextToken()
+		}
 		p.nextToken()
 	}
 	a.Script = p.curr.Literal
@@ -812,6 +818,16 @@ func (p *Parser) parseMeta(m *Maestro) error {
 	case "DEFAULT":
 		m.cmd = lit
 	case "ECHO":
+	case "PARALLEL":
+		n, err := strconv.ParseInt(lit, 10, 64)
+		if err != nil && lit != "-" {
+			return err
+		}
+		if lit == "-" {
+			m.Parallel = -1
+		} else {
+			m.Parallel = int(n)
+		}
 	}
 	if p.peek.Type != nl {
 		return fmt.Errorf("syntax error: invalid token %s", p.peek)
@@ -998,6 +1014,8 @@ const (
 	comma     = ','
 	nl        = '\n'
 	backslash = '\\'
+	plus      = '+'
+	minus     = '-'
 )
 
 const (
@@ -1124,7 +1142,7 @@ func (x *lexer) nextValue(t *Token) {
 	switch {
 	case x.char == nl || x.char == comma || x.char == rparen:
 		t.Type = x.char
-	case x.char == '-':
+	case x.char == minus:
 		t.Literal, t.Type = "-", value
 	case isQuote(x.char):
 		x.readString(t)
@@ -1142,7 +1160,7 @@ func (x *lexer) nextDependency(t *Token) {
 	if isIdent(x.char) {
 		x.readIdent(t)
 		t.Type = dependency
-	} else if x.char == nl {
+	} else if x.char == nl || x.char == plus {
 		t.Type = x.char
 	} else {
 		t.Type = invalid

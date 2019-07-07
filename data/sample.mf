@@ -1,5 +1,11 @@
-.ALL     = reload config1 config2 # maestro all
-.DEFAULT = single # default action when no arguments is given to maestro
+# comment should be on their own line
+# a comment on the same line of a, eg, declaration is not allowed
+
+
+# maestro all
+.ALL     = reload config1 config2
+# default action when no arguments is given to maestro
+.DEFAULT = single
 
 # defines version, usage, about and help of this maestro file
 .HELP    = help
@@ -7,11 +13,18 @@
 .ABOUT   = "how to use sample maestro file"
 .VERSION = "sample.mf 0.0.1"
 
+# number of dependencies that can be run in parallel:
+# -: disable parallel
+# 0: no limit
+# X: max X dependencies can be run in parallel
+.PARALLEL = 10
+
 # other variables
 # .BIN  =       # directory where script will be written after variable subsitution
 # .ECHO =       # tell maestro to echo commands/scripts executed
 # .TIMEOUT =    # timeout to give to each executed commands
 # .NOCONFLICT = # behaviour of maestro when multiple commands have the same name
+
 
 # variables declaration
 datadir = /var/data
@@ -141,7 +154,7 @@ test: purge
 stop:
 	sudo service %(dummy) stop
 
-start: purge test
+start: purge+ test+
 	sudo service %(dummy) start
 
 restart(shell=bash, help="stop and start service"): stop start
