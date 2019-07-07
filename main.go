@@ -54,8 +54,8 @@ func main() {
 		return
 	}
 
-	switch flag.Arg(0) {
-	case "help":
+	switch action, args := flag.Arg(0), arguments(flag.Args()); action {
+	case "help", "":
 		if act := flag.Arg(1); act == "" {
 			err = m.Summary()
 		} else {
@@ -64,16 +64,20 @@ func main() {
 	case "version":
 		err = m.ExecuteVersion()
 	case "all":
-		err = m.ExecuteAll()
-	case "":
-		err = m.ExecuteDefault()
+		err = m.ExecuteAll(args)
+	case "default":
+		err = m.ExecuteDefault(args)
 	default:
-		err = m.Execute(flag.Args())
+		err = m.Execute(action, args)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(122)
 	}
+}
+
+func arguments(args []string) []string {
+	return args[1:]
 }
 
 var usage = `
@@ -228,28 +232,43 @@ func (m *Maestro) exportAction(bin string, a Action) error {
 	return nil
 }
 
-func (m Maestro) Execute(actions []string) error {
-	for _, a := range actions {
-		act, ok := m.Actions[a]
-		if !ok {
-			return fmt.Errorf("%s: action not found!", a)
-		}
-		deps, err := m.dependencies(act)
-		if err != nil {
-			return err
-		}
-		for _, d := range deps {
-			a := m.Actions[d]
-			if m.Debug {
-				fmt.Printf("> %s (%s)\n", a.Name, a.Help)
-				fmt.Println(a.String())
-			} else {
-				if err := a.Execute(); err != nil {
-					return fmt.Errorf("%s: %s", a, err)
-				}
+func (m Maestro) Execute(a string, args []string) error {
+	act, ok := m.Actions[a]
+	if !ok {
+		return fmt.Errorf("%s: action not found!", a)
+	}
+
+	set := flag.NewFlagSet(a, flag.ExitOnError)
+	set.StringVar(&act.Shell, "shell", act.Shell, "shell")
+	set.StringVar(&act.Workdir, "workdir", act.Workdir, "working directory")
+	set.StringVar(&act.Stdout, "stdout", act.Stdout, "stdout")
+	set.StringVar(&act.Stderr, "stderr", act.Stderr, "stderr")
+	set.BoolVar(&act.Inline, "inline", act.Inline, "inline")
+	set.BoolVar(&act.Env, "env", act.Env, "environment")
+	set.BoolVar(&act.Ignore, "ignore", act.Ignore, "ignore error")
+	set.Int64Var(&act.Retry, "retry", act.Retry, "retry on failure")
+	set.DurationVar(&act.Delay, "delay", act.Delay, "delay")
+	set.DurationVar(&act.Timeout, "timeout", act.Timeout, "timeout")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+
+	deps, err := m.dependencies(act)
+	if err != nil {
+		return err
+	}
+	for _, d := range deps {
+		a := m.Actions[d]
+		if m.Debug {
+			fmt.Printf("> %s (%s)\n", a.Name, a.Help)
+			fmt.Println(a.String())
+		} else {
+			if err := a.Execute(); err != nil {
+				return fmt.Errorf("%s: %s", a, err)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -300,20 +319,26 @@ func (m Maestro) dependencies(act Action) ([]string, error) {
 	return reverse(deps), nil
 }
 
-func (m Maestro) ExecuteAll() error {
-	return m.Execute(m.all)
+func (m Maestro) ExecuteAll(args []string) error {
+	var err error
+	for _, a := range m.all {
+		if err = m.Execute(a, args); err != nil {
+			break
+		}
+	}
+	return err
 }
 
-func (m Maestro) ExecuteDefault() error {
+func (m Maestro) ExecuteDefault(args []string) error {
 	switch m.cmd {
 	case "all":
-		return m.ExecuteAll()
+		return m.ExecuteAll(args)
 	case "help":
 		return m.Summary()
 	case "version":
 		return m.ExecuteVersion()
 	default:
-		return m.Execute([]string{m.cmd})
+		return m.Execute(m.cmd, args)
 	}
 }
 

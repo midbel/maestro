@@ -100,6 +100,13 @@ export HOME %(datadir)
 # same as they were written in an unique file.sh
 # variables defined in maestro file will be replace by their values
 
+# action options+arguments
+# each action can be specified its own set of options and arguments
+# syntax: probably via action properties TBC
+# each action has a default set of options. these options allow to overwrite
+# properties set (or not) to action
+# eg: maestro action -shell bash -workdir $PWD -retry 0 <arg0> <arg1>
+
 # empty actions:
 # name: dep dep
 # name: dep dep\n\t
