@@ -1,16 +1,16 @@
 package main
 
 import (
-	"time"
-	"text/template"
-	"os"
-	"os/exec"
-	"unicode/utf8"
-	"strconv"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	"text/template"
+	"time"
+	"unicode/utf8"
 
 	"golang.org/x/sync/errgroup"
 )
