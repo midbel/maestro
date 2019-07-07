@@ -233,6 +233,7 @@ type Action struct {
 	Script string
 	Shell  string // bash, sh, ksh, python,...
 
+	Inline  bool
 	Env     bool
 	Ignore  bool
 	Retry   int64
@@ -367,6 +368,9 @@ func (a Action) executeScript(args []string, script string, stdout, stderr io.Wr
 	if a.Delay > 0 {
 		time.Sleep(a.Delay)
 	}
+	if a.Inline {
+		args = append(args, script)
+	}
 	cmd := exec.Command(args[0], args[1:]...)
 	// cmd := exec.Command(args[0], append(args[1:], script)...)
 	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
@@ -377,7 +381,9 @@ func (a Action) executeScript(args []string, script string, stdout, stderr io.Wr
 		}
 	}
 
-	cmd.Stdin = strings.NewReader(script)
+	if !a.Inline {
+		cmd.Stdin = strings.NewReader(script)
+	}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
@@ -674,6 +680,8 @@ func (p *Parser) parseProperties(a *Action) error {
 			a.Stdout = valueOf()
 		case "stderr":
 			a.Stderr = valueOf()
+		case "inline":
+			a.Inline, err = strconv.ParseBool(valueOf())
 		}
 		if err != nil {
 			return err

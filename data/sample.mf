@@ -60,13 +60,21 @@ export HOME %(datadir)
 # timeout: kill scripts X seconds after having executed script
 # workdir: set working directory of script
 # tag:     list of tags for an action (help to classify actions)
+# stdout:  specify standard output of command
+# stderr:  specify standard error of command
+# inline:  if not set (default), script will be given to stdin of shell
 # ...:     TBD
 
 # action dependencies
 # space separated list of actions
 # list actions that should be executed before the action itself
 # dependencies are executed sequentially in the given order
-# depedencies can be executed in parallel with TBD
+
+# depedencies can be executed in parallel with the following syntax:
+# action: dep+ dep+ dep dep+ dep+
+# first two deps will be executed in parallel. Then, when both are done
+# the third will be executed. Then the two last dep will be executed
+# in parallel
 
 # actions script
 # each command of a script must start with at least one:
