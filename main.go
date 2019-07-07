@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +21,8 @@ const DefaultShell = "/bin/sh -c"
 func main() {
 	debug := flag.Bool("debug", false, "debug")
 	echo := flag.Bool("echo", false, "echo")
+	export := flag.Bool("export", false, "export")
+	bindir := flag.String("bin", "", "scripts directory")
 	// incl := flag.String("include", "", "")
 	file := flag.String("file", "maestro.mf", "")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
@@ -40,6 +43,14 @@ func main() {
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
 	m.Echo = *echo
+
+	if *export {
+		if err := m.ExportScripts(*bindir, flag.Args()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(125)
+		}
+		return
+	}
 
 	switch flag.Arg(0) {
 	case "help":
@@ -130,6 +141,7 @@ func strUsage(u string) string {
 
 type Maestro struct {
 	Shell string // .SHELL
+	Bin   string // .BIN: directory where scripts will be written
 
 	Parallel int  // .PARALLEL
 	Echo     bool // .ECHO
@@ -149,6 +161,69 @@ type Maestro struct {
 	Debug   bool
 	Nodeps  bool
 	Noskip  bool
+}
+
+func (m *Maestro) ExportScripts(bin string, actions []string) error {
+	if bin != "" {
+		if i, err := os.Stat(bin); err != nil || !i.IsDir() {
+			return fmt.Errorf("%s: not a directory", bin)
+		}
+	} else {
+		bin = m.Bin
+	}
+	var as []Action
+	for _, a := range actions {
+		act, ok := m.Actions[a]
+		if !ok {
+			return fmt.Errorf("%s: action not found!", a)
+		}
+		as = append(as, act)
+	}
+	if len(as) == 0 {
+		for _, a := range m.Actions {
+			as = append(as, a)
+		}
+	}
+	for _, a := range as {
+		if err := m.exportAction(bin, a); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Maestro) exportAction(bin string, a Action) error {
+	deps, err := m.dependencies(a)
+	if err != nil {
+		return err
+	}
+	file := filepath.Join(bin, a.Name+".sh")
+	w, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0755)
+	if err != nil {
+		return err
+	}
+
+	if cmd, err := exec.LookPath(a.Shell); err == nil {
+		fmt.Fprintf(w, "#! %s\n", cmd)
+		fmt.Fprintln(w)
+	}
+	for i, d := range deps {
+		a, ok := m.Actions[d]
+		if !ok {
+			return fmt.Errorf("%s: action not found!", a)
+		}
+		fmt.Fprintf(w, "# %s: %s\n", a.Name, a.Help)
+		fmt.Fprintln(w, a.String())
+		if i < len(deps)-1 {
+			fmt.Fprintln(w)
+		}
+	}
+
+	if err := w.Close(); err != nil {
+		os.Remove(file)
+		return err
+	}
+	return nil
 }
 
 func (m Maestro) Execute(actions []string) error {
@@ -600,6 +675,7 @@ func (p *Parser) parseAction(m *Maestro) error {
 		}
 	}
 	if p.peek.Type == ident {
+		m.Actions[a.Name] = a
 		return nil
 	}
 	p.nextToken()
