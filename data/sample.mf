@@ -63,19 +63,21 @@ export HOME %(datadir)
 # 	[script]
 
 # action properties
-# shell:   shell used to execute commands of the script
-# help:    short help message
-# desc:    help of action
-# env:     include environment variables set via export command
-# ignore:  ignore errors of commands if any
-# retry:   re execute commands X times if it fails
-# delay:   wait X seconds before executing script
-# timeout: kill scripts X seconds after having executed script
-# workdir: set working directory of script
-# tag:     list of tags for an action (help to classify actions)
-# stdout:  specify standard output of command
-# stderr:  specify standard error of command
-# inline:  if not set (default), script will be given to stdin of shell
+# shell:    shell used to execute commands of the script
+# help:     short help message
+# desc:     help of action
+# env:      include environment variables set via export command
+# ignore:   ignore errors of commands if any
+# retry:    re execute commands X times if it fails
+# delay:    wait X seconds before executing script
+# timeout:  kill scripts X seconds after having executed script
+# workdir:  set working directory of script
+# tag:      list of tags for an action (help to classify actions)
+# stdout:   specify standard output of command
+# stderr:   specify standard error of command
+# inline:   if not set (default), script will be given to stdin of shell
+# repeat:   command should be repeated X times (TBD)
+# parallel: command could be exexecuted in parallel when it should be repeated (TBD)
 # ...:     TBD
 
 # action dependencies

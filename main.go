@@ -14,6 +14,8 @@ import (
 	"text/template"
 	"time"
 	"unicode/utf8"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const DefaultShell = "/bin/sh -c"
@@ -339,13 +341,54 @@ func (m Maestro) Summary() error {
 	return t.Execute(os.Stdout, m)
 }
 
+type MultiAction struct {
+	actions  []Action
+	parallel int
+}
+
+func (m MultiAction) Execute() error {
+	if len(m.actions) == 1 {
+		return m.executeSingle(0)
+	}
+	if m.parallel <= 0 {
+		return m.executeSequential()
+	}
+	var (
+		group errgroup.Group
+		sema  = make(chan struct{}, m.parallel)
+	)
+	for i := range m.actions {
+		sema <- struct{}{}
+		j := i
+		group.Go(func() error {
+			err := m.executeSingle(j)
+			<-sema
+			return err
+		})
+	}
+	return group.Wait()
+}
+
+func (m MultiAction) executeSequential() error {
+	var err error
+	for i := range m.actions {
+		if err = m.executeSingle(i); err != nil {
+			break
+		}
+	}
+	return err
+}
+
+func (m MultiAction) executeSingle(i int) error {
+	return m.actions[i].Execute()
+}
+
 type Action struct {
 	Name string
 	Help string
 	Desc string
 	Tags []string
 
-	Parallel     int
 	Dependencies []string
 	// Dependencies []Action
 
@@ -361,6 +404,10 @@ type Action struct {
 	Workdir string
 	Stdout  string
 	Stderr  string
+
+	// command could be repeated X times (could be in parallel)
+	// Repeat   int
+	// Parallel bool
 
 	// environment variables + locals variables
 	locals  map[string][]string
@@ -405,34 +452,8 @@ func (a Action) Execute() error {
 		return fmt.Errorf("%s: fail to parse shell", a.Shell)
 	}
 
-	var wout, werr io.Writer
-	if a.Stdout == "" {
-		wout = os.Stdout
-	} else if a.Stdout == "discard" {
-		wout = ioutil.Discard
-	} else {
-		w, err := os.OpenFile(a.Stdout+".out", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer w.Close()
-		wout = w
-	}
-	if a.Stderr == "" {
-		werr = os.Stderr
-	} else if a.Stderr == "discard" {
-		werr = ioutil.Discard
-	} else {
-		w, err := os.OpenFile(a.Stderr+".err", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer w.Close()
-		werr = w
-	}
-
 	for i := int64(0); i < a.Retry; i++ {
-		if err = a.executeScript(args, script, wout, werr); err == nil {
+		if err = a.executeScript(args, script); err == nil {
 			break
 		}
 	}
@@ -442,7 +463,8 @@ func (a Action) Execute() error {
 	return err
 }
 
-func (a Action) executeScript(args []string, script string, stdout, stderr io.Writer) error {
+func (a Action) executeScript(args []string, script string) error {
+
 	if a.Delay > 0 {
 		time.Sleep(a.Delay)
 	}
@@ -462,8 +484,22 @@ func (a Action) executeScript(args []string, script string, stdout, stderr io.Wr
 	if !a.Inline {
 		cmd.Stdin = strings.NewReader(script)
 	}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	openFD := func(n string, w io.Writer) (io.Writer, error) {
+		if n == "" {
+			return w, nil
+		} else if n == "discard" || n == "-" {
+			return ioutil.Discard, nil
+		} else {
+			return os.OpenFile(n+".err", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		}
+	}
+	var err error
+	if cmd.Stdout, err = openFD(a.Stdout, os.Stdout); err != nil {
+		return err
+	}
+	if cmd.Stderr, err = openFD(a.Stderr, os.Stderr); err != nil {
+		return err
+	}
 
 	if a.Env {
 		cmd.Env = append(cmd.Env, os.Environ()...)
