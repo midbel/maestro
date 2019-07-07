@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -11,93 +10,32 @@ import (
 )
 
 type Parser struct {
-	lex *lexer
+	// list of files already includes; usefull to detect cyclic include
+	includes []string
 
-	includes []string // list of files already includes; usefull to detect cyclic include
-	globals  map[string]string
-	locals   map[string][]string
-
-	curr Token
-	peek Token
+	globals map[string]string
+	locals  map[string][]string
 
 	frames []*frame
 }
 
-func ParseFile(file string) (*Parser, error) {
-	r, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
-	p, err := parseReader(r)
-	if err == nil {
-		p.includes = append(p.includes, file)
-	}
-	return p, err
-}
-
-// func ParseFileWithIncludes(file string, inc ...string) (*Parser, error) {
-// 	// 1: parse all files to be included
-// 	// 2: parse main file
-// 	return nil, nil
-// }
-
-func parseReader(r io.Reader) (*Parser, error) {
-	lex, err := Lex(r)
-	if err != nil {
-		return nil, err
-	}
+func Parse(file string, is ...string) (*Parser, error) {
 	p := Parser{
-		lex:     lex,
 		globals: make(map[string]string),
 		locals:  make(map[string][]string),
+	}
+	if err := p.pushFrame(file); err != nil {
+		return nil, err
+	}
+	for i := len(is) - 1; i >= 0; i-- {
+		if err := p.pushFrame(is[i]); err != nil {
+			return nil, err
+		}
 	}
 	p.nextToken()
 	p.nextToken()
 
 	return &p, nil
-}
-
-func (p *Parser) parseFile(file string, mst *Maestro) error {
-	sort.Strings(p.includes)
-	ix := sort.SearchStrings(p.includes, file)
-	if ix < len(p.includes) && p.includes[ix] == file {
-		return fmt.Errorf("%s: cyclic include detected!", file)
-	}
-	p.includes = append(p.includes, file)
-
-	r, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	x, err := Lex(r)
-	if err != nil {
-		return err
-	}
-	// save current state of parser
-	curr, peek := p.curr, p.peek
-	x, p.lex = p.lex, x
-
-	// init curr and peek token from  new lexer
-	p.nextToken()
-	p.nextToken()
-
-	if m, err := p.Parse(); err != nil {
-		return err
-	} else {
-		for k, a := range m.Actions {
-			mst.Actions[k] = a
-		}
-	}
-
-	// restore state of parser (TODO: using kind of frame could make code cleaner)
-	p.lex = x
-	p.curr, p.peek = curr, peek
-
-	return nil
 }
 
 func (p *Parser) Parse() (*Maestro, error) {
@@ -107,23 +45,23 @@ func (p *Parser) Parse() (*Maestro, error) {
 	}
 
 	var err error
-	for p.curr.Type != eof {
-		switch p.curr.Type {
+	for p.currType() != eof {
+		switch p.currType() {
 		case meta:
 			err = p.parseMeta(&mst)
 		case ident:
-			switch p.peek.Type {
+			switch p.peekType() {
 			case equal:
 				err = p.parseIdentifier()
 			case colon, lparen:
 				err = p.parseAction(&mst)
 			default:
-				err = fmt.Errorf("syntax error: invalid token %s", p.peek)
+				err = p.peekError()
 			}
 		case command:
 			err = p.parseCommand(&mst)
 		default:
-			err = fmt.Errorf("not yet supported: %s", p.curr)
+			err = p.currError()
 		}
 		if err != nil {
 			return nil, err
@@ -133,32 +71,40 @@ func (p *Parser) Parse() (*Maestro, error) {
 	return &mst, nil
 }
 
+func (p *Parser) parseFile(file string, mst *Maestro) error {
+	err := p.pushFrame(file)
+	if err == nil {
+		p.nextToken()
+		p.nextToken()
+	}
+	return err
+}
+
 func (p *Parser) parseAction(m *Maestro) error {
 	a := Action{
-		Name:    p.curr.Literal,
+		Name:    p.currLiteral(),
 		locals:  make(map[string][]string),
 		globals: make(map[string]string),
 	}
 	p.nextToken()
-	if p.curr.Type == lparen {
-		// parsing action properties
+	if p.currIs(lparen) {
 		if err := p.parseProperties(&a); err != nil {
 			return err
 		}
 	}
-	if p.peek.Type == ident {
+	if p.peekIs(ident) {
 		m.Actions[a.Name] = a
 		return nil
 	}
 	p.nextToken()
-	for p.curr.Type == dependency {
-		a.Dependencies = append(a.Dependencies, p.curr.Literal)
-		if p.peek.Type == plus {
-			p.nextToken()
+	for p.currIs(dependency) {
+		a.Dependencies = append(a.Dependencies, p.currLiteral())
+		if err := p.peekExpect(plus); err == nil {
+			// TBD
 		}
 		p.nextToken()
 	}
-	a.Script = p.curr.Literal
+	a.Script = p.currLiteral()
 	for k, vs := range p.locals {
 		switch k {
 		case "help", "desc":
@@ -184,11 +130,11 @@ func (p *Parser) parseProperties(a *Action) error {
 
 	valueOf := func() string {
 		var str string
-		switch p.curr.Type {
+		switch lit := p.currLiteral(); p.currType() {
 		case value:
-			str = p.curr.Literal
+			str = lit
 		case variable:
-			vs, ok := p.locals[p.curr.Literal]
+			vs, ok := p.locals[lit]
 			if ok && len(vs) >= 1 {
 				str = vs[0]
 			}
@@ -197,16 +143,15 @@ func (p *Parser) parseProperties(a *Action) error {
 	}
 
 	var err error
-	for p.curr.Type != rparen {
-		lit := p.curr.Literal
-		p.nextToken()
-		if p.curr.Type != equal {
-			return fmt.Errorf("syntax error: invalid token %s", p.curr)
+	for !p.currIs(rparen) {
+		lit := p.currLiteral()
+		if err := p.nextExpect(equal); err != nil {
+			return err
 		}
 		p.nextToken()
 		switch strings.ToLower(lit) {
 		default:
-			err = fmt.Errorf("%s: unknown option %s", a.Name, p.curr.Literal)
+			err = fmt.Errorf("%s: unknown option %s", a.Name, lit)
 		case "tag":
 			a.Tags = append(a.Tags, valueOf())
 		case "shell":
@@ -240,13 +185,13 @@ func (p *Parser) parseProperties(a *Action) error {
 		if err != nil {
 			return err
 		}
-		if p.peek.Type == comma {
-			p.nextToken()
+		if err := p.peekExpect(comma); err == nil {
+			// p.nextToken()
 		}
 		p.nextToken()
 	}
-	if p.peek.Type != colon {
-		return fmt.Errorf("syntax error: invalid token %s", p.peek)
+	if !p.peekIs(colon) {
+		return p.peekError()
 	} else {
 		p.nextToken()
 	}
@@ -254,7 +199,7 @@ func (p *Parser) parseProperties(a *Action) error {
 }
 
 func (p *Parser) parseCommand(m *Maestro) error {
-	ident := p.curr.Literal
+	ident := p.currLiteral()
 	n, ok := commands[ident]
 	if !ok {
 		return fmt.Errorf("%s: unknown command", ident)
@@ -266,13 +211,13 @@ func (p *Parser) parseCommand(m *Maestro) error {
 	values := make([]string, 0, x)
 	for {
 		p.nextToken()
-		switch p.curr.Type {
+		switch p.currType() {
 		case value:
-			values = append(values, p.curr.Literal)
+			values = append(values, p.currLiteral())
 		case variable:
-			val, ok := p.locals[p.curr.Literal]
+			val, ok := p.locals[p.currLiteral()]
 			if !ok {
-				return fmt.Errorf("%s: not defined", p.curr.Literal)
+				return fmt.Errorf("%s: not defined", p.currLiteral())
 			}
 			values = append(values, val...)
 		case nl:
@@ -294,7 +239,7 @@ func (p *Parser) parseCommand(m *Maestro) error {
 			}
 			return err
 		default:
-			return fmt.Errorf("syntax error: invalid token %s", p.curr)
+			return p.currError()
 		}
 	}
 }
@@ -334,23 +279,18 @@ func (p *Parser) executeClear() error {
 }
 
 func (p *Parser) parseMeta(m *Maestro) error {
-	ident := p.curr.Literal
+	ident := p.currLiteral()
 
-	p.nextToken()
-	if p.curr.Type != equal {
-		return fmt.Errorf("syntax error: invalid token %s", p.curr)
+	if err := p.nextExpect(equal, value); err != nil {
+		return err
 	}
-	p.nextToken()
-	if p.curr.Type != value {
-		return fmt.Errorf("syntax error: invalid token %s", p.curr)
-	}
-	switch lit := p.curr.Literal; ident {
+	switch lit := p.currLiteral(); ident {
 	case "ALL":
-		for p.peek.Type != nl {
-			if p.curr.Type != value {
-				return fmt.Errorf("syntax error: invalid token %s", p.curr)
+		for !p.peekIs(nl) {
+			if !p.currIs(value) {
+				return p.currError()
 			}
-			m.all = append(m.all, p.curr.Literal)
+			m.all = append(m.all, p.currLiteral())
 			p.nextToken()
 		}
 	case "NAME":
@@ -377,22 +317,18 @@ func (p *Parser) parseMeta(m *Maestro) error {
 			m.Parallel = int(n)
 		}
 	}
-	if p.peek.Type != nl {
-		return fmt.Errorf("syntax error: invalid token %s", p.peek)
-	}
-	p.nextToken()
-	return nil
+	return p.nextExpect(nl)
 }
 
 func (p *Parser) parseIdentifier() error {
-	ident := p.curr.Literal
+	ident := p.currLiteral()
 
 	p.nextToken() // consuming '=' token
 	for {
 		p.nextToken()
-		switch p.curr.Type {
+		switch p.currType() {
 		case value:
-			switch lit := p.curr.Literal; lit {
+			switch lit := p.currLiteral(); lit {
 			case "-":
 				p.locals[ident] = p.locals[ident][:0]
 			case "":
@@ -401,46 +337,76 @@ func (p *Parser) parseIdentifier() error {
 				p.locals[ident] = append(p.locals[ident], lit)
 			}
 		case variable:
-			val, ok := p.locals[p.curr.Literal]
+			val, ok := p.locals[p.currLiteral()]
 			if !ok {
-				return fmt.Errorf("%s: not defined", p.curr.Literal)
+				return fmt.Errorf("%s: not defined", p.currLiteral())
 			}
 			p.locals[ident] = append(p.locals[ident], val...)
 		case nl:
 			return nil
 		default:
-			return fmt.Errorf("syntax error: invalid token %s", p.curr)
+			return p.currError()
 		}
 	}
 }
 
+func (p *Parser) nextExpect(ks ...rune) error {
+	for _, k := range ks {
+		p.nextToken()
+		if p.currType() != k {
+			return p.currError()
+		}
+	}
+	return nil
+}
+
+func (p *Parser) peekExpect(k rune) error {
+	var err error
+	if !p.peekIs(k) {
+		err = p.peekError()
+	} else {
+		p.nextToken()
+	}
+	return err
+}
+
+func (p *Parser) currIs(k rune) bool {
+	return p.currType() == k
+}
+
+func (p *Parser) peekIs(k rune) bool {
+	return p.peekType() == k
+}
+
 func (p *Parser) nextToken() {
-	p.curr = p.peek
-	p.peek = p.lex.Next()
+	n := len(p.frames) - 1
+	if !p.frames[n].Advance() {
+		p.popFrame()
+	}
 }
 
 func (p *Parser) pushFrame(file string) error {
+	sort.Strings(p.includes)
+	ix := sort.SearchStrings(p.includes, file)
+	if ix < len(p.includes) && p.includes[ix] == file {
+		return fmt.Errorf("%s: cyclic include detected!", file)
+	}
+	p.includes = append(p.includes, file)
+
 	r, err := os.Open(file)
 	if err != nil {
 		return err
 	}
 	x, err := Lex(r)
 	if err == nil {
-		f := frame{
-			lex:     x,
-			locals:  make(map[string][]string),
-			globals: make(map[string]string),
-		}
-		f.nextToken()
-		f.nextToken()
-
+		f := frame{lex: x, file: file}
 		p.frames = append(p.frames, &f)
 	}
 	return err
 }
 
 func (p *Parser) popFrame() {
-	if len(p.frames) == 0 {
+	if len(p.frames) <= 1 {
 		return
 	}
 	n := len(p.frames) - 1
@@ -450,17 +416,94 @@ func (p *Parser) popFrame() {
 	p.frames = p.frames[:n]
 }
 
-type frame struct {
-	lex *lexer
+func (p *Parser) currLiteral() string {
+	if len(p.frames) == 0 {
+		return ""
+	}
+	n := len(p.frames) - 1
+	return p.frames[n].String()
+}
 
-	locals  map[string][]string
-	globals map[string]string
+func (p *Parser) currType() rune {
+	if len(p.frames) == 0 {
+		return eof
+	}
+	n := len(p.frames) - 1
+	return p.frames[n].currType()
+}
+
+func (p *Parser) peekType() rune {
+	if len(p.frames) == 0 {
+		return eof
+	}
+	n := len(p.frames) - 1
+	return p.frames[n].peekType()
+}
+
+func (p *Parser) peekError() error {
+	if len(p.frames) == 0 {
+		return fmt.Errorf("no tokens available")
+	}
+	n := len(p.frames) - 1
+	return p.frames[n].peekError()
+}
+
+func (p *Parser) currError() error {
+	if len(p.frames) == 0 {
+		return fmt.Errorf("no tokens available")
+	}
+	n := len(p.frames) - 1
+	return p.frames[n].currError()
+}
+
+func (p *Parser) currToken() Token {
+	var t Token
+	if n := len(p.frames); n > 0 {
+		t = p.frames[n-1].curr
+	}
+	return t
+}
+
+func (p *Parser) peekToken() Token {
+	var t Token
+	if n := len(p.frames); n > 0 {
+		t = p.frames[n-1].peek
+	}
+	return t
+}
+
+type frame struct {
+	file string
+
+	lex *lexer
 
 	curr Token
 	peek Token
 }
 
-func (f *frame) nextToken() {
+func (f *frame) Advance() bool {
 	f.curr = f.peek
 	f.peek = f.lex.Next()
+
+	return f.curr.Type != eof
+}
+
+func (f *frame) String() string {
+	return f.curr.Literal
+}
+
+func (f *frame) peekType() rune {
+	return f.peek.Type
+}
+
+func (f *frame) currType() rune {
+	return f.curr.Type
+}
+
+func (f *frame) peekError() error {
+	return fmt.Errorf("syntax error: invalid token %s", f.peek)
+}
+
+func (f *frame) currError() error {
+	return fmt.Errorf("syntax error: invalid token %s", f.curr)
 }

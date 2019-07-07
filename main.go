@@ -23,7 +23,7 @@ func main() {
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
 	flag.Parse()
 
-	p, err := ParseFile(*file)
+	p, err := Parse(*file)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(123)
