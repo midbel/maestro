@@ -63,6 +63,8 @@ func (p *Parser) Parse() (*Maestro, error) {
 			default:
 				err = p.peekError()
 			}
+		case comment:
+			// ignore by the parser
 		case command:
 			err = p.parseCommand(&mst)
 		default:

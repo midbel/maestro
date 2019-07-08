@@ -34,6 +34,8 @@ func (t Token) String() string {
 		str = "dependency"
 	case meta:
 		str = "meta"
+	case comment:
+		str = "comment"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
@@ -223,8 +225,7 @@ func (x *lexer) nextDefault(t *Token) {
 	case isQuote(x.char):
 		x.readString(t)
 	case isComment(x.char):
-		x.skipComment()
-		x.nextDefault(t)
+		x.readComment(t)
 	case x.char == period:
 		x.readRune()
 		x.readIdent(t)
@@ -296,6 +297,18 @@ func (x *lexer) readValue(t *Token) {
 	}
 }
 
+func (x *lexer) readComment(t *Token) {
+	x.readRune()
+	if x.char == space {
+		x.skipSpace()
+	}
+	pos := x.pos
+	for x.char != nl {
+		x.readRune()
+	}
+	t.Literal, t.Type = string(x.inner[pos:x.pos]), comment
+}
+
 func (x *lexer) readString(t *Token) {
 	ticky := x.char == tick
 	var eos rune
@@ -351,12 +364,6 @@ func (x *lexer) unreadRune() {
 func (x *lexer) peekRune() rune {
 	k, _ := utf8.DecodeRune(x.inner[x.next:])
 	return k
-}
-
-func (x *lexer) skipComment() {
-	for x.char != nl {
-		x.readRune()
-	}
 }
 
 func (x *lexer) skipSpace() {
