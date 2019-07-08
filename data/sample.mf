@@ -57,12 +57,16 @@ declare hello world
 export PATH /var/bin
 export HOME %(datadir)
 
-# actionns
+# actions
+# =======
+#
 # syntax
+# ------
 # identifier[(properties)]: [dependencies]
 # 	[script]
 
 # action properties
+# -----------------
 # shell:    shell used to execute commands of the script
 # help:     short help message
 # desc:     help of action
@@ -79,33 +83,53 @@ export HOME %(datadir)
 # ...:     TBD
 
 # action dependencies
+# -------------------
 # space separated list of actions
 # list actions that should be executed before the action itself
 # dependencies are executed sequentially in the given order
-
-# depedencies can be executed in parallel with the following syntax:
-# action: dep+ dep+ dep dep+ dep+
-# first two deps will be executed in parallel. Then, when both are done
-# the third will be executed. Then the two last dep will be executed
-# in parallel
-
+#
+# depedencies can also be executed in parallel
+# scenarios:
+# 1. a dependency can be executed independantly of all others
+# 2. a group of dependencies can be executed independantly but
+#    they should start after a previous is terminated
+# 3. a dependency should wait for a group of independant dependencies
+#    running in parallel before starting.
+#
+# eg:
+# 1. action: A+ B C    => (A) B -> C => action
+# 2. action: A B+ C+   => A -> ((B)(C)) => action
+# 3. action: B+ C+ D   => ((B)(C)) -> D => action
+# 4. action: A B+ C+ D => A -> ((B)(C)) -> D => action
+# 5. action: A B C D   => A -> B -> C -> D => action
+#
+# cases 2, 3, 4 are not yet defined properly in term of syntax and behavior
+#
 # actions script
+# --------------
 # each command of a script must start with at least one:
 # - space
 # - tab
+#
 # blank lines are allowed between command of script
-# commands on multiple line are one and only one "script",
+# commands on multiple lines are one and only one "script",
 # same as they were written in an unique file.sh
 # variables defined in maestro file will be replace by their values
-
+#
 # action options+arguments
+# ------------------------
 # each action can be specified its own set of options and arguments
 # syntax: probably via action properties TBC
 # each action has a default set of options. these options allow to overwrite
 # properties set (or not) to action
 # eg: maestro action -shell bash -workdir $PWD -retry 0 <arg0> <arg1>
-
+# remaining arguments of the command line are available from their index (0 based)
+# there are two specials variables added:
+# @: list of arguments (separated by space)
+# #: number of arguments
+#
 # empty actions:
+# --------------
 # name: dep dep
 # name: dep dep\n\t
 # name:\n\t
