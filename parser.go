@@ -2,16 +2,20 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"sort"
+	"path/filepath"
+	// "sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/midbel/xxh"
 )
 
 type Parser struct {
-	// list of files already includes; usefull to detect cyclic include
-	includes []string
+	// hashes of files already includes; usefull to detect cyclic include
+	includes map[uint64]struct{}
 
 	globals map[string]string
 	locals  map[string][]string
@@ -21,8 +25,9 @@ type Parser struct {
 
 func Parse(file string, is ...string) (*Parser, error) {
 	p := Parser{
-		globals: make(map[string]string),
-		locals:  make(map[string][]string),
+		includes: make(map[uint64]struct{}),
+		globals:  make(map[string]string),
+		locals:   make(map[string][]string),
 	}
 	if err := p.pushFrame(file); err != nil {
 		return nil, err
@@ -383,20 +388,25 @@ func (p *Parser) nextToken() {
 }
 
 func (p *Parser) pushFrame(file string) error {
-	sort.Strings(p.includes)
-	ix := sort.SearchStrings(p.includes, file)
-	if ix < len(p.includes) && p.includes[ix] == file {
-		return fmt.Errorf("%s: cyclic include detected!", file)
-	}
-	p.includes = append(p.includes, file)
-
 	r, err := os.Open(file)
 	if err != nil {
 		return err
 	}
-	x, err := Lex(r)
+	defer r.Close()
+
+	digest := xxh.New64(0)
+	x, err := Lex(io.TeeReader(r, digest))
 	if err == nil {
-		f := frame{lex: x, file: file}
+		sum := digest.Sum64()
+		if _, ok := p.includes[sum]; ok {
+			return fmt.Errorf("%s: cyclic include detected!", file)
+		}
+		p.includes[sum] = struct{}{}
+
+		f := frame{
+			lex:  x,
+			file: file,
+		}
 		p.frames = append(p.frames, &f)
 	}
 	return err
@@ -498,9 +508,21 @@ func (f *frame) currType() rune {
 }
 
 func (f *frame) peekError() error {
-	return fmt.Errorf("syntax error: invalid token %s", f.peek)
+	file := f.file
+	if file == "" {
+		file = "<input>"
+	} else {
+		file = filepath.Base(file)
+	}
+	return fmt.Errorf("syntax error (%s): invalid token %s", file, f.peek)
 }
 
 func (f *frame) currError() error {
-	return fmt.Errorf("syntax error: invalid token %s", f.curr)
+	file := f.file
+	if file == "" {
+		file = "<input>"
+	} else {
+		file = filepath.Base(file)
+	}
+	return fmt.Errorf("syntax error (%s): invalid token %s", file, f.curr)
 }
