@@ -1,5 +1,36 @@
 package main
 
+import (
+	"fmt"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+type includes []string
+
+func (i *includes) Set(fs string) error {
+	files := *i
+	sort.Strings(files)
+	for _, f := range strings.Split(fs, ",") {
+		ix := sort.SearchStrings(files, f)
+		if ix < len(files) && files[ix] == f {
+			return fmt.Errorf("%s: already include", filepath.Base(f))
+		}
+		files = append(files[:ix], append([]string{f}, files[ix:]...)...)
+	}
+	*i = files
+	return nil
+}
+
+func (i *includes) String() string {
+	files := *i
+	if len(files) == 0 {
+		return ""
+	}
+	return strings.Join(files, ",")
+}
+
 func ParseShell(str string) []string {
 	const (
 		single byte = '\''

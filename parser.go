@@ -421,6 +421,11 @@ func (p *Parser) popFrame() {
 		return
 	}
 	p.frames = p.frames[:n]
+	if n := len(p.frames); n >= 1 {
+		n--
+		p.frames[n].Advance()
+		p.frames[n].Advance()
+	}
 }
 
 func (p *Parser) currLiteral() string {

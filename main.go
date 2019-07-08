@@ -13,17 +13,19 @@ import (
 const DefaultShell = "/bin/sh -c"
 
 func main() {
+	var incl includes
+	flag.Var(&incl, "i", "include files")
+	file := flag.String("f", "maestro.mf", "")
+
 	debug := flag.Bool("debug", false, "debug")
 	echo := flag.Bool("echo", false, "echo")
 	export := flag.Bool("export", false, "export")
 	bindir := flag.String("bin", "", "scripts directory")
-	// incl := flag.String("include", "", "")
-	file := flag.String("file", "maestro.mf", "")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
 	flag.Parse()
 
-	p, err := Parse(*file)
+	p, err := Parse(*file, []string(incl)...)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(123)
@@ -215,6 +217,7 @@ func (m Maestro) Execute(a string, args []string) error {
 	if err != nil {
 		return err
 	}
+	// fmt.Println(deps)
 	for _, d := range deps {
 		a := m.Actions[d]
 		if m.Debug {
