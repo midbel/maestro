@@ -190,6 +190,8 @@ func (m Maestro) Execute(a string, args []string) error {
 	}
 
 	set := flag.NewFlagSet(a, flag.ExitOnError)
+	set.Usage = func() { act.Usage() }
+
 	set.StringVar(&act.Shell, "shell", act.Shell, "shell")
 	set.StringVar(&act.Workdir, "workdir", act.Workdir, "working directory")
 	set.StringVar(&act.Stdout, "stdout", act.Stdout, "stdout")
@@ -200,8 +202,13 @@ func (m Maestro) Execute(a string, args []string) error {
 	set.Int64Var(&act.Retry, "retry", act.Retry, "retry on failure")
 	set.DurationVar(&act.Delay, "delay", act.Delay, "delay")
 	set.DurationVar(&act.Timeout, "timeout", act.Timeout, "timeout")
+
 	if err := set.Parse(args); err != nil {
 		return err
+	}
+
+	if flag.NArg() > 0 {
+		act.Args = append(act.Args, flag.Args()...)
 	}
 
 	deps, err := m.dependencies(act)

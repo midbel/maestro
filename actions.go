@@ -11,8 +11,6 @@ import (
 	"text/template"
 	"time"
 	"unicode/utf8"
-
-	"golang.org/x/sync/errgroup"
 )
 
 var usage = `
@@ -56,48 +54,6 @@ Dependencies:
 {{end}}
 `
 
-type MultiAction struct {
-	actions  []Action
-	parallel int
-}
-
-func (m MultiAction) Execute() error {
-	if len(m.actions) == 1 {
-		return m.executeSingle(0)
-	}
-	if m.parallel <= 0 {
-		return m.executeSequential()
-	}
-	var (
-		group errgroup.Group
-		sema  = make(chan struct{}, m.parallel)
-	)
-	for i := range m.actions {
-		sema <- struct{}{}
-		j := i
-		group.Go(func() error {
-			err := m.executeSingle(j)
-			<-sema
-			return err
-		})
-	}
-	return group.Wait()
-}
-
-func (m MultiAction) executeSequential() error {
-	var err error
-	for i := range m.actions {
-		if err = m.executeSingle(i); err != nil {
-			break
-		}
-	}
-	return err
-}
-
-func (m MultiAction) executeSingle(i int) error {
-	return m.actions[i].Execute()
-}
-
 type Action struct {
 	Name string
 	Help string
@@ -105,7 +61,6 @@ type Action struct {
 	Tags []string
 
 	Dependencies []string
-	// Dependencies []Action
 
 	Script string
 	Shell  string // bash, sh, ksh, python,...
@@ -119,10 +74,8 @@ type Action struct {
 	Workdir string
 	Stdout  string
 	Stderr  string
-
-	// command could be repeated X times (could be in parallel)
-	// Repeat   int
-	// Parallel bool
+	// remaining arguments from command line
+	Args []string
 
 	// environment variables + locals variables
 	locals  map[string][]string
@@ -254,6 +207,10 @@ func (a Action) prepareScript() (string, error) {
 			}
 			if str == "TARGET" {
 				str = a.Name
+			} else if str == "#" {
+				str = strconv.Atoi(len(a.Args))
+			} else if str == "@" {
+				str = strings.Join(a.Args, " ")
 			} else if s, ok := a.locals[str]; ok {
 				str = strings.Join(s, " ")
 			} else {
@@ -277,7 +234,12 @@ func (a Action) prepareScript() (string, error) {
 				case "timeout":
 					str = a.Timeout.String()
 				default:
-					return "", fmt.Errorf("%s: variable not defined", str)
+					x, err := strconv.ParseInt(str, 10, 64)
+					if err == nil && (x >= 0 && x < len(a.Args)) {
+						str = a.Args[x]
+					} else {
+						return "", fmt.Errorf("%s: variable not defined", str)
+					}
 				}
 			}
 			b.WriteString(str)

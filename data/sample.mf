@@ -76,8 +76,6 @@ export HOME %(datadir)
 # stdout:   specify standard output of command
 # stderr:   specify standard error of command
 # inline:   if not set (default), script will be given to stdin of shell
-# repeat:   command should be repeated X times (TBD)
-# parallel: command could be exexecuted in parallel when it should be repeated (TBD)
 # ...:     TBD
 
 # action dependencies

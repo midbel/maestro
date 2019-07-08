@@ -13,8 +13,8 @@ type Parser struct {
 	// list of files already includes; usefull to detect cyclic include
 	includes []string
 
-	globals  map[string]string
-	locals   map[string][]string
+	globals map[string]string
+	locals  map[string][]string
 
 	frames []*frame
 }
@@ -27,7 +27,7 @@ func Parse(file string, is ...string) (*Parser, error) {
 	if err := p.pushFrame(file); err != nil {
 		return nil, err
 	}
-	for i := len(is)-1; i >= 0; i-- {
+	for i := len(is) - 1; i >= 0; i-- {
 		if err := p.pushFrame(is[i]); err != nil {
 			return nil, err
 		}
@@ -441,7 +441,7 @@ func (p *Parser) peekError() error {
 	if len(p.frames) == 0 {
 		return fmt.Errorf("no tokens available")
 	}
-	n := len(p.frames)-1
+	n := len(p.frames) - 1
 	return p.frames[n].peekError()
 }
 
@@ -449,7 +449,7 @@ func (p *Parser) currError() error {
 	if len(p.frames) == 0 {
 		return fmt.Errorf("no tokens available")
 	}
-	n := len(p.frames)-1
+	n := len(p.frames) - 1
 	return p.frames[n].currError()
 }
 
