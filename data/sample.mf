@@ -135,6 +135,15 @@ export HOME %(datadir)
 # name:\n\t
 # name:
 
+# action: possible features (not/never implemented)
+# -------------------------
+# connecting stdout/stderr of an action to stdin of another in action dependencies
+# eg:
+# action: dep0 1> dep1 // redirect stdout of dep0 to stdin of dep1
+# action: dep0 2> dep1 // redirect stderr of dep0 to stdin of dep1
+# action: dep0 &> dep1 // redirect stdout/stderr of dep0 to stdin of dep1
+# namespacing actions (new attempt)
+
 single(
 	shell="/bin/bash",
 	help="echo single target",
