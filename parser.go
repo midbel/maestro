@@ -1,11 +1,10 @@
-package main
+package maestro
 
 import (
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	// "sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +22,7 @@ type Parser struct {
 	frames []*frame
 }
 
-func Parse(file string, is ...string) (*Parser, error) {
+func Parse(file string, is ...string) (*Maestro, error) {
 	p := Parser{
 		includes: make(map[uint64]struct{}),
 		globals:  make(map[string]string),
@@ -40,7 +39,7 @@ func Parse(file string, is ...string) (*Parser, error) {
 	p.nextToken()
 	p.nextToken()
 
-	return &p, nil
+	return p.Parse()
 }
 
 func (p *Parser) Parse() (*Maestro, error) {

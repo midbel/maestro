@@ -28,6 +28,7 @@
 
 # variables declaration
 datadir = /var/data
+cachedir = /var/data/cache
 tmpdir  = /var/tmp
 welcom  = "hello world"
 mode    = 644
@@ -186,7 +187,7 @@ config2(
 
 dummy = dummy
 
-purge(tag=service):
+purge(tag=service, tag=hazardous, hazardous=true):
 	rm -rf %(datadir)
 	rm -rf %(cachedir)
 

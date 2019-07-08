@@ -1,4 +1,4 @@
-package main
+package maestro
 
 import (
 	"flag"
@@ -11,68 +11,6 @@ import (
 )
 
 const DefaultShell = "/bin/sh -c"
-
-func main() {
-	var incl includes
-	flag.Var(&incl, "i", "include files")
-	file := flag.String("f", "maestro.mf", "")
-
-	debug := flag.Bool("debug", false, "debug")
-	echo := flag.Bool("echo", false, "echo")
-	export := flag.Bool("export", false, "export")
-	bindir := flag.String("bin", "", "scripts directory")
-	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
-	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
-	flag.Parse()
-
-	p, err := Parse(*file, []string(incl)...)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(123)
-	}
-	m, err := p.Parse()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(125)
-	}
-	m.Debug = *debug
-	m.Nodeps = *nodeps
-	m.Noskip = *noskip
-	m.Echo = *echo
-
-	if *export {
-		if err := m.ExportScripts(*bindir, flag.Args()); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(125)
-		}
-		return
-	}
-
-	switch action, args := flag.Arg(0), arguments(flag.Args()); action {
-	case "help", "":
-		if act := flag.Arg(1); act == "" {
-			err = m.Summary()
-		} else {
-			err = m.ExecuteHelp(act)
-		}
-	case "version":
-		err = m.ExecuteVersion()
-	case "all":
-		err = m.ExecuteAll(args)
-	case "default":
-		err = m.ExecuteDefault(args)
-	default:
-		err = m.Execute(action, args)
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(122)
-	}
-}
-
-func arguments(args []string) []string {
-	return args[1:]
-}
 
 var summary = `
 {{usage .About}}
@@ -326,15 +264,13 @@ func (m Maestro) Summary() error {
 		return err
 	}
 	d := struct {
-		Usage   string
-		About   string
-		Tags    map[string][]Action
-		Actions map[string]Action
+		Usage string
+		About string
+		Tags  map[string][]Action
 	}{
-		Usage:   m.Usage,
-		About:   m.About,
-		Actions: m.Actions,
-		Tags:    make(map[string][]Action),
+		Usage: m.Usage,
+		About: m.About,
+		Tags:  make(map[string][]Action),
 	}
 	for _, a := range m.Actions {
 		if len(a.Tags) == 0 {
