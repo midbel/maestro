@@ -88,23 +88,6 @@ export HOME %(datadir)
 # list actions that should be executed before the action itself
 # dependencies are executed sequentially in the given order
 #
-# depedencies can also be executed in parallel
-# scenarios:
-# 1. a dependency can be executed independantly of all others
-# 2. a group of dependencies can be executed independantly but
-#    they should start after a previous is terminated
-# 3. a dependency should wait for a group of independant dependencies
-#    running in parallel before starting.
-#
-# eg:
-# 1. action: A+ B C    => (A) B -> C => action
-# 2. action: A B+ C+   => A -> ((B)(C)) => action
-# 3. action: B+ C+ D   => ((B)(C)) -> D => action
-# 4. action: A B+ C+ D => A -> ((B)(C)) -> D => action
-# 5. action: A B C D   => A -> B -> C -> D => action
-#
-# cases 2, 3, 4 are not yet defined properly in term of syntax and behavior
-#
 # actions script
 # --------------
 # each command of a script must start with at least one:
@@ -137,6 +120,22 @@ export HOME %(datadir)
 
 # action: possible features (not/never implemented)
 # -------------------------
+# depedencies can also be executed in parallel
+# scenarios:
+# 1. a dependency can be executed independantly of all others
+# 2. a group of dependencies can be executed independantly but
+#    they should start after a previous is terminated
+# 3. a dependency should wait for a group of independant dependencies
+#    running in parallel before starting.
+#
+# eg:
+# 1. action: A+ B C    => (A) B -> C => action
+# 2. action: A B+ C+   => A -> ((B)(C)) => action
+# 3. action: B+ C+ D   => ((B)(C)) -> D => action
+# 4. action: A B+ C+ D => A -> ((B)(C)) -> D => action
+# 5. action: A B C D   => A -> B -> C -> D => action
+#
+# cases 2, 3, 4 are not yet defined properly in term of syntax and behavior
 # connecting stdout/stderr of an action to stdin of another in action dependencies
 # eg:
 # action: dep0 1> dep1 // redirect stdout of dep0 to stdin of dep1

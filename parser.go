@@ -106,9 +106,6 @@ func (p *Parser) parseAction(m *Maestro) error {
 	p.nextToken()
 	for p.currIs(dependency) {
 		a.Dependencies = append(a.Dependencies, p.currLiteral())
-		if err := p.peekExpect(plus); err == nil {
-			// dependency can be executed in parallel
-		}
 		p.nextToken()
 	}
 	a.Script = p.currLiteral()
