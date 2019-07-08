@@ -65,6 +65,7 @@ type Action struct {
 	Script string
 	Shell  string // bash, sh, ksh, python,...
 
+	Hazard  bool
 	Inline  bool
 	Env     bool
 	Ignore  bool

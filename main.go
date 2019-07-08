@@ -76,13 +76,14 @@ func arguments(args []string) []string {
 
 var summary = `
 {{usage .About}}
-{{if .Actions}}
-Available actions:
-
-{{range $k, $v := .Actions}}
-	{{- printf "  %-12s %s" $k (usage $v.Help)}}
+{{if .Tags}}
+{{range $k, $vs := .Tags}}
+{{$k}} actions:
+{{range $vs}}
+- {{- printf "  %-12s %s" .Name (usage .Help) -}}{{if .Hazard}}*{{end -}}
 {{end}}
 {{end}}
+{{end -}}
 
 {{- if .Usage}}
 	{{- .Usage}}
@@ -324,5 +325,25 @@ func (m Maestro) Summary() error {
 	if err != nil {
 		return err
 	}
-	return t.Execute(os.Stdout, m)
+	d := struct {
+		Usage   string
+		About   string
+		Tags    map[string][]Action
+		Actions map[string]Action
+	}{
+		Usage:   m.Usage,
+		About:   m.About,
+		Actions: m.Actions,
+		Tags:    make(map[string][]Action),
+	}
+	for _, a := range m.Actions {
+		if len(a.Tags) == 0 {
+			d.Tags["miscellaneous"] = append(d.Tags["miscellaneous"], a)
+			continue
+		}
+		for _, t := range a.Tags {
+			d.Tags[t] = append(d.Tags[t], a)
+		}
+	}
+	return t.Execute(os.Stdout, d)
 }

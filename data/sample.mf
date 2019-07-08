@@ -146,12 +146,13 @@ export HOME %(datadir)
 single(
 	shell="/bin/bash",
 	help="echo single target",
+	tag=dummy
 ):
 	echo %(TARGET)
 
 	echo %(TARGET) %(datadir)
 
-multiline(help="echo multiple target and props"):
+multiline(help="echo multiple target and props", tag=dummy):
 	echo %(TARGET) %(PROPS)
 	echo %(TARGET) %(PROPS)
 
@@ -169,6 +170,7 @@ config1(
 	env=true,
 	workdir=%(datadir),
 	help="test configuration phase1",
+	tag=config,
 ):
   sudo service %(TARGET) test
 
@@ -177,23 +179,24 @@ config2(
 	shell=ksh,
 	env=true,
 	workdir=%(datadir),
-	help="test configuration phase2"
+	help="test configuration phase2",
+	tag=config,
 ):
 	sudo service %(TARGET) test
 
 dummy = dummy
 
-purge:
+purge(tag=service):
 	rm -rf %(datadir)
 	rm -rf %(cachedir)
 
-test: purge
+test(tag=service): purge
 	sudo service %(dummy) test
 
-stop:
+stop(tag=service):
 	sudo service %(dummy) stop
 
-start: purge+ test+
+start(tag=service): purge test
 	sudo service %(dummy) start
 
 restart(shell=bash, help="stop and start service"): stop start

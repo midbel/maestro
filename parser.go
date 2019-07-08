@@ -187,6 +187,8 @@ func (p *Parser) parseProperties(a *Action) error {
 			a.Stderr = valueOf()
 		case "inline":
 			a.Inline, err = strconv.ParseBool(valueOf())
+		case "hazardous":
+			a.Hazard, err = strconv.ParseBool(valueOf())
 		}
 		if err != nil {
 			return err
