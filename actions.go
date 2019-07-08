@@ -201,46 +201,9 @@ func (a Action) prepareScript() (string, error) {
 				k, nn = utf8.DecodeRune(script[x:])
 				x += nn
 			}
-			str := strings.Trim(string(script[n:x]), "()")
-			if len(str) == 0 {
-				return "", fmt.Errorf("script: invalid syntax")
-			}
-			if str == "TARGET" {
-				str = a.Name
-			} else if str == "#" {
-				str = strconv.Atoi(len(a.Args))
-			} else if str == "@" {
-				str = strings.Join(a.Args, " ")
-			} else if s, ok := a.locals[str]; ok {
-				str = strings.Join(s, " ")
-			} else {
-				switch str {
-				case "shell":
-					str = a.Shell
-				case "workdir":
-					str = a.Workdir
-				case "stdout":
-					str = a.Stdout
-				case "stderr":
-					str = a.Stderr
-				case "env":
-					str = strconv.FormatBool(a.Env)
-				case "ignore":
-					str = strconv.FormatBool(a.Ignore)
-				case "retry":
-					str = strconv.FormatInt(a.Retry, 10)
-				case "delay":
-					str = a.Delay.String()
-				case "timeout":
-					str = a.Timeout.String()
-				default:
-					x, err := strconv.ParseInt(str, 10, 64)
-					if err == nil && (x >= 0 && x < len(a.Args)) {
-						str = a.Args[x]
-					} else {
-						return "", fmt.Errorf("%s: variable not defined", str)
-					}
-				}
+			str, err := a.expandVariable(string(script[n:x]))
+			if err != nil {
+				return str, err
 			}
 			b.WriteString(str)
 			n = x
@@ -249,4 +212,49 @@ func (a Action) prepareScript() (string, error) {
 		}
 	}
 	return b.String(), nil
+}
+
+func (a Action) expandVariable(str string) (string, error) {
+	str = strings.Trim(str, "()")
+	if len(str) == 0 {
+		return "", fmt.Errorf("script: invalid syntax")
+	}
+	if str == "TARGET" {
+		str = a.Name
+	} else if str == "#" {
+		str = strconv.Itoa(len(a.Args))
+	} else if str == "@" {
+		str = strings.Join(a.Args, " ")
+	} else if s, ok := a.locals[str]; ok {
+		str = strings.Join(s, " ")
+	} else {
+		switch str {
+		case "shell":
+			str = a.Shell
+		case "workdir":
+			str = a.Workdir
+		case "stdout":
+			str = a.Stdout
+		case "stderr":
+			str = a.Stderr
+		case "env":
+			str = strconv.FormatBool(a.Env)
+		case "ignore":
+			str = strconv.FormatBool(a.Ignore)
+		case "retry":
+			str = strconv.FormatInt(a.Retry, 10)
+		case "delay":
+			str = a.Delay.String()
+		case "timeout":
+			str = a.Timeout.String()
+		default:
+			x, err := strconv.ParseInt(str, 10, 64)
+			if err == nil && (x >= 0 && int(x) < len(a.Args)) {
+				str = a.Args[x]
+			} else {
+				return "", fmt.Errorf("%s: variable not defined", str)
+			}
+		}
+	}
+	return str, nil
 }
