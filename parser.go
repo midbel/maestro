@@ -89,6 +89,7 @@ func (p *Parser) parseFile(file string, mst *Maestro) error {
 func (p *Parser) parseAction(m *Maestro) error {
 	a := Action{
 		Name:    p.currLiteral(),
+		Shell:   m.Shell,
 		locals:  make(map[string][]string),
 		globals: make(map[string]string),
 	}
@@ -117,9 +118,6 @@ func (p *Parser) parseAction(m *Maestro) error {
 	}
 	for k, v := range p.globals {
 		a.globals[k] = v
-	}
-	if a.Shell == "" {
-		a.Shell = m.Shell
 	}
 	if a.Retry <= 0 {
 		a.Retry = 1

@@ -83,7 +83,7 @@ func (m Maestro) Execute(a string, args []string) error {
 	}
 
 	if flag.NArg() > 0 {
-		act.Args = append(act.Args, flag.Args()...)
+		act.Args = append(act.Args, set.Args()...)
 	}
 
 	deps, err := m.groupDependencies(act)

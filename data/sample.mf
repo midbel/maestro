@@ -142,10 +142,10 @@ single(
 	echo %(TARGET) %(datadir)
 
 multiline(help="echo multiple target and props", tag=dummy):
-	echo %(TARGET) %(PROPS)
-	echo %(TARGET) %(PROPS)
+	echo %(TARGET) %(@)
+	echo %(TARGET) %(#)
 
-	echo %(TARGET) %(PROPS)
+	echo %(TARGET) %(shell)
 
 empty(help="do nothing"):
 sleep(shell=bash): empty single
