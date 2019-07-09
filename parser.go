@@ -246,40 +246,6 @@ func (p *Parser) parseCommand(m *Maestro) error {
 	}
 }
 
-func (p *Parser) executeInclude(m *Maestro, files []string) error {
-	for _, f := range files {
-		if err := p.parseFile(f, m); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Parser) executeDeclare(values []string) error {
-	for _, v := range values {
-		vs, ok := p.locals[v]
-		if ok {
-			return fmt.Errorf("declare: %s already declared", v)
-		}
-		p.locals[v] = vs
-	}
-	return nil
-}
-
-func (p *Parser) executeExport(values []string) error {
-	if len(values) != 2 {
-		return fmt.Errorf("export: wrong number of arguments")
-	}
-	p.globals[values[0]] = values[1]
-	return nil
-}
-
-func (p *Parser) executeClear() error {
-	p.locals = make(map[string][]string)
-	p.globals = make(map[string]string)
-	return nil
-}
-
 func (p *Parser) parseMeta(m *Maestro) error {
 	ident := p.currLiteral()
 
@@ -308,6 +274,11 @@ func (p *Parser) parseMeta(m *Maestro) error {
 	case "DEFAULT":
 		m.cmd = lit
 	case "ECHO":
+		echo, err := strconv.ParseBool(lit)
+		if err != nil {
+			return err
+		}
+		m.Echo = echo
 	case "PARALLEL":
 		n, err := strconv.ParseInt(lit, 10, 64)
 		if err != nil && lit != "-" {
@@ -350,6 +321,40 @@ func (p *Parser) parseIdentifier() error {
 			return p.currError()
 		}
 	}
+}
+
+func (p *Parser) executeInclude(m *Maestro, files []string) error {
+	for _, f := range files {
+		if err := p.parseFile(f, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *Parser) executeDeclare(values []string) error {
+	for _, v := range values {
+		vs, ok := p.locals[v]
+		if ok {
+			return fmt.Errorf("declare: %s already declared", v)
+		}
+		p.locals[v] = vs
+	}
+	return nil
+}
+
+func (p *Parser) executeExport(values []string) error {
+	if len(values) != 2 {
+		return fmt.Errorf("export: wrong number of arguments")
+	}
+	p.globals[values[0]] = values[1]
+	return nil
+}
+
+func (p *Parser) executeClear() error {
+	p.locals = make(map[string][]string)
+	p.globals = make(map[string]string)
+	return nil
 }
 
 func (p *Parser) nextExpect(ks ...rune) error {

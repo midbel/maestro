@@ -29,8 +29,8 @@ var summary = `
 
 {{- if .Usage}}
 	{{- .Usage}}
-{{else}}
-	try maestro help <action|namespace> for more information about that topic!
+{{- else -}}
+try maestro help <action|namespace> for more information about that topic!
 {{end}}
 `
 
