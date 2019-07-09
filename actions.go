@@ -112,6 +112,9 @@ func (a Action) String() string {
 }
 
 func (a Action) Execute() error {
+	if a.Script == "" {
+		return nil
+	}
 	script, err := a.prepareScript()
 	if err != nil {
 		return err
@@ -133,7 +136,6 @@ func (a Action) Execute() error {
 }
 
 func (a Action) executeScript(args []string, script string) error {
-
 	if a.Delay > 0 {
 		time.Sleep(a.Delay)
 	}
