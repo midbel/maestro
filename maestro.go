@@ -197,7 +197,7 @@ func (m Maestro) groupDependencies(a Action) ([][]string, error) {
 			}
 			c, ok := m.Actions[d]
 			if !ok {
-				return fmt.Errorf("%c: dependency not resolved!", d)
+				return fmt.Errorf("%s: dependency not resolved!", d)
 			}
 			for _, d := range c.Dependencies {
 				if _, ok := seen[d]; !m.Noskip && ok {
