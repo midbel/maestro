@@ -259,6 +259,8 @@ func (p *Parser) parseMeta(m *Maestro) error {
 			m.all = append(m.all, p.currLiteral())
 			p.nextToken()
 		}
+	case "SHELL":
+		m.Shell = lit
 	case "NAME":
 		m.Name = lit
 	case "VERSION":

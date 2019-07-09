@@ -13,11 +13,20 @@
 .ABOUT   = "how to use sample maestro file"
 .VERSION = "sample.mf 0.0.1"
 
+# special actions called at the beginning of the execution and at the end
+# .BEGIN =
+# .END   =
+# special action called at the end of an action depending of its setatus
+# .SUCCESS =
+# .FAILURE =
+
 # number of dependencies that can be run in parallel:
 # -: disable parallel
 # 0: no limit
 # X: max X dependencies can be run in parallel
 .PARALLEL = 10
+
+.SHELL = bash
 
 # other variables
 # .BIN  =       # directory where script will be written after variable subsitution
