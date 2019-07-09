@@ -31,13 +31,6 @@ var summary = `
 {{end}}
 `
 
-func strUsage(u string) string {
-	if u == "" {
-		u = "no description available"
-	}
-	return u
-}
-
 type Maestro struct {
 	Shell string // .SHELL
 	Bin   string // .BIN: directory where scripts will be written
@@ -90,7 +83,7 @@ func (m Maestro) Execute(a string, args []string) error {
 		act.Args = append(act.Args, flag.Args()...)
 	}
 
-	deps, err := m.dependencies(act)
+	deps, err := m.listDependencies(act)
 	if err != nil {
 		return err
 	}
@@ -104,7 +97,6 @@ func (m Maestro) Execute(a string, args []string) error {
 }
 
 func (m Maestro) executeDry(deps []string) {
-	fmt.Println(deps)
 	for i, d := range deps {
 		a := m.Actions[d]
 
@@ -128,15 +120,68 @@ func (m Maestro) executeChain(deps []string) error {
 	return err
 }
 
-func (m Maestro) dependencies(act Action) ([]string, error) {
+func (m Maestro) groupDependencies(a Action) ([][]string, error) {
+	if m.Nodeps {
+		return nil, nil
+	}
+	reverse := func(xs [][]string) [][]string {
+		for i, j := 0, len(xs)-1; i < len(xs)/2; i, j = i+1, j-1 {
+			xs[i], xs[j] = xs[j], xs[i]
+		}
+		return xs
+	}
+	var (
+		deps [][]string
+		walk func([]string) error
+		seen = make(map[string]struct{})
+	)
+
+	walk = func(ds []string) error {
+		if len(ds) == 0 {
+			return nil
+		}
+
+		all := make([]string, 0, len(ds)*4)
+		for _, d := range ds {
+			if d == a.Name {
+				return fmt.Errorf("%s: cyclic dependency for action!", a.Name)
+			}
+			c := m.Actions[d]
+			for _, d := range c.Dependencies {
+				if _, ok := seen[d]; !m.Noskip && ok {
+					continue
+				}
+				seen[d] = struct{}{}
+				all = append(all, d)
+			}
+		}
+		var err error
+		if len(all) > 0 {
+			deps = append(deps, all)
+			err = walk(all)
+		}
+		return err
+	}
+
+	deps = append(deps, a.Dependencies)
+	err := walk(deps[0])
+	if err == nil {
+		deps = reverse(deps)
+	}
+	return deps, err
+}
+
+func (m Maestro) listDependencies(act Action) ([]string, error) {
 	if m.Nodeps {
 		return []string{act.Name}, nil
 	}
 	reverse := func(vs []string) []string {
-		for i, j := 0, len(vs)-1; i < len(vs)/2; i, j = i+1, j-1 {
-			vs[i], vs[j] = vs[j], vs[i]
+		xs := make([]string, len(vs))
+		copy(xs, vs)
+		for i, j := 0, len(xs)-1; i < len(xs)/2; i, j = i+1, j-1 {
+			xs[i], xs[j] = xs[j], xs[i]
 		}
-		return vs
+		return xs
 	}
 	var (
 		walk func(Action, int) error
@@ -279,7 +324,7 @@ var scriptfile = `
 `
 
 func (m *Maestro) exportAction(bin string, a Action) error {
-	deps, err := m.dependencies(a)
+	deps, err := m.listDependencies(a)
 	if err != nil {
 		return err
 	}
