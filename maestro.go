@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -332,6 +333,13 @@ func (m Maestro) Summary() error {
 		for _, t := range a.Tags {
 			d.Tags[t] = append(d.Tags[t], a)
 		}
+	}
+	for t := range d.Tags {
+		ts := d.Tags[t]
+		sort.Slice(ts, func(i, j int) bool {
+			return ts[i].Name < ts[j].Name
+		})
+		d.Tags[t] = ts
 	}
 	return t.Execute(os.Stdout, d)
 }

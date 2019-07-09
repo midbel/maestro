@@ -90,5 +90,8 @@ func main() {
 }
 
 func arguments(args []string) []string {
-	return args[1:]
+	if len(args) >= 1 {
+		args = args[1:]
+	}
+	return args
 }
