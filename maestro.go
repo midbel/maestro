@@ -90,6 +90,15 @@ func (m *Maestro) ExportScripts(bin string, actions []string) error {
 	return nil
 }
 
+var scriptfile = `
+{{- if .Shell}}#! {{.Shell}}{{end}}
+
+{{range .Actions}}
+# {{.Name}}: {{.Help}}
+{{.String}}
+{{end}}
+`
+
 func (m *Maestro) exportAction(bin string, a Action) error {
 	deps, err := m.dependencies(a)
 	if err != nil {
@@ -100,28 +109,27 @@ func (m *Maestro) exportAction(bin string, a Action) error {
 	if err != nil {
 		return err
 	}
+	defer w.Close()
 
+	c := struct {
+		Shell   string
+		Actions []Action
+	}{}
 	if cmd, err := exec.LookPath(a.Shell); err == nil {
-		fmt.Fprintf(w, "#! %s\n", cmd)
-		fmt.Fprintln(w)
+		c.Shell = cmd
 	}
-	for i, d := range deps {
+	for _, d := range deps {
 		a, ok := m.Actions[d]
 		if !ok {
 			return fmt.Errorf("%s: action not found!", a)
 		}
-		fmt.Fprintf(w, "# %s: %s\n", a.Name, a.Help)
-		fmt.Fprintln(w, a.String())
-		if i < len(deps)-1 {
-			fmt.Fprintln(w)
-		}
+		c.Actions = append(c.Actions, a)
 	}
-
-	if err := w.Close(); err != nil {
-		os.Remove(file)
+	t, err := template.New("file").Parse(scriptfile)
+	if err != nil {
 		return err
 	}
-	return nil
+	return t.Execute(w, c)
 }
 
 func (m Maestro) Execute(a string, args []string) error {
