@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const DefaultShell = "/bin/sh -c"
@@ -108,6 +110,35 @@ func (m Maestro) executeDry(deps []string) {
 	}
 }
 
+func (m Maestro) executeAction(a Action, deps [][]string) error {
+	if m.Parallel < 0 {
+		fs := flatten(deps)
+		return m.executeChain(append(fs, a.Name))
+	}
+	if m.Parallel == 0 {
+		m.Parallel = (1 << 16) - 1
+	}
+	for i := 0; i < len(deps); i++ {
+		var (
+			group errgroup.Group
+			sema  = make(chan struct{}, m.Parallel)
+		)
+		for _, d := range deps[i] {
+			sema <- struct{}{}
+
+			a := m.Actions[d]
+			group.Go(func() error {
+				defer func() { <-sema }()
+				return a.Execute()
+			})
+		}
+		if err := group.Wait(); err != nil {
+			return err
+		}
+	}
+	return a.Execute()
+}
+
 func (m Maestro) executeChain(deps []string) error {
 	var err error
 	for _, d := range deps {
@@ -146,7 +177,10 @@ func (m Maestro) groupDependencies(a Action) ([][]string, error) {
 			if d == a.Name {
 				return fmt.Errorf("%s: cyclic dependency for action!", a.Name)
 			}
-			c := m.Actions[d]
+			c, ok := m.Actions[d]
+			if !ok {
+				return fmt.Errorf("%c: dependency not resolved!", d)
+			}
 			for _, d := range c.Dependencies {
 				if _, ok := seen[d]; !m.Noskip && ok {
 					continue
