@@ -85,21 +85,22 @@ func (m Maestro) Execute(a string, args []string) error {
 		act.Args = append(act.Args, flag.Args()...)
 	}
 
-	deps, err := m.listDependencies(act)
+	deps, err := m.groupDependencies(act)
 	if err != nil {
 		return err
 	}
 	if m.Debug {
-		m.executeDry(deps)
+		m.executeDry(act.Name, deps)
 	} else {
-		err = m.executeChain(deps)
+		err = m.executeAction(act, deps)
 	}
 
 	return err
 }
 
-func (m Maestro) executeDry(deps []string) {
-	for i, d := range deps {
+func (m Maestro) executeDry(action string, deps [][]string) {
+	actions := append(flatten(deps), action)
+	for i, d := range actions {
 		a := m.Actions[d]
 
 		fmt.Printf("> %s (%s)\n", a.Name, strUsage(a.Help))
@@ -126,17 +127,33 @@ func (m Maestro) executeAction(a Action, deps [][]string) error {
 		for _, d := range deps[i] {
 			sema <- struct{}{}
 
-			a := m.Actions[d]
+			fn := wrapAction(m.Actions[d], m.Echo)
 			group.Go(func() error {
 				defer func() { <-sema }()
-				return a.Execute()
+				return fn()
 			})
 		}
 		if err := group.Wait(); err != nil {
 			return err
 		}
 	}
-	return a.Execute()
+	return wrapAction(a, m.Echo)()
+}
+
+func wrapAction(a Action, echo bool) func() error {
+	if !echo {
+		return a.Execute
+	}
+	return func() error {
+		fmt.Printf("%s: started\n", a.Name)
+		err := a.Execute()
+		if err == nil {
+			fmt.Printf("%s: done\n", a.Name)
+		} else {
+			fmt.Printf("%s: fail (%s)\n", a.Name, err)
+		}
+		return err
+	}
 }
 
 func (m Maestro) executeChain(deps []string) error {
