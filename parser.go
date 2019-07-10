@@ -273,6 +273,14 @@ func (p *Parser) parseMeta(m *Maestro) error {
 		m.About = lit
 	case "DEFAULT":
 		m.cmd = lit
+	case "BEGIN":
+		m.Begin = lit
+	case "END":
+		m.End = lit
+	case "SUCCESS":
+		m.Success = lit
+	case "FAILURE":
+		m.Failure = lit
 	case "ECHO":
 		echo, err := strconv.ParseBool(lit)
 		if err != nil {

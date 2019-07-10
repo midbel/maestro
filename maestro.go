@@ -29,7 +29,7 @@ var summary = `
 
 {{- if .Usage}}
 	{{- .Usage}}
-{{- else -}}
+{{else -}}
 try maestro help <action|namespace> for more information about that topic!
 {{end}}
 `
@@ -50,6 +50,13 @@ type Maestro struct {
 	About   string // .ABOUT
 	Usage   string // .USAGE
 	Help    string // .HELP
+
+	// special Actions around the action being executed
+	// order is: BEGIN->action->(SUCCESS|FAILURE)->END
+	Begin   string
+	End     string
+	Success string
+	Failure string
 
 	// actions
 	Actions map[string]Action
@@ -82,20 +89,36 @@ func (m Maestro) Execute(a string, args []string) error {
 		return err
 	}
 
-	if flag.NArg() > 0 {
+	if set.NArg() > 0 {
 		act.Args = append(act.Args, set.Args()...)
 	}
 
-	deps, err := m.groupDependencies(act)
-	if err != nil {
-		return err
+	var deps [][]string
+	if !m.Nodeps {
+		ds, err := m.groupDependencies(act)
+		if err != nil {
+			return err
+		}
+		deps = ds
 	}
+	var err error
 	if m.Debug {
 		m.executeDry(act.Name, deps)
 	} else {
-		err = m.executeAction(act, deps)
+		next := m.Success
+		if a, ok := m.Actions[m.Begin]; ok {
+			m.executeAction(a, nil, false)
+		}
+		if err = m.executeAction(act, deps, m.Echo); err != nil {
+			next = m.Failure
+		}
+		if a, ok := m.Actions[next]; ok {
+			m.executeAction(a, nil, false)
+		}
+		if a, ok := m.Actions[m.End]; ok {
+			m.executeAction(a, nil, false)
+		}
 	}
-
 	return err
 }
 
@@ -112,7 +135,7 @@ func (m Maestro) executeDry(action string, deps [][]string) {
 	}
 }
 
-func (m Maestro) executeAction(a Action, deps [][]string) error {
+func (m Maestro) executeAction(a Action, deps [][]string, echo bool) error {
 	if m.Parallel < 0 {
 		fs := flatten(deps)
 		return m.executeChain(append(fs, a.Name))
@@ -138,7 +161,7 @@ func (m Maestro) executeAction(a Action, deps [][]string) error {
 			return err
 		}
 	}
-	return wrapAction(a, m.Echo)()
+	return wrapAction(a, m.Echo && echo)()
 }
 
 func wrapAction(a Action, echo bool) func() error {

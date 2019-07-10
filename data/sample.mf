@@ -14,11 +14,11 @@
 .VERSION = "sample.mf 0.0.1"
 
 # special actions called at the beginning of the execution and at the end
-# .BEGIN =
-# .END   =
-# special action called at the end of an action depending of its setatus
-# .SUCCESS =
-# .FAILURE =
+.BEGIN = sleep
+.END   = sleep
+# special action called at the end of an action depending of its result
+# .SUCCESS = multiline
+# .FAILURE = multiline
 
 # number of dependencies that can be run in parallel:
 # -: disable parallel
