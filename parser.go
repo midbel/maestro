@@ -115,8 +115,10 @@ func (p *Parser) parseAction(m *Maestro) error {
 		}
 		p.nextToken()
 	}
-	if p.peekIs(script) {
-		p.nextToken()
+	if p.peekIs(script) || p.currIs(script) {
+		if p.peekIs(script) {
+			p.nextToken()
+		}
 		a.Script = p.currLiteral()
 	}
 	for k, vs := range p.locals {
