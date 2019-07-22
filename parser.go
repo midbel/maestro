@@ -311,7 +311,7 @@ func (p *Parser) parseIdentifier() error {
 			case "":
 				delete(p.locals, ident)
 			default:
-				p.locals[ident] = append(p.locals[ident], lit)
+				p.locals[ident] = append(p.locals[ident][:0], lit)
 			}
 		case variable:
 			val, ok := p.locals[p.currLiteral()]
