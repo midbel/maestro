@@ -78,12 +78,8 @@ func (p *Parser) Parse() (*Maestro, error) {
 }
 
 func (p *Parser) parseFile(file string, mst *Maestro) error {
-	err := p.pushFrame(file)
-	if err == nil {
-		p.nextToken()
-		p.nextToken()
-	}
-	return err
+	p.nextToken()
+	return p.pushFrame(file)
 }
 
 func (p *Parser) parseAction(m *Maestro) error {
@@ -420,6 +416,8 @@ func (p *Parser) pushFrame(file string) error {
 			lex:  x,
 			file: file,
 		}
+		f.Advance()
+
 		p.frames = append(p.frames, &f)
 	}
 	return err
@@ -434,11 +432,6 @@ func (p *Parser) popFrame() {
 		return
 	}
 	p.frames = p.frames[:n]
-	if n := len(p.frames); n >= 1 {
-		n--
-		p.frames[n].Advance()
-		p.frames[n].Advance()
-	}
 }
 
 func (p *Parser) currLiteral() string {
