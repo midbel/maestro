@@ -77,6 +77,15 @@ func (p *Parser) Parse() (*Maestro, error) {
 	return &mst, nil
 }
 
+func (p *Parser) debugFrame() {
+	i := len(p.frames) - 1
+	if i < 0 {
+		return
+	}
+	f := p.frames[i]
+	fmt.Println(f.curr, f.peek)
+}
+
 func (p *Parser) parseFile(file string, mst *Maestro) error {
 	p.nextToken()
 	return p.pushFrame(file)
@@ -100,11 +109,17 @@ func (p *Parser) parseAction(m *Maestro) error {
 		return nil
 	}
 	p.nextToken()
-	for p.currIs(dependency) {
+	for {
 		a.Dependencies = append(a.Dependencies, p.currLiteral())
+		if !p.peekIs(dependency) {
+			break
+		}
 		p.nextToken()
 	}
-	a.Script = p.currLiteral()
+	if p.peekIs(script) {
+		p.nextToken()
+		a.Script = p.currLiteral()
+	}
 	for k, vs := range p.locals {
 		switch k {
 		case "help", "desc":
