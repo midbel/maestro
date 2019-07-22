@@ -307,6 +307,7 @@ func (p *Parser) parseIdentifier() error {
 	ident := p.currLiteral()
 
 	p.nextToken() // consuming '=' token
+	var values []string
 	for {
 		p.nextToken()
 		switch p.currType() {
@@ -314,18 +315,25 @@ func (p *Parser) parseIdentifier() error {
 			switch lit := p.currLiteral(); lit {
 			case "-":
 				p.locals[ident] = p.locals[ident][:0]
+				p.nextUntil(nl)
+				return nil
 			case "":
 				delete(p.locals, ident)
+				p.nextUntil(nl)
+				return nil
 			default:
-				p.locals[ident] = append(p.locals[ident][:0], lit)
+				values = append(values, lit)
+				// p.locals[ident] = append(p.locals[ident][:0], lit)
 			}
 		case variable:
 			val, ok := p.locals[p.currLiteral()]
 			if !ok {
 				return fmt.Errorf("%s: not defined", p.currLiteral())
 			}
-			p.locals[ident] = append(p.locals[ident], val...)
+			values = append(values, val...)
+			// p.locals[ident] = append(p.locals[ident], val...)
 		case nl:
+			p.locals[ident] = append(p.locals[ident][:0], values...)
 			return nil
 		default:
 			return p.currError()
@@ -393,6 +401,12 @@ func (p *Parser) currIs(k rune) bool {
 
 func (p *Parser) peekIs(k rune) bool {
 	return p.peekType() == k
+}
+
+func (p *Parser) nextUntil(k rune) {
+	for !p.currIs(k) {
+		p.nextToken()
+	}
 }
 
 func (p *Parser) nextToken() {
