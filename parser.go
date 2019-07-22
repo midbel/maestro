@@ -36,7 +36,7 @@ func Parse(file string, is ...string) (*Maestro, error) {
 			return nil, err
 		}
 	}
-	p.nextToken()
+	// p.nextToken()
 	p.nextToken()
 
 	return p.Parse()
@@ -77,6 +77,14 @@ func (p *Parser) Parse() (*Maestro, error) {
 	return &mst, nil
 }
 
+func (p *Parser) debugTokens() (curr Token, peek Token) {
+	if n := len(p.frames) - 1; n >= 0 {
+		f := p.frames[n]
+		curr, peek = f.curr, f.peek
+	}
+	return
+}
+
 func (p *Parser) parseFile(file string, mst *Maestro) error {
 	p.nextToken()
 	return p.pushFrame(file)
@@ -100,7 +108,7 @@ func (p *Parser) parseAction(m *Maestro) error {
 		return nil
 	}
 	p.nextToken()
-	for {
+	for p.currIs(dependency) {
 		a.Dependencies = append(a.Dependencies, p.currLiteral())
 		if !p.peekIs(dependency) {
 			break
