@@ -353,6 +353,10 @@ func (p *Parser) parseIdentifier() error {
 				p.nextUntil(nl)
 				return nil
 			default:
+				lit, err := expandVariableInString(lit, p.locals)
+				if err != nil {
+					return err
+				}
 				values = append(values, lit)
 				// p.locals[ident] = append(p.locals[ident][:0], lit)
 			}
