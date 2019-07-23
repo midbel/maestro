@@ -42,7 +42,6 @@ func main() {
 
 	debug := flag.Bool("debug", false, "debug")
 	echo := flag.Bool("echo", false, "echo")
-	export := flag.Bool("export", false, "export")
 	bindir := flag.String("bin", "", "scripts directory")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
 	noskip := flag.Bool("noskip", false, "execute an action even if already executed")
@@ -59,14 +58,6 @@ func main() {
 	m.Noskip = *noskip
 	m.Echo = *echo
 
-	if *export {
-		if err := m.ExportScripts(*bindir, flag.Args()); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(125)
-		}
-		return
-	}
-
 	switch action, args := flag.Arg(0), arguments(flag.Args()); action {
 	case "help", "":
 		if act := flag.Arg(1); act == "" {
@@ -74,6 +65,10 @@ func main() {
 		} else {
 			err = m.ExecuteHelp(act)
 		}
+	case "run", "format", "fmt":
+		err = fmt.Errorf("%s: action not yet implemented", action)
+	case "export":
+		err = m.ExecuteExport(*bindir, args)
 	case "version":
 		err = m.ExecuteVersion()
 	case "all":

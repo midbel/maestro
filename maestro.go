@@ -318,6 +318,14 @@ func (m Maestro) ExecuteDefault(args []string) error {
 	}
 }
 
+func (m Maestro) ExecuteExport(bin string, actions []string) error {
+	return m.exportScripts(bin, actions)
+}
+
+func (m Maestro) ExecuteFormat() error {
+	return nil
+}
+
 func (m Maestro) ExecuteVersion() error {
 	fmt.Fprintln(os.Stdout, m.Version)
 	return nil
@@ -367,7 +375,7 @@ func (m Maestro) Summary() error {
 	return t.Execute(os.Stdout, d)
 }
 
-func (m *Maestro) ExportScripts(bin string, actions []string) error {
+func (m *Maestro) exportScripts(bin string, actions []string) error {
 	if bin != "" {
 		if i, err := os.Stat(bin); err != nil || !i.IsDir() {
 			return fmt.Errorf("%s: not a directory", bin)
