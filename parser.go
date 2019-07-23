@@ -5,12 +5,26 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/midbel/xxh"
 )
+
+var specials = []string{
+	"debug",
+	"cat",
+	"export",
+	"run",
+	"all",
+	"help",
+}
+
+func init() {
+	sort.Strings(specials)
+}
 
 type Parser struct {
 	// hashes of files already includes; usefull to detect cyclic include
@@ -77,14 +91,6 @@ func (p *Parser) Parse() (*Maestro, error) {
 	return &mst, nil
 }
 
-func (p *Parser) debugTokens() (curr Token, peek Token) {
-	if n := len(p.frames) - 1; n >= 0 {
-		f := p.frames[n]
-		curr, peek = f.curr, f.peek
-	}
-	return
-}
-
 func (p *Parser) parseFile(file string, mst *Maestro) error {
 	p.nextToken()
 	return p.pushFrame(file)
@@ -96,6 +102,10 @@ func (p *Parser) parseAction(m *Maestro) error {
 		Shell:   m.Shell,
 		locals:  make(map[string][]string),
 		globals: make(map[string]string),
+	}
+	ix := sort.SearchStrings(specials, a.Name)
+	if ix < len(specials) && specials[ix] == a.Name {
+		return fmt.Errorf("%s: forbidden action name", a.Name)
 	}
 
 	if err := p.nextExpect(lparen); err == nil {
@@ -383,6 +393,14 @@ func (p *Parser) executeClear() error {
 	p.locals = make(map[string][]string)
 	p.globals = make(map[string]string)
 	return nil
+}
+
+func (p *Parser) debugTokens() (curr Token, peek Token) {
+	if n := len(p.frames) - 1; n >= 0 {
+		f := p.frames[n]
+		curr, peek = f.curr, f.peek
+	}
+	return
 }
 
 func (p *Parser) nextExpect(ks ...rune) error {
