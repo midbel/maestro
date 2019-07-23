@@ -13,6 +13,13 @@ type Token struct {
 	Type    rune
 }
 
+func (t Token) Size() int {
+	if t.Literal == "" {
+		return 1
+	}
+	return utf8.RuneCountInString(t.Literal)
+}
+
 func (t Token) String() string {
 	var str string
 	switch t.Type {
@@ -84,14 +91,14 @@ const (
 	lexMeta
 )
 
-// type Position struct {
-// 	Line   int
-// 	Column int
-// }
-//
-// func (p Position) String() string {
-// 	return fmt.Sprintf("(%d:%d)", p.Line, p.Column)
-// }
+type Position struct {
+	Line   int
+	Column int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("(%d:%d)", p.Line, p.Column)
+}
 
 type lexer struct {
 	inner []byte
@@ -101,6 +108,9 @@ type lexer struct {
 	char rune
 	pos  int
 	next int
+
+	line   int
+	column int
 }
 
 func Lex(r io.Reader) (*lexer, error) {
@@ -115,6 +125,10 @@ func Lex(r io.Reader) (*lexer, error) {
 	}
 	x.readRune()
 	return &x, nil
+}
+
+func (x *lexer) Position() Position {
+	return Position{Line: x.line, Column: x.column}
 }
 
 func (x *lexer) Next() Token {
@@ -358,11 +372,23 @@ func (x *lexer) readRune() {
 	} else {
 		x.char = k
 	}
+
+	if k, _ := utf8.DecodeLastRune(x.inner[:x.next]); k == nl {
+		x.line++
+		x.column = 0
+	}
+	x.column++
+
 	x.pos = x.next
 	x.next += n
 }
 
 func (x *lexer) unreadRune() {
+	if k, _ := utf8.DecodeLastRune(x.inner[:x.pos]); k == nl && x.line > 1 {
+		x.line--
+	}
+	x.column--
+
 	x.next = x.pos
 	x.pos -= utf8.RuneLen(x.char)
 }

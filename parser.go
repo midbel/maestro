@@ -556,9 +556,13 @@ type frame struct {
 
 	curr Token
 	peek Token
+
+	position Position
 }
 
 func (f *frame) Advance() bool {
+	f.position = f.lex.Position()
+
 	f.curr = f.peek
 	f.peek = f.lex.Next()
 
@@ -584,7 +588,8 @@ func (f *frame) peekError() error {
 	} else {
 		file = filepath.Base(file)
 	}
-	return fmt.Errorf("syntax error (%s): invalid token %s", file, f.peek)
+	line, column := f.position.Line, f.position.Column-f.peek.Size()
+	return fmt.Errorf("<%s(%d:%d)> syntax error: invalid token %s", file, line, column, f.peek)
 }
 
 func (f *frame) currError() error {
@@ -594,5 +599,6 @@ func (f *frame) currError() error {
 	} else {
 		file = filepath.Base(file)
 	}
-	return fmt.Errorf("syntax error (%s): invalid token %s", file, f.curr)
+	line, column := f.position.Line, f.position.Column-f.curr.Size()
+	return fmt.Errorf("<%s(%d:%d)> syntax error: invalid token %s", file, line, column, f.curr)
 }
