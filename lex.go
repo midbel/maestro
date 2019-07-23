@@ -40,15 +40,6 @@ func (t Token) String() string {
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
 }
 
-// map between recognized commands and their expected number of arguments
-var commands = map[string]int{
-	"echo":    -1,
-	"declare": -1,
-	"export":  2,
-	"include": 1,
-	"clear":   0,
-}
-
 const (
 	space     = ' '
 	tab       = '\t'
@@ -93,6 +84,15 @@ const (
 	lexMeta
 )
 
+// type Position struct {
+// 	Line   int
+// 	Column int
+// }
+//
+// func (p Position) String() string {
+// 	return fmt.Sprintf("(%d:%d)", p.Line, p.Column)
+// }
+
 type lexer struct {
 	inner []byte
 
@@ -111,6 +111,7 @@ func Lex(r io.Reader) (*lexer, error) {
 	x := lexer{
 		inner: xs,
 		state: lexDefault,
+		line:  1,
 	}
 	x.readRune()
 	return &x, nil
@@ -137,6 +138,15 @@ func (x *lexer) Next() Token {
 	default:
 		x.nextDefault(&t)
 	}
+	if ok := x.updateState(t); ok {
+		return x.Next()
+	}
+	x.readRune()
+	return t
+}
+
+func (x *lexer) updateState(t Token) bool {
+	var repeat bool
 	switch t.Type {
 	case colon:
 		x.state = lexDeps | lexNoop
@@ -147,7 +157,7 @@ func (x *lexer) Next() Token {
 	case nl:
 		if state := x.state & 0xFF00; state == lexDeps {
 			x.state |= lexScript
-			return x.Next()
+			repeat = true
 		} else {
 			x.state = lexDefault | lexNoop
 		}
@@ -155,12 +165,9 @@ func (x *lexer) Next() Token {
 		x.state = lexDefault | lexNoop
 	case script:
 		x.state = lexDefault | lexNoop
-		if t.Literal == "" {
-			return x.Next()
-		}
+		repeat = t.Literal == ""
 	}
-	x.readRune()
-	return t
+	return repeat
 }
 
 func (x *lexer) nextScript(t *Token) {
@@ -333,7 +340,6 @@ func (x *lexer) readString(t *Token) {
 	if ticky {
 		t.Literal = strings.TrimLeft(t.Literal, "\n\t ")
 	}
-	// t.Literal, t.Type = string(x.inner[pos:x.pos]), value
 }
 
 func (x *lexer) readRune() {
