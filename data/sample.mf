@@ -89,7 +89,6 @@ export HOME %(datadir)
 # tag:      list of tags for an action (help to classify actions)
 # stdout:   specify standard output of command
 # stderr:   specify standard error of command
-# inline:   if not set (default), script will be given to stdin of shell
 # ...:     TBD
 
 # action dependencies

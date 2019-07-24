@@ -78,7 +78,6 @@ func (m Maestro) Execute(a string, args []string) error {
 	set.StringVar(&act.Workdir, "workdir", act.Workdir, "working directory")
 	set.StringVar(&act.Stdout, "stdout", act.Stdout, "stdout")
 	set.StringVar(&act.Stderr, "stderr", act.Stderr, "stderr")
-	set.BoolVar(&act.Inline, "inline", act.Inline, "inline")
 	set.BoolVar(&act.Env, "env", act.Env, "environment")
 	set.BoolVar(&act.Ignore, "ignore", act.Ignore, "ignore error")
 	set.Int64Var(&act.Retry, "retry", act.Retry, "retry on failure")

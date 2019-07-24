@@ -66,7 +66,6 @@ type Action struct {
 	Shell  string // bash, sh, ksh, python,...
 
 	Hazard  bool
-	Inline  bool
 	Env     bool
 	Ignore  bool
 	Retry   int64
@@ -139,9 +138,6 @@ func (a Action) executeScript(args []string, script string) error {
 	if a.Delay > 0 {
 		time.Sleep(a.Delay)
 	}
-	if a.Inline {
-		args = append(args, script)
-	}
 	cmd := exec.Command(args[0], args[1:]...)
 	// cmd := exec.Command(args[0], append(args[1:], script)...)
 	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
@@ -151,10 +147,8 @@ func (a Action) executeScript(args []string, script string) error {
 			return fmt.Errorf("%s: not a directory", a.Workdir)
 		}
 	}
+	cmd.Stdin = strings.NewReader(script)
 
-	if !a.Inline {
-		cmd.Stdin = strings.NewReader(script)
-	}
 	openFD := func(n string, w io.Writer) (io.Writer, error) {
 		if n == "" {
 			return w, nil
