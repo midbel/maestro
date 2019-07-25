@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -14,33 +14,42 @@ import (
 type includes []string
 
 func (i *includes) Set(fs string) error {
-	files := *i
-	sort.Strings(files)
-	for _, f := range strings.Split(fs, ",") {
-		ix := sort.SearchStrings(files, f)
-		if ix < len(files) && files[ix] == f {
-			return fmt.Errorf("%s: already include", filepath.Base(f))
-		}
-		files = append(files[:ix], append([]string{f}, files[ix:]...)...)
+	vs, err := setValues(fs, *i, isFile)
+	if err == nil {
+		*i = vs
 	}
-	*i = files
-	return nil
+	return err
 }
 
 func (i *includes) String() string {
-	files := *i
-	if len(files) == 0 {
-		return ""
+	return toString(*i)
+}
+
+type remotes []string
+
+func (r *remotes) Set(hs string) error {
+	vs, err := setValues(hs, *r, isHostPort)
+	if err == nil {
+		*r = vs
 	}
-	return strings.Join(files, ",")
+	return err
+}
+
+func (r *remotes) String() string {
+	return toString(*r)
 }
 
 func main() {
-	var incl includes
+	var (
+		incl  includes
+		hosts remotes
+	)
 	flag.Var(&incl, "i", "include files")
-	file := flag.String("f", "maestro.mf", "")
+	flag.Var(&hosts, "r", "remote hosts")
 
+	file := flag.String("f", "maestro.mf", "")
 	debug := flag.Bool("debug", false, "debug")
+	eta := flag.Bool("eta", false, "eta")
 	echo := flag.Bool("echo", false, "echo")
 	bindir := flag.String("bin", "", "scripts directory")
 	nodeps := flag.Bool("nodeps", false, "don't execute command dependencies")
@@ -57,6 +66,8 @@ func main() {
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
 	m.Echo = *echo
+	m.Eta = *eta
+	m.Hosts = append(m.Hosts, []string(hosts)...)
 
 	switch action, args := flag.Arg(0), arguments(flag.Args()); action {
 	case "help", "":
@@ -91,4 +102,44 @@ func arguments(args []string) []string {
 		args = args[1:]
 	}
 	return args
+}
+
+func setValues(str string, set []string, fn func(string) error) ([]string, error) {
+	if fn == nil {
+		fn = func(_ string) error { return nil }
+	}
+	sort.Strings(set)
+	for _, v := range strings.Split(str, ",") {
+		ix := sort.SearchStrings(set, v)
+		if ix < len(set) && set[ix] == v {
+			continue
+		}
+		if err := fn(v); err != nil {
+			return nil, err
+		}
+		set = append(set[:ix], append([]string{v}, set[ix:]...)...)
+	}
+	return set, nil
+}
+
+func toString(vs []string) string {
+	if len(vs) == 0 {
+		return ""
+	}
+	return strings.Join(vs, ", ")
+}
+
+func isHostPort(str string) error {
+	_, _, err := net.SplitHostPort(str)
+	return err
+}
+
+func isFile(str string) error {
+	i, err := os.Stat(str)
+	if err == nil {
+		if !i.Mode().IsRegular() {
+			err = fmt.Errorf("%s: not a regular file")
+		}
+	}
+	return err
 }

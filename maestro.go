@@ -13,7 +13,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const DefaultShell = "/bin/sh -c"
+const (
+	DefaultShell      = "/bin/sh -c"
+	NoParallel        = -1
+	UnlimitedParallel = 0
+)
 
 var summary = `
 {{usage .About}}
@@ -39,11 +43,14 @@ type Maestro struct {
 	Bin   string // .BIN: directory where scripts will be written
 
 	Parallel int  // .PARALLEL
+	Eta      bool // .ETA
 	Echo     bool // .ECHO
 
 	// special variables for actions
 	all []string // .ALL
 	cmd string   // .DEFAULT
+
+	Hosts []string // .HOSTS
 
 	Name    string // .NAME
 	Version string // .VERSION
@@ -135,11 +142,11 @@ func (m Maestro) executeDry(action string, deps [][]string) {
 }
 
 func (m Maestro) executeAction(a Action, deps [][]string, echo bool) error {
-	if m.Parallel < 0 {
+	if m.Parallel == NoParallel {
 		fs := flatten(deps)
 		return m.executeChain(append(fs, a.Name))
 	}
-	if m.Parallel == 0 {
+	if m.Parallel == UnlimitedParallel {
 		m.Parallel = (1 << 16) - 1
 	}
 	for i := 0; i < len(deps); i++ {

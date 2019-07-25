@@ -3,7 +3,9 @@ package maestro
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -61,7 +63,6 @@ func Parse(file string, is ...string) (*Maestro, error) {
 			return nil, err
 		}
 	}
-	// p.nextToken()
 	p.nextToken()
 
 	return p.Parse()
@@ -279,23 +280,45 @@ func (p *Parser) parseCommand(m *Maestro) error {
 	}
 }
 
+func (p *Parser) multiValues(check func(string) error) ([]string, error) {
+	if check == nil {
+		check = func(_ string) error { return nil }
+	}
+	var args []string
+	for !p.peekIs(nl) {
+		if !p.currIs(value) {
+			return nil, p.currError()
+		}
+		lit := p.currLiteral()
+		if err := check(lit); err != nil {
+			return nil, err
+		}
+		args = append(args, lit)
+		p.nextToken()
+	}
+	return args, nil
+}
+
 func (p *Parser) parseMeta(m *Maestro) error {
 	ident := p.currLiteral()
 
-	if err := p.nextExpect(equal, value); err != nil {
+	err := p.nextExpect(equal, value)
+	if err != nil {
 		return err
 	}
 	switch lit := p.currLiteral(); ident {
 	case "ALL":
-		for !p.peekIs(nl) {
-			if !p.currIs(value) {
-				return p.currError()
-			}
-			m.all = append(m.all, p.currLiteral())
-			p.nextToken()
-		}
+		m.all, err = p.multiValues(nil)
+	case "HOSTS":
+		m.Hosts, err = p.multiValues(func(str string) error {
+			_, _, err := net.SplitHostPort(str)
+			return err
+		})
 	case "SHELL":
-		m.Shell = lit
+		_, err = exec.LookPath(lit)
+		if err == nil {
+			m.Shell = lit
+		}
 	case "NAME":
 		m.Name = lit
 	case "VERSION":
@@ -317,23 +340,23 @@ func (p *Parser) parseMeta(m *Maestro) error {
 	case "FAILURE":
 		m.Failure = lit
 	case "ECHO":
-		echo, err := strconv.ParseBool(lit)
-		if err != nil {
-			return err
-		}
-		m.Echo = echo
+		m.Echo, err = strconv.ParseBool(lit)
 	case "PARALLEL":
-		n, err := strconv.ParseInt(lit, 10, 64)
-		if err != nil && lit != "-" {
-			return err
+		n, e := strconv.ParseInt(lit, 10, 64)
+		if e != nil && lit != "-" {
+			err = e
+			break
 		}
 		if lit == "-" {
-			m.Parallel = -1
+			m.Parallel = NoParallel
 		} else {
 			m.Parallel = int(n)
 		}
 	}
-	return p.nextExpect(nl)
+	if err == nil {
+		err = p.nextExpect(nl)
+	}
+	return err
 }
 
 func (p *Parser) parseIdentifier() error {
