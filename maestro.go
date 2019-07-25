@@ -321,6 +321,17 @@ func (m Maestro) ExecuteExport(bin string, actions []string) error {
 	return m.exportScripts(bin, actions)
 }
 
+func (m Maestro) ExecuteCat(actions []string) error {
+	for _, a := range actions {
+		act, ok := m.Actions[a]
+		if !ok {
+			return fmt.Errorf("%s: action not found", a)
+		}
+		fmt.Fprintln(os.Stdout, act.String())
+	}
+	return nil
+}
+
 func (m Maestro) ExecuteFormat() error {
 	return nil
 }

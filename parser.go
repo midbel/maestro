@@ -188,10 +188,7 @@ func (p *Parser) parseProperties(a *Action) error {
 		default:
 			err = fmt.Errorf("%s: unknown option %s", a.Name, lit)
 		case "tag":
-			if len(a.Tags) > 0 {
-				return fmt.Errorf("tag already set")
-			}
-			for i := 0; ; i++ {
+			for {
 				a.Tags = append(a.Tags, valueOf())
 				if p.peekIs(comma) || p.peekIs(rparen) {
 					break

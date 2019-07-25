@@ -183,7 +183,7 @@ config2(
 
 dummy = dummy
 
-purge(tag=service, tag=hazardous, hazardous=true):
+purge(tag=service hazardous, hazardous=true):
 	rm -rf %(datadir)
 	rm -rf %(cachedir)
 

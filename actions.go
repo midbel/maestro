@@ -139,7 +139,6 @@ func (a Action) executeScript(args []string, script string) error {
 		time.Sleep(a.Delay)
 	}
 	cmd := exec.Command(args[0], args[1:]...)
-	// cmd := exec.Command(args[0], append(args[1:], script)...)
 	if i, err := os.Stat(a.Workdir); err == nil && i.IsDir() {
 		cmd.Dir = a.Workdir
 	} else {

@@ -67,6 +67,8 @@ func main() {
 		}
 	case "run", "format", "fmt":
 		err = fmt.Errorf("%s: action not yet implemented", action)
+	case "cat", "debug":
+		err = m.ExecuteCat(args)
 	case "export":
 		err = m.ExecuteExport(*bindir, args)
 	case "version":
