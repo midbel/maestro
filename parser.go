@@ -184,12 +184,19 @@ func (p *Parser) parseProperties(a *Action) error {
 		if err := p.nextExpect(equal); err != nil {
 			return err
 		}
-
 		switch strings.ToLower(lit) {
 		default:
 			err = fmt.Errorf("%s: unknown option %s", a.Name, lit)
 		case "tag":
-			a.Tags = append(a.Tags, valueOf())
+			if len(a.Tags) > 0 {
+				return fmt.Errorf("tag already set")
+			}
+			for i := 0; ; i++ {
+				a.Tags = append(a.Tags, valueOf())
+				if p.peekIs(comma) || p.peekIs(rparen) {
+					break
+				}
+			}
 		case "shell":
 			a.Shell = valueOf()
 		case "help":
