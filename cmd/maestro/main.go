@@ -48,7 +48,6 @@ func main() {
 	flag.Var(&hosts, "r", "remote hosts")
 
 	file := flag.String("f", "maestro.mf", "")
-	debug := flag.Bool("debug", false, "debug")
 	eta := flag.Bool("eta", false, "eta")
 	echo := flag.Bool("echo", false, "echo")
 	bindir := flag.String("bin", "", "scripts directory")
@@ -62,7 +61,6 @@ func main() {
 		os.Exit(123)
 	}
 
-	m.Debug = *debug
 	m.Nodeps = *nodeps
 	m.Noskip = *noskip
 	m.Echo = *echo

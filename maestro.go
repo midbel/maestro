@@ -42,10 +42,6 @@ type Maestro struct {
 	Shell string // .SHELL
 	Bin   string // .BIN: directory where scripts will be written
 
-	Parallel int  // .PARALLEL
-	Eta      bool // .ETA
-	Echo     bool // .ECHO
-
 	// special variables for actions
 	all []string // .ALL
 	cmd string   // .DEFAULT
@@ -67,9 +63,12 @@ type Maestro struct {
 
 	// actions
 	Actions map[string]Action
-	Debug   bool
 	Nodeps  bool
 	Noskip  bool
+
+	Parallel int  // .PARALLEL
+	Eta      bool // .ETA
+	Echo     bool // .ECHO
 }
 
 func (m Maestro) Execute(a string, args []string) error {
@@ -108,37 +107,20 @@ func (m Maestro) Execute(a string, args []string) error {
 		deps = ds
 	}
 	var err error
-	if m.Debug {
-		m.executeDry(act.Name, deps)
-	} else {
-		next := m.Success
-		if a, ok := m.Actions[m.Begin]; ok {
-			m.executeAction(a, nil, false)
-		}
-		if err = m.executeAction(act, deps, m.Echo); err != nil {
-			next = m.Failure
-		}
-		if a, ok := m.Actions[next]; ok {
-			m.executeAction(a, nil, false)
-		}
-		if a, ok := m.Actions[m.End]; ok {
-			m.executeAction(a, nil, false)
-		}
+	next := m.Success
+	if a, ok := m.Actions[m.Begin]; ok {
+		m.executeAction(a, nil, false)
+	}
+	if err = m.executeAction(act, deps, m.Echo); err != nil {
+		next = m.Failure
+	}
+	if a, ok := m.Actions[next]; ok {
+		m.executeAction(a, nil, false)
+	}
+	if a, ok := m.Actions[m.End]; ok {
+		m.executeAction(a, nil, false)
 	}
 	return err
-}
-
-func (m Maestro) executeDry(action string, deps [][]string) {
-	actions := append(flatten(deps), action)
-	for i, d := range actions {
-		a := m.Actions[d]
-
-		fmt.Printf("> %s (%s)\n", a.Name, strUsage(a.Help))
-		fmt.Println(a.String())
-		if i < len(deps)-1 {
-			fmt.Println()
-		}
-	}
 }
 
 func (m Maestro) executeAction(a Action, deps [][]string, echo bool) error {
@@ -325,18 +307,43 @@ func (m Maestro) ExecuteDefault(args []string) error {
 }
 
 func (m Maestro) ExecuteExport(bin string, actions []string) error {
+	if bin == "" {
+		bin = m.Bin
+	}
 	return m.exportScripts(bin, actions)
 }
 
 func (m Maestro) ExecuteCat(actions []string) error {
+	var (
+		deps [][]string
+		err  error
+	)
 	for _, a := range actions {
 		act, ok := m.Actions[a]
 		if !ok {
 			return fmt.Errorf("%s: action not found", a)
 		}
-		fmt.Fprintln(os.Stdout, act.String())
+		if !m.Nodeps {
+			if deps, err = m.groupDependencies(act); err != nil {
+				break
+			}
+		}
+		m.executeDry(a, deps)
 	}
-	return nil
+	return err
+}
+
+func (m Maestro) executeDry(action string, deps [][]string) {
+	actions := append(flatten(deps), action)
+	for i, d := range actions {
+		a := m.Actions[d]
+
+		fmt.Printf("> %s (%s)\n", a.Name, strUsage(a.Help))
+		fmt.Println(a.String())
+		if i < len(deps)-1 {
+			fmt.Println()
+		}
+	}
 }
 
 func (m Maestro) ExecuteFormat() error {
@@ -393,12 +400,8 @@ func (m Maestro) Summary() error {
 }
 
 func (m *Maestro) exportScripts(bin string, actions []string) error {
-	if bin != "" {
-		if i, err := os.Stat(bin); err != nil || !i.IsDir() {
-			return fmt.Errorf("%s: not a directory", bin)
-		}
-	} else {
-		bin = m.Bin
+	if i, err := os.Stat(bin); err != nil || !i.IsDir() {
+		return fmt.Errorf("%s: not a directory", bin)
 	}
 	var as []Action
 	for _, a := range actions {
