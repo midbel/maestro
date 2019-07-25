@@ -195,6 +195,18 @@ func (p *Parser) parseProperties(a *Action) error {
 					break
 				}
 			}
+		case "hosts":
+			for {
+				v := valueOf()
+				if _, _, e := net.SplitHostPort(v); err != nil {
+					err = e
+					break
+				}
+				a.Hosts = append(a.Hosts, v)
+				if p.peekIs(comma) || p.peekIs(rparen) {
+					break
+				}
+			}
 		case "shell":
 			a.Shell = valueOf()
 		case "help":

@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	DefaultShell      = "/bin/sh -c"
-	NoParallel        = -1
+	DefaultShell = "/bin/sh -c"
+	NoParallel = -1
 	UnlimitedParallel = 0
 )
 
@@ -93,10 +93,7 @@ func (m Maestro) Execute(a string, args []string) error {
 	if err := set.Parse(args); err != nil {
 		return err
 	}
-
-	if set.NArg() > 0 {
-		act.Args = append(act.Args, set.Args()...)
-	}
+	act.Args = append(act.Args, set.Args()...)
 
 	var deps [][]string
 	if !m.Nodeps {

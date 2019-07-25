@@ -31,6 +31,7 @@ Properties:
 - retry  : {{.Retry}}
 - delay  : {{.Delay}}
 - timeout: {{.Timeout}}
+- hosts  : {{join .Hosts " "}}
 
 {{if .Locals -}}
 Local variables:
@@ -55,10 +56,11 @@ Dependencies:
 `
 
 type Action struct {
-	Name string
-	Help string
-	Desc string
-	Tags []string
+	Name  string
+	Help  string
+	Desc  string
+	Tags  []string
+	Hosts []string
 
 	Dependencies []string
 
