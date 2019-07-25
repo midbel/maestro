@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -86,6 +87,7 @@ func (m Maestro) Execute(a string, args []string) error {
 	set.StringVar(&act.Stderr, "stderr", act.Stderr, "stderr")
 	set.BoolVar(&act.Env, "env", act.Env, "environment")
 	set.BoolVar(&act.Ignore, "ignore", act.Ignore, "ignore error")
+	set.BoolVar(&act.Remote, "remote", act.Remote, "remote")
 	set.Int64Var(&act.Retry, "retry", act.Retry, "retry on failure")
 	set.DurationVar(&act.Delay, "delay", act.Delay, "delay")
 	set.DurationVar(&act.Timeout, "timeout", act.Timeout, "timeout")
@@ -95,6 +97,16 @@ func (m Maestro) Execute(a string, args []string) error {
 	}
 	act.Args = append(act.Args, set.Args()...)
 
+	var execute func(Action) error
+	if act.Remote {
+		execute = m.executeRemote
+	} else {
+		execute = m.executeLocal
+	}
+	return execute(act)
+}
+
+func (m Maestro) executeLocal(act Action) error {
 	var deps [][]string
 	if !m.Nodeps {
 		ds, err := m.groupDependencies(act)
@@ -118,6 +130,25 @@ func (m Maestro) Execute(a string, args []string) error {
 		m.executeAction(a, nil, false)
 	}
 	return err
+}
+
+func (m Maestro) executeRemote(act Action) error {
+	act.Hosts = append(act.Hosts, m.Hosts...)
+	if len(act.Hosts) == 0 {
+		return fmt.Errorf("%s: no remote host given" , act.Name)
+	}
+	config := ssh.ClientConfig{
+		User: "",
+		Auth: []ssh.AuthMethod{},
+	}
+	for _, h := range act.Hosts {
+		c, err := ssh.Dial("tcp", h, &config)
+		if err != nil {
+			return err
+		}
+		_ = c
+	}
+	return nil
 }
 
 func (m Maestro) executeAction(a Action, deps [][]string, echo bool) error {

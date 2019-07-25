@@ -3,7 +3,6 @@ package maestro
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -77,7 +76,8 @@ type Action struct {
 	Stdout  string
 	Stderr  string
 	// remaining arguments from command line
-	Args []string
+	Args   []string
+	Remote bool
 
 	// environment variables + locals variables
 	locals  map[string][]string
@@ -125,8 +125,23 @@ func (a Action) Execute() error {
 		return fmt.Errorf("%s: fail to parse shell", a.Shell)
 	}
 
+	stdout, err := openFile(a.Stdout, ".out", os.Stdout)
+	if err != nil {
+		return err
+	}
+	if c, ok := stdout.(io.Closer); ok {
+		defer c.Close()
+	}
+	stderr, err := openFile(a.Stderr, ".err", os.Stderr)
+	if err != nil {
+		return err
+	}
+	if c, ok := stderr.(io.Closer); ok {
+		defer c.Close()
+	}
+
 	for i := int64(0); i < a.Retry; i++ {
-		if err = a.executeScript(args, script); err == nil {
+		if err = a.executeScript(args, script, stdout, stderr); err == nil {
 			break
 		}
 	}
@@ -136,7 +151,7 @@ func (a Action) Execute() error {
 	return err
 }
 
-func (a Action) executeScript(args []string, script string) error {
+func (a Action) executeScript(args []string, script string, stdout, stderr io.Writer) error {
 	if a.Delay > 0 {
 		time.Sleep(a.Delay)
 	}
@@ -149,23 +164,8 @@ func (a Action) executeScript(args []string, script string) error {
 		}
 	}
 	cmd.Stdin = strings.NewReader(script)
-
-	openFD := func(n string, w io.Writer) (io.Writer, error) {
-		if n == "" {
-			return w, nil
-		} else if n == "discard" || n == "-" {
-			return ioutil.Discard, nil
-		} else {
-			return os.OpenFile(n+".err", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		}
-	}
-	var err error
-	if cmd.Stdout, err = openFD(a.Stdout, os.Stdout); err != nil {
-		return err
-	}
-	if cmd.Stderr, err = openFD(a.Stderr, os.Stderr); err != nil {
-		return err
-	}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	if a.Env {
 		cmd.Env = append(cmd.Env, os.Environ()...)

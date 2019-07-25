@@ -2,8 +2,21 @@ package maestro
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
 	"strings"
 )
+
+func openFile(n, x string, w io.Writer) (io.Writer, error) {
+	if n == "" {
+		return w, nil
+	} else if n == "discard" || n == "-" || n == "/dev/null" {
+		return ioutil.Discard, nil
+	} else {
+		return os.OpenFile(n+x, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	}
+}
 
 func expandVariableInString(literal string, locals map[string][]string) (string, error) {
 	var (
