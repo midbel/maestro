@@ -106,16 +106,19 @@ func setValues(str string, set []string, fn func(string) error) ([]string, error
 	if fn == nil {
 		fn = func(_ string) error { return nil }
 	}
-	sort.Strings(set)
+	vs := make([]string, len(set))
+	copy(vs, set)
+	sort.Strings(vs)
 	for _, v := range strings.Split(str, ",") {
-		ix := sort.SearchStrings(set, v)
-		if ix < len(set) && set[ix] == v {
+		ix := sort.SearchStrings(vs, v)
+		if ix < len(vs) && vs[ix] == v {
 			continue
 		}
 		if err := fn(v); err != nil {
 			return nil, err
 		}
-		set = append(set[:ix], append([]string{v}, set[ix:]...)...)
+		vs = append(vs[:ix], append([]string{v}, vs[ix:]...)...)
+		set = append(set, v)
 	}
 	return set, nil
 }
