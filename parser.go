@@ -234,6 +234,8 @@ func (p *Parser) parseProperties(a *Action) error {
 			a.Stderr = valueOf()
 		case "hazardous":
 			a.Hazard, err = strconv.ParseBool(valueOf())
+		case "local":
+			a.Local, err = strconv.ParseBool(valueOf())
 		}
 		if err != nil {
 			return err
@@ -321,6 +323,10 @@ func (p *Parser) parseMeta(m *Maestro) error {
 	switch lit := p.currLiteral(); ident {
 	case "ALL":
 		m.all, err = p.multiValues(nil)
+	case "USER":
+		m.User = lit
+	case "KEY":
+		m.Key = lit
 	case "HOSTS":
 		m.Hosts, err = p.multiValues(func(str string) error {
 			_, _, err := net.SplitHostPort(str)

@@ -34,6 +34,9 @@
 # .TIMEOUT =    # timeout to give to each executed commands
 # .NOCONFLICT = # behaviour of maestro when multiple commands have the same name
 
+# SSH OPTIONS
+.USER = midbel
+.KEY  = /tmp/id_rsa
 
 # variables declaration
 datadir = /var/data

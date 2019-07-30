@@ -11,10 +11,10 @@ type Command interface {
 }
 
 // Commmand for local execution (via exec.Cmd)
-type local struct {}
+type local struct{}
 
 // Command for remote execution (via ssh.Session)
-type remote struct {}
+type remote struct{}
 
 // Chain executes the final chain of Command
 func Chain(cs ...Command) error {

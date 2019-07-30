@@ -10,13 +10,13 @@ import (
 	"strings"
 	"text/template"
 
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
-	DefaultShell = "/bin/sh -c"
-	NoParallel = -1
+	DefaultShell      = "/bin/sh -c"
+	NoParallel        = -1
 	UnlimitedParallel = 0
 )
 
@@ -61,6 +61,10 @@ type Maestro struct {
 	End     string
 	Success string
 	Failure string
+
+	// SSH Options
+	User string
+	Key  string
 
 	// actions
 	Actions map[string]Action
@@ -133,9 +137,12 @@ func (m Maestro) executeLocal(act Action) error {
 }
 
 func (m Maestro) executeRemote(act Action) error {
+	if act.Local {
+		return fmt.Errorf("%s: local only action", act.Name)
+	}
 	act.Hosts = append(act.Hosts, m.Hosts...)
 	if len(act.Hosts) == 0 {
-		return fmt.Errorf("%s: no remote host given" , act.Name)
+		return fmt.Errorf("%s: no remote host given", act.Name)
 	}
 	config := ssh.ClientConfig{
 		User: "",
