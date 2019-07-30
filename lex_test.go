@@ -162,23 +162,30 @@ include (
 	"etc/maestro/local.mf"
 	"etc/maestro/global.mf"
 )
+
 export (
-	PATH /var/bin
+	PATH "/var/bin"
 	HOME %(datadir)
 )
 `
 	tokens := []Token{
 		{Type: command, Literal: "include"},
 		{Type: lparen},
+		{Type: nl},
 		{Type: value, Literal: "etc/maestro/local.mf"},
+		{Type: nl},
 		{Type: value, Literal: "etc/maestro/global.mf"},
+		{Type: nl},
 		{Type: rparen},
 		{Type: command, Literal: "export"},
+		{Type: lparen},
+		{Type: nl},
 		{Type: value, Literal: "PATH"},
 		{Type: value, Literal: "/var/bin"},
-		{Type: command, Literal: "export"},
+		{Type: nl},
 		{Type: value, Literal: "HOME"},
 		{Type: variable, Literal: "datadir"},
+		{Type: nl},
 		{Type: rparen},
 	}
 	testLexer(t, input, tokens)

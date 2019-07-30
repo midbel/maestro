@@ -88,6 +88,7 @@ const (
 
 const (
 	lexNoop uint16 = iota
+	lexBlock
 	lexProps
 	lexMeta
 )
@@ -126,6 +127,21 @@ func Lex(r io.Reader) (*lexer, error) {
 	}
 	x.readRune()
 	return &x, nil
+}
+
+func (x *lexer) String() string {
+	switch state := x.state & 0xFF00; state {
+	default:
+		return "default"
+	case lexValue:
+		return "value"
+	case lexScript:
+		return "script"
+	case lexDeps:
+		return "dependencies"
+	case lexCommand:
+		return "command"
+	}
 }
 
 func (x *lexer) IsDone() bool {
@@ -171,16 +187,23 @@ func (x *lexer) updateState(t Token) bool {
 	switch t.Type {
 	case colon:
 		x.state = lexDeps | lexNoop
+	// case equal, command:
 	case equal:
 		x.state |= lexValue
 	case command:
-		x.state = lexCommand | lexNoop
+		x.state = lexCommand
 	case lparen, comma:
-		x.state = lexDefault | lexProps
+		if state := x.state & 0xFF00; state != lexCommand {
+			x.state = lexDefault | lexProps
+		} else {
+			x.state |= lexBlock
+		}
 	case nl:
-		if state := x.state & 0xFF00; state == lexDeps {
+		if state, sub := x.state&0xFF00, x.state&0xFF; state == lexDeps {
 			x.state |= lexScript
 			repeat = true
+		} else if state == lexCommand && sub == lexBlock {
+			// do nothing
 		} else {
 			x.state = lexDefault | lexNoop
 		}
@@ -194,7 +217,7 @@ func (x *lexer) updateState(t Token) bool {
 }
 
 func (x *lexer) nextCommand(t *Token) {
-	if x.char == space {
+	if isBlank(x.char) {
 		x.skipSpace()
 	}
 	switch {
@@ -232,7 +255,7 @@ func (x *lexer) nextScript(t *Token) {
 }
 
 func (x *lexer) nextValue(t *Token) {
-	if x.char == space {
+	if isBlank(x.char) {
 		x.skipSpace()
 	}
 	switch {
@@ -250,7 +273,7 @@ func (x *lexer) nextValue(t *Token) {
 }
 
 func (x *lexer) nextDependency(t *Token) {
-	if x.char == space {
+	if isBlank(x.char) {
 		x.skipSpace()
 	}
 	if isIdent(x.char) {
@@ -417,8 +440,12 @@ func isQuote(x rune) bool {
 	return x == quote || x == tick
 }
 
+func isBlank(x rune) bool {
+	return x == space || x == tab
+}
+
 func isSpace(x rune) bool {
-	return x == space || x == tab || x == nl
+	return isBlank(x) || x == nl
 }
 
 func isComment(x rune) bool {
