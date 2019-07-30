@@ -109,7 +109,7 @@ func (p *Parser) Parse() (*Maestro, error) {
 	return &mst, nil
 }
 
-func (p *Parser) parseFile(file string, mst *Maestro) error {
+func (p *Parser) parseFile(file string) error {
 	p.nextToken()
 	return p.pushFrame(file)
 }
@@ -254,17 +254,44 @@ func (p *Parser) parseProperties(a *Action) error {
 	return p.peekExpect(colon)
 }
 
+func (p *Parser) parseInclude() error {
+	p.nextToken()
+	switch p.currType() {
+	case value:
+		return p.parseFile(p.currLiteral())
+	case lparen:
+		var files []string
+		p.nextToken()
+		for p.currType() == value {
+			files = append(files, p.currLiteral())
+			p.nextToken()
+		}
+		if p.currType() != rparen {
+			return p.currError()
+		}
+		for _, f := range files {
+			if err := p.parseFile(f); err != nil {
+				return err
+			}
+		}
+	default:
+		return p.currError()
+	}
+	return nil
+}
+
 func (p *Parser) parseCommand(m *Maestro) error {
 	ident := p.currLiteral()
-	n, ok := commands[ident]
+	nargs, ok := commands[ident]
 	if !ok {
 		return fmt.Errorf("%s: unknown command", ident)
 	}
-	x := n
-	if x < 0 {
-		x = 0
+	switch ident {
+	case "include":
+		return p.parseInclude()
+	default:
 	}
-	values := make([]string, 0, x)
+	values := make([]string, 0, 12)
 	for {
 		p.nextToken()
 		switch p.currType() {
@@ -277,8 +304,8 @@ func (p *Parser) parseCommand(m *Maestro) error {
 			}
 			values = append(values, val...)
 		case nl:
-			if n >= 0 && len(values) != n {
-				return fmt.Errorf("%s: wrong number of arguments (want: %d, got %d)", ident, n, len(values))
+			if nargs >= 0 && len(values) != nargs {
+				return fmt.Errorf("%s: wrong number of arguments (want: %d, got %d)", ident, nargs, len(values))
 			}
 			var err error
 			switch ident {
@@ -288,8 +315,6 @@ func (p *Parser) parseCommand(m *Maestro) error {
 				err = p.executeExport(values)
 			case "declare":
 				err = p.executeDeclare(values)
-			case "include":
-				err = p.executeInclude(m, values)
 			default:
 				err = fmt.Errorf("%s: unrecognized command", ident)
 			}
@@ -423,15 +448,6 @@ func (p *Parser) parseIdentifier() error {
 			return p.currError()
 		}
 	}
-}
-
-func (p *Parser) executeInclude(m *Maestro, files []string) error {
-	for _, f := range files {
-		if err := p.parseFile(f, m); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (p *Parser) executeDeclare(values []string) error {
