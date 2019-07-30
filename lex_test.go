@@ -167,9 +167,7 @@ include (
 		{Type: command, Literal: "include"},
 		{Type: lparen},
 		{Type: value, Literal: "etc/maestro/local.mf"},
-		{Type: nl},
 		{Type: value, Literal: "etc/maestro/global.mf"},
-		{Type: nl},
 		{Type: rparen},
 	}
 	testLexer(t, input, tokens)

@@ -83,6 +83,7 @@ const (
 	lexValue
 	lexDeps
 	lexScript
+	lexCommand
 )
 
 const (
@@ -153,6 +154,8 @@ func (x *lexer) Next() Token {
 		x.nextScript(&t)
 	case lexDeps:
 		x.nextDependency(&t)
+	case lexCommand:
+		x.nextCommand(&t)
 	default:
 		x.nextDefault(&t)
 	}
@@ -168,8 +171,10 @@ func (x *lexer) updateState(t Token) bool {
 	switch t.Type {
 	case colon:
 		x.state = lexDeps | lexNoop
-	case equal, command:
+	case equal:
 		x.state |= lexValue
+	case command:
+		x.state = lexCommand | lexNoop
 	case lparen, comma:
 		x.state = lexDefault | lexProps
 	case nl:
@@ -186,6 +191,22 @@ func (x *lexer) updateState(t Token) bool {
 		repeat = t.Literal == ""
 	}
 	return repeat
+}
+
+func (x *lexer) nextCommand(t *Token) {
+	if x.char == space {
+		x.skipSpace()
+	}
+	switch {
+	case x.char == lparen || x.char == rparen || x.char == nl:
+		t.Type = x.char
+	case isQuote(x.char):
+		x.readString(t)
+	case x.char == percent:
+		x.readVariable(t)
+	default:
+		x.readValue(t)
+	}
 }
 
 func (x *lexer) nextScript(t *Token) {
