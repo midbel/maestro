@@ -58,9 +58,15 @@ func Parse(file string, is ...string) (*Maestro, error) {
 	if err := p.pushFrame(file); err != nil {
 		return nil, err
 	}
+	if len(is) > 0 {
+		p.nextToken()
+	}
 	for i := len(is) - 1; i >= 0; i-- {
 		if err := p.pushFrame(is[i]); err != nil {
 			return nil, err
+		}
+		if n := len(is); n > 1 && i > 0 {
+			p.nextToken()
 		}
 	}
 	p.nextToken()
