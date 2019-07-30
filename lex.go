@@ -127,6 +127,10 @@ func Lex(r io.Reader) (*lexer, error) {
 	return &x, nil
 }
 
+func (x *lexer) IsDone() bool {
+	return x.char == eof
+}
+
 func (x *lexer) Position() Position {
 	return Position{Line: x.line, Column: x.column}
 }
@@ -254,22 +258,6 @@ func (x *lexer) nextDefault(t *Token) {
 	default:
 		t.Type = x.char
 	}
-}
-
-func (x *lexer) countRuneUntil(fn func(rune) bool) int {
-	var (
-		i int
-		n = x.pos
-	)
-	for {
-		k, nn := utf8.DecodeRune(x.inner[n:])
-		if fn(k) || k == utf8.RuneError {
-			break
-		}
-		n += nn
-		i++
-	}
-	return i
 }
 
 func (x *lexer) readVariable(t *Token) {

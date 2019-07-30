@@ -8,6 +8,7 @@ import (
 func TestLexer(t *testing.T) {
 	t.Run("Variables", testScanVariables)
 	t.Run("Commands", testScanCommands)
+	t.Run("Commands+Alternative", testScanCommandsAlternative)
 	t.Run("Scripts", testScanScripts)
 	t.Run("Specials", testScanSpecialVariables)
 	t.Run("Scripts+Deps", testScanScriptsWithDependencies)
@@ -33,7 +34,7 @@ func testLexer(t *testing.T, input string, tokens []Token) {
 		got, want := k.String(), tokens[i].String()
 		// t.Log(got, want)
 		if got != want {
-			t.Fatalf("%d) unesxpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
+			t.Fatalf("%d) unexpected token! want %s, got: %s (%02x)", i+1, want, got, k.Type)
 		}
 	}
 }
@@ -155,6 +156,25 @@ restart(shell=bash): stop start
 	testLexer(t, input, tokens)
 }
 
+func testScanCommandsAlternative(t *testing.T) {
+	input := `
+include (
+	"etc/maestro/local.mf"
+	"etc/maestro/global.mf"
+)
+`
+	tokens := []Token{
+		{Type: command, Literal: "include"},
+		{Type: lparen},
+		{Type: value, Literal: "etc/maestro/local.mf"},
+		{Type: nl},
+		{Type: value, Literal: "etc/maestro/global.mf"},
+		{Type: nl},
+		{Type: rparen},
+	}
+	testLexer(t, input, tokens)
+}
+
 func testScanCommands(t *testing.T) {
 	input := `
 include etc/xsk/globals.xsk
@@ -250,6 +270,7 @@ env     = prod dev test
 dirs    = %(datadir) %(tmpdir) %(workdir)
 `
 	tokens := []Token{
+		{Type: comment, Literal: "comment should be skipped"},
 		{Type: ident, Literal: "datadir"},
 		{Type: equal},
 		{Type: value, Literal: "/var/data"},
@@ -274,6 +295,7 @@ dirs    = %(datadir) %(tmpdir) %(workdir)
 		{Type: equal},
 		{Type: value, Literal: "-"},
 		{Type: nl},
+		{Type: comment, Literal: "assign datadir value to workdir"},
 		{Type: ident, Literal: "workdir"},
 		{Type: equal},
 		{Type: variable, Literal: "datadir"},
