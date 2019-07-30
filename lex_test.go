@@ -162,12 +162,23 @@ include (
 	"etc/maestro/local.mf"
 	"etc/maestro/global.mf"
 )
+export (
+	PATH /var/bin
+	HOME %(datadir)
+)
 `
 	tokens := []Token{
 		{Type: command, Literal: "include"},
 		{Type: lparen},
 		{Type: value, Literal: "etc/maestro/local.mf"},
 		{Type: value, Literal: "etc/maestro/global.mf"},
+		{Type: rparen},
+		{Type: command, Literal: "export"},
+		{Type: value, Literal: "PATH"},
+		{Type: value, Literal: "/var/bin"},
+		{Type: command, Literal: "export"},
+		{Type: value, Literal: "HOME"},
+		{Type: variable, Literal: "datadir"},
 		{Type: rparen},
 	}
 	testLexer(t, input, tokens)
@@ -180,10 +191,6 @@ include "etc/xsk/variables.xsk"
 
 export PATH /var/bin
 export HOME %(datadir)
-
-echo %(welcom)
-echo "data directory set" %(datadir)
-echo "working directory set" %(workdir)
 `
 	tokens := []Token{
 		{Type: command, Literal: "include"},
@@ -199,17 +206,6 @@ echo "working directory set" %(workdir)
 		{Type: command, Literal: "export"},
 		{Type: value, Literal: "HOME"},
 		{Type: variable, Literal: "datadir"},
-		{Type: nl},
-		{Type: command, Literal: "echo"},
-		{Type: variable, Literal: "welcom"},
-		{Type: nl},
-		{Type: command, Literal: "echo"},
-		{Type: value, Literal: "data directory set"},
-		{Type: variable, Literal: "datadir"},
-		{Type: nl},
-		{Type: command, Literal: "echo"},
-		{Type: value, Literal: "working directory set"},
-		{Type: variable, Literal: "workdir"},
 		{Type: nl},
 	}
 	testLexer(t, input, tokens)

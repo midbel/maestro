@@ -17,7 +17,6 @@ import (
 
 // map between recognized commands and their expected number of arguments
 var commands = map[string]int{
-	"echo":    -1,
 	"declare": -1,
 	"export":  2,
 	"include": 1,
