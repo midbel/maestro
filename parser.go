@@ -96,7 +96,7 @@ func (p *Parser) Parse() (*Maestro, error) {
 		case comment:
 			// ignore by the parser
 		case command:
-			err = p.parseCommand(&mst)
+			err = p.parseCommand()
 		default:
 			err = p.currError()
 		}
@@ -255,23 +255,85 @@ func (p *Parser) parseProperties(a *Action) error {
 
 func (p *Parser) parseInclude() error {
 	p.nextToken()
+
+	var files []string
 	switch p.currType() {
 	case value:
-		return p.parseFile(p.currLiteral())
-	case lparen:
-		var files []string
+		files = append(files, p.currLiteral())
 		p.nextToken()
+	case lparen:
+		p.nextToken()
+		p.nextToken()
+
 		for p.currType() == value {
 			files = append(files, p.currLiteral())
-			p.nextToken()
+			if p.peekType() != nl {
+				return p.peekError()
+			} else {
+				p.nextToken()
+				p.nextToken()
+			}
 		}
 		if p.currType() != rparen {
 			return p.currError()
 		}
-		for _, f := range files {
-			if err := p.parseFile(f); err != nil {
+	default:
+		return p.currError()
+	}
+	var err error
+	for _, f := range files {
+		if err = p.parseFile(f); err != nil {
+			break
+		}
+	}
+	return err
+}
+
+func (p *Parser) parseExport() error {
+	get := func() error {
+		if !(p.currIs(ident) || p.currIs(value)) {
+			return p.currError()
+		}
+
+		var ident, literal string
+		ident = p.currLiteral()
+
+		p.nextToken()
+		switch lit := p.currLiteral(); p.currType() {
+		case value:
+			literal = lit
+		case variable:
+			vs, ok := p.locals[lit]
+			if ok && len(vs) > 0 {
+				literal = vs[0]
+			}
+		default:
+			return p.currError()
+		}
+		if p.peekType() != nl {
+			return p.peekError()
+		} else {
+			p.nextToken()
+			p.nextToken()
+		}
+		p.globals[ident] = literal
+		return nil
+	}
+
+	p.nextToken()
+	switch p.currType() {
+	case ident, value:
+		return get()
+	case lparen:
+		p.nextToken()
+		p.nextToken()
+		for p.currIs(ident) || p.currIs(value) {
+			if err := get(); err != nil {
 				return err
 			}
+		}
+		if p.currType() != rparen {
+			return p.currError()
 		}
 	default:
 		return p.currError()
@@ -279,48 +341,51 @@ func (p *Parser) parseInclude() error {
 	return nil
 }
 
-func (p *Parser) parseCommand(m *Maestro) error {
-	ident := p.currLiteral()
-	nargs, ok := commands[ident]
-	if !ok {
-		return fmt.Errorf("%s: unknown command", ident)
+func (p *Parser) parseClear() error {
+	if p.peekType() != nl {
+		return p.peekError()
 	}
-	switch ident {
+	p.locals = make(map[string][]string)
+	p.globals = make(map[string]string)
+
+	p.nextToken()
+	return nil
+}
+
+func (p *Parser) parseDeclare() error {
+	if p.peekType() == nl {
+		return p.peekError()
+	}
+	p.nextToken()
+	for p.currIs(value) {
+		lit := p.currLiteral()
+		vs, ok := p.locals[lit]
+		if ok {
+			return fmt.Errorf("declare: %s already declared", lit)
+		}
+		p.locals[lit] = vs
+
+		p.nextToken()
+	}
+	if !p.currIs(nl) {
+		return p.currError()
+	}
+	p.nextToken()
+	return nil
+}
+
+func (p *Parser) parseCommand() error {
+	switch ident := p.currLiteral(); ident {
 	case "include":
 		return p.parseInclude()
+	case "export":
+		return p.parseExport()
+	case "clear":
+		return p.parseClear()
+	case "declare":
+		return p.parseDeclare()
 	default:
-	}
-	values := make([]string, 0, 12)
-	for {
-		p.nextToken()
-		switch p.currType() {
-		case value:
-			values = append(values, p.currLiteral())
-		case variable:
-			val, ok := p.locals[p.currLiteral()]
-			if !ok {
-				return fmt.Errorf("%s: not defined", p.currLiteral())
-			}
-			values = append(values, val...)
-		case nl:
-			if nargs >= 0 && len(values) != nargs {
-				return fmt.Errorf("%s: wrong number of arguments (want: %d, got %d)", ident, nargs, len(values))
-			}
-			var err error
-			switch ident {
-			case "clear":
-				err = p.executeClear()
-			case "export":
-				err = p.executeExport(values)
-			case "declare":
-				err = p.executeDeclare(values)
-			default:
-				err = fmt.Errorf("%s: unrecognized command", ident)
-			}
-			return err
-		default:
-			return p.currError()
-		}
+		return fmt.Errorf("%s: unknown command", ident)
 	}
 }
 
@@ -447,31 +512,6 @@ func (p *Parser) parseIdentifier() error {
 			return p.currError()
 		}
 	}
-}
-
-func (p *Parser) executeDeclare(values []string) error {
-	for _, v := range values {
-		vs, ok := p.locals[v]
-		if ok {
-			return fmt.Errorf("declare: %s already declared", v)
-		}
-		p.locals[v] = vs
-	}
-	return nil
-}
-
-func (p *Parser) executeExport(values []string) error {
-	if len(values) != 2 {
-		return fmt.Errorf("export: wrong number of arguments")
-	}
-	p.globals[values[0]] = values[1]
-	return nil
-}
-
-func (p *Parser) executeClear() error {
-	p.locals = make(map[string][]string)
-	p.globals = make(map[string]string)
-	return nil
 }
 
 func (p *Parser) debugTokens() (curr Token, peek Token) {
