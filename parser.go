@@ -255,7 +255,13 @@ func (p *Parser) parseProperties(a *Action) error {
 }
 
 func (p *Parser) parseExit() error {
-	return fmt.Errorf("exit")
+	p.nextToken()
+
+	lit := "exit"
+	if p.currType() == value {
+		lit = p.currLiteral()
+	}
+	return fmt.Errorf(lit)
 }
 
 func (p *Parser) parseInclude() error {
