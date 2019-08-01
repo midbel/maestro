@@ -255,9 +255,9 @@ func (p *Parser) parseProperties(a *Action) error {
 }
 
 func (p *Parser) parseExit() error {
-	p.nextToken()
+	lit := p.currLiteral()
 
-	lit := "exit"
+	p.nextToken()
 	if p.currType() == value {
 		lit = p.currLiteral()
 	}
