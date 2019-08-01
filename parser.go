@@ -21,6 +21,7 @@ var commands = map[string]int{
 	"export":  2,
 	"include": 1,
 	"clear":   0,
+	"exit":    0,
 }
 
 var specials = []string{
@@ -253,6 +254,10 @@ func (p *Parser) parseProperties(a *Action) error {
 	return p.peekExpect(colon)
 }
 
+func (p *Parser) parseExit() error {
+	return fmt.Errorf("exit")
+}
+
 func (p *Parser) parseInclude() error {
 	p.nextToken()
 
@@ -384,6 +389,8 @@ func (p *Parser) parseCommand() error {
 		return p.parseClear()
 	case "declare":
 		return p.parseDeclare()
+	case "exit":
+		return p.parseExit()
 	default:
 		return fmt.Errorf("%s: unknown command", ident)
 	}
