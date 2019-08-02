@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -16,6 +17,11 @@ type includes []string
 func (i *includes) Set(fs string) error {
 	vs, err := setValues(fs, *i, isFile)
 	if err == nil {
+		for i := range vs {
+			if filepath.Ext(vs[i]) == "" {
+				vs[i] += maestro.ExtMF
+			}
+		}
 		*i = vs
 	}
 	return err
@@ -136,10 +142,13 @@ func isHostPort(str string) error {
 }
 
 func isFile(str string) error {
+	if filepath.Ext(str) == "" {
+		str += maestro.ExtMF
+	}
 	i, err := os.Stat(str)
 	if err == nil {
 		if !i.Mode().IsRegular() {
-			err = fmt.Errorf("%s: not a regular file")
+			err = fmt.Errorf("%s: not a regular file", i.Name())
 		}
 	}
 	return err

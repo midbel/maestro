@@ -14,6 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const ExtMF = ".mf"
+
 const (
 	DefaultShell      = "/bin/sh -c"
 	NoParallel        = -1
