@@ -407,7 +407,7 @@ func (p *Parser) multiValues(check func(string) error) ([]string, error) {
 		check = func(_ string) error { return nil }
 	}
 	var args []string
-	for !p.peekIs(nl) {
+	for {
 		if !p.currIs(value) {
 			return nil, p.currError()
 		}
@@ -416,7 +416,13 @@ func (p *Parser) multiValues(check func(string) error) ([]string, error) {
 			return nil, err
 		}
 		args = append(args, lit)
+		if !p.peekIs(value) {
+			break
+		}
 		p.nextToken()
+	}
+	if !p.peekIs(nl) {
+		return nil, p.peekError()
 	}
 	return args, nil
 }
@@ -435,6 +441,8 @@ func (p *Parser) parseMeta(m *Maestro) error {
 		m.User = lit
 	case "KEY":
 		m.Key = lit
+	case "PASSWD":
+		m.Passwd = lit
 	case "HOSTS":
 		m.Hosts, err = p.multiValues(func(str string) error {
 			_, _, err := net.SplitHostPort(str)

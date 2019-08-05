@@ -3,6 +3,7 @@ package maestro
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 )
 
 const (
+	ExtMF        = ".mf"
 	DefaultShell = "/bin/sh -c"
 	NoParallel = -1
 	UnlimitedParallel = 0
@@ -65,6 +67,7 @@ type Maestro struct {
 	// SSH Options
 	User string
 	Key  string
+	Passwd string
 
 	// actions
 	Actions map[string]Action
@@ -157,10 +160,22 @@ func (m Maestro) executeRemote(act Action) error {
 }
 
 func (m Maestro) executeRemoteAction(host string, a Action) (func() error, error) {
+	key, err := ioutil.ReadFile(m.Key)
+	if err != nil {
+		return nil, err
+	}
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return nil, err
+	}
 	config := ssh.ClientConfig{
 		User: "",
-		Auth: []ssh.AuthMethod{},
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+			ssh.Password(m.Passwd),
+		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		// HostKeyCallback: ssh.FixedHostKey(signer.PublicKey()),
 	}
 	c, err := ssh.Dial("tcp", host, &config)
 	if err != nil {
