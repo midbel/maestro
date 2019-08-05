@@ -10,15 +10,13 @@ import (
 	"strings"
 	"text/template"
 
-	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/crypto/ssh"
 )
 
-const ExtMF = ".mf"
-
 const (
-	DefaultShell      = "/bin/sh -c"
-	NoParallel        = -1
+	DefaultShell = "/bin/sh -c"
+	NoParallel = -1
 	UnlimitedParallel = 0
 )
 
@@ -144,20 +142,43 @@ func (m Maestro) executeRemote(act Action) error {
 	}
 	act.Hosts = append(act.Hosts, m.Hosts...)
 	if len(act.Hosts) == 0 {
-		return fmt.Errorf("%s: no remote host given", act.Name)
+		return fmt.Errorf("%s: no remote host given" , act.Name)
 	}
-	config := ssh.ClientConfig{
-		User: "",
-		Auth: []ssh.AuthMethod{},
-	}
+
+	var grp errgroup.Group
 	for _, h := range act.Hosts {
-		c, err := ssh.Dial("tcp", h, &config)
+		fn, err := m.executeRemoteAction(h, act)
 		if err != nil {
 			return err
 		}
-		_ = c
+		grp.Go(fn)
 	}
-	return nil
+	return grp.Wait()
+}
+
+func (m Maestro) executeRemoteAction(host string, a Action) (func() error, error) {
+	config := ssh.ClientConfig{
+		User: "",
+		Auth: []ssh.AuthMethod{},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	c, err := ssh.Dial("tcp", host, &config)
+	if err != nil {
+		return nil, err
+	}
+	return func() error {
+		defer c.Close()
+
+		sess, err := c.NewSession()
+		if err != nil {
+			return err
+		}
+		defer sess.Close()
+		sess.Stdout = os.Stdout
+		sess.Stderr = os.Stderr
+
+		return sess.Run(a.String())
+	}, nil
 }
 
 func (m Maestro) executeAction(a Action, deps [][]string, echo bool) error {
