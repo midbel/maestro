@@ -11,14 +11,15 @@ import (
 	"strings"
 	"text/template"
 
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
-	ExtMF        = ".mf"
-	DefaultShell = "/bin/sh -c"
-	NoParallel = -1
+	ExtMF             = ".mf"
+	DefaultShell      = "/bin/sh -c"
+	NoParallel        = -1
 	UnlimitedParallel = 0
 )
 
@@ -65,8 +66,8 @@ type Maestro struct {
 	Failure string
 
 	// SSH Options
-	User string
-	Key  string
+	User   string
+	Key    string
 	Passwd string
 
 	// actions
@@ -145,7 +146,7 @@ func (m Maestro) executeRemote(act Action) error {
 	}
 	act.Hosts = append(act.Hosts, m.Hosts...)
 	if len(act.Hosts) == 0 {
-		return fmt.Errorf("%s: no remote host given" , act.Name)
+		return fmt.Errorf("%s: no remote host given", act.Name)
 	}
 
 	var grp errgroup.Group
@@ -168,14 +169,21 @@ func (m Maestro) executeRemoteAction(host string, a Action) (func() error, error
 	if err != nil {
 		return nil, err
 	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	allowHosts, err := knownhosts.New(filepath.Join(home, ".ssh/known_hosts"))
+	if err != nil {
+		return nil, err
+	}
 	config := ssh.ClientConfig{
-		User: "",
+		User: m.User,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 			ssh.Password(m.Passwd),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		// HostKeyCallback: ssh.FixedHostKey(signer.PublicKey()),
+		HostKeyCallback: allowHosts,
 	}
 	c, err := ssh.Dial("tcp", host, &config)
 	if err != nil {
