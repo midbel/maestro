@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -161,31 +162,11 @@ func (m Maestro) executeRemote(act Action) error {
 }
 
 func (m Maestro) executeRemoteAction(host string, a Action) (func() error, error) {
-	key, err := ioutil.ReadFile(m.Key)
+	config, err := sshConfig(m.User, m.Key, m.Passwd, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fail to load ssh config: %v", err)
 	}
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, err
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	allowHosts, err := knownhosts.New(filepath.Join(home, ".ssh/known_hosts"))
-	if err != nil {
-		return nil, err
-	}
-	config := ssh.ClientConfig{
-		User: m.User,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-			ssh.Password(m.Passwd),
-		},
-		HostKeyCallback: allowHosts,
-	}
-	c, err := ssh.Dial("tcp", host, &config)
+	c, err := ssh.Dial("tcp", host, config)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +183,45 @@ func (m Maestro) executeRemoteAction(host string, a Action) (func() error, error
 
 		return sess.Run(a.String())
 	}, nil
+}
+
+func sshConfig(who, pubkey, passwd string, hosts []string) (*ssh.ClientConfig, error) {
+	config := ssh.ClientConfig{
+		User: who,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	if config.User == "" {
+		u, err := user.Current()
+		if err != nil {
+			return nil, err
+		}
+		config.User = u.Username
+	}
+	if key, err := ioutil.ReadFile(pubkey); err == nil {
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, err
+		}
+		config.Auth = append(config.Auth, ssh.PublicKeys(signer))
+	}
+	config.Auth = append(config.Auth, ssh.Password(passwd))
+
+	if len(hosts) == 0 {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			if home, err = os.Getwd(); err != nil {
+				home = "."
+			}
+		}
+		hosts = append(hosts, filepath.Join(home, ".ssh", "known_hosts"))
+	}
+	allowHosts, err := knownhosts.New(hosts...)
+	if err != nil {
+		return nil, err
+	}
+	config.HostKeyCallback = allowHosts
+
+	return &config, nil
 }
 
 func (m Maestro) executeAction(a Action, deps [][]string, echo bool) error {
