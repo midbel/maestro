@@ -43,8 +43,22 @@ func (t Token) String() string {
 		str = "meta"
 	case comment:
 		str = "comment"
+	case keyword:
+		str = "keyword"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
+}
+
+const (
+	kwCase = "case"
+	kwEsac = "esac"
+	kwIn   = "in"
+)
+
+var keywords = map[string]rune {
+	kwCase: keyword,
+	kwEsac: keyword,
+	kwIn: keyword,
 }
 
 const (
@@ -76,6 +90,7 @@ const (
 	script
 	dependency
 	invalid
+	keyword
 )
 
 const (
@@ -150,6 +165,15 @@ func (x *lexer) IsDone() bool {
 
 func (x *lexer) Position() Position {
 	return Position{Line: x.line, Column: x.column}
+}
+
+func (x *lexer) SkipUntil(lit string, typ rune) error {
+	for tok := x.Next(); tok.Type != eof; tok = x.Next() {
+		if tok.Type == typ && tok.Literal == lit {
+			return nil
+		}
+	}
+	return fmt.Errorf("token not found: %s", lit)
 }
 
 func (x *lexer) Next() Token {
@@ -299,6 +323,8 @@ func (x *lexer) nextDefault(t *Token) {
 		x.readRune()
 		x.readIdent(t)
 		t.Type = meta
+	case x.char == percent:
+		x.readVariable(t)
 	default:
 		t.Type = x.char
 	}
@@ -328,9 +354,13 @@ func (x *lexer) readIdent(t *Token) {
 	for isIdent(x.char) || isDigit(x.char) {
 		x.readRune()
 	}
-	t.Literal, t.Type = string(x.inner[pos:x.pos]), ident
+	t.Literal = string(x.inner[pos:x.pos])
 	if _, ok := commands[t.Literal]; ok {
 		t.Type = command
+	} else if _, ok := keywords[t.Literal]; ok {
+		t.Type = keyword
+	} else {
+		t.Type = ident
 	}
 	x.unreadRune()
 }

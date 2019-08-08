@@ -1,22 +1,23 @@
 package maestro
 
 import (
-	"io"
+	"golang.org/x/crypto/ssh"
 )
 
-type Command interface {
-	Run(io.Writer, io.Writer) error
-	Start(io.Writer, io.Writer) error
-	Wait() error
+type Shell interface {
+	Execute(Action) error
 }
 
-// Commmand for local execution (via exec.Cmd)
 type local struct{}
 
-// Command for remote execution (via ssh.Session)
-type remote struct{}
+func (c *local) Execute(a Action) error {
+	return nil
+}
 
-// Chain executes the final chain of Command
-func Chain(cs ...Command) error {
+type remote struct{
+	client *ssh.Client
+}
+
+func (r *remote) Execute(a Action) error {
 	return nil
 }
