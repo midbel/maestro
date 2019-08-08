@@ -43,22 +43,8 @@ func (t Token) String() string {
 		str = "meta"
 	case comment:
 		str = "comment"
-	case keyword:
-		str = "keyword"
 	}
 	return fmt.Sprintf("<%s '%s'>", str, t.Literal)
-}
-
-const (
-	kwCase = "case"
-	kwEsac = "esac"
-	kwIn   = "in"
-)
-
-var keywords = map[string]rune {
-	kwCase: keyword,
-	kwEsac: keyword,
-	kwIn: keyword,
 }
 
 const (
@@ -90,7 +76,6 @@ const (
 	script
 	dependency
 	invalid
-	keyword
 )
 
 const (
@@ -357,8 +342,6 @@ func (x *lexer) readIdent(t *Token) {
 	t.Literal = string(x.inner[pos:x.pos])
 	if _, ok := commands[t.Literal]; ok {
 		t.Type = command
-	} else if _, ok := keywords[t.Literal]; ok {
-		t.Type = keyword
 	} else {
 		t.Type = ident
 	}

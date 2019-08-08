@@ -94,8 +94,6 @@ func (p *Parser) Parse() (*Maestro, error) {
 			default:
 				err = p.peekError()
 			}
-		case keyword:
-			err = p.parseKeyword()
 		case comment:
 			// ignore by the parser
 		case command:
@@ -109,32 +107,6 @@ func (p *Parser) Parse() (*Maestro, error) {
 		p.nextToken()
 	}
 	return &mst, nil
-}
-
-func (p *Parser) parseKeyword() error {
-	switch p.currLiteral() {
-	case kwCase:
-		return p.parseCase()
-	default:
-		return p.currError()
-	}
-}
-
-func (p *Parser) parseCase() error {
-	p.nextToken()
-	if p.currType() != variable {
-		return p.currError()
-	}
-	value, ok := p.locals[p.currLiteral()]
-	if !ok {
-		return fmt.Errorf("%s: variable not defined")
-	}
-	_ = value
-	p.nextToken()
-	if p.currType() != keyword && p.currLiteral() != kwIn {
-		return p.currError()
-	}
-	return p.skipUntil(kwEsac, keyword)
 }
 
 func (p *Parser) parseFile(file string) error {
