@@ -29,10 +29,7 @@
 .SHELL = bash
 
 # other variables
-# .BIN  =       # directory where script will be written after variable subsitution
 # .ECHO =       # tell maestro to echo commands/scripts executed
-# .TIMEOUT =    # timeout to give to each executed commands
-# .NOCONFLICT = # behaviour of maestro when multiple commands have the same name
 
 # SSH OPTIONS
 .USER = midbel
@@ -75,8 +72,9 @@ export HOME %(datadir)
 #
 # syntax
 # ------
-# identifier[(properties)]: [dependencies]
+# identifier[(properties)]: [dependencies] {
 # 	[script]
+# }
 
 # action properties
 # -----------------
@@ -90,9 +88,6 @@ export HOME %(datadir)
 # timeout:  kill scripts X seconds after having executed script
 # workdir:  set working directory of script
 # tag:      list of tags for an action (help to classify actions)
-# stdout:   specify standard output of command
-# stderr:   specify standard error of command
-# ...:     TBD
 
 # action dependencies
 # -------------------
@@ -147,23 +142,26 @@ single(
 	shell="/bin/bash",
 	help="echo single target",
 	tag=dummy
-):
+): {
 	echo %(TARGET)
-
 	echo %(TARGET) %(datadir)
+}
 
-multiline(help="echo multiple target and props", tag=dummy):
-	echo %(TARGET) %(@)
-	echo %(TARGET) %(#)
+multiline(help="echo multiple target and props", tag=dummy): {
+echo %(TARGET) %(@)
+echo %(TARGET) %(#)
 
-	echo %(TARGET) %(shell)
+echo %(TARGET) %(shell)
+}
 
-empty(help="do nothing"):
-sleep(shell=bash): empty single
+empty(help="do nothing"): {}
+sleep(shell=bash): empty single {
 	sleep 5
+}
 
-reload(shell=bash,retry=5, help="reload service"):
-	sudo service %(TARGET) reload
+reload(shell=bash,retry=5, help="reload service"): {
+sudo service %(TARGET) reload
+}
 
 config1(
 	shell=ksh,
@@ -171,8 +169,9 @@ config1(
 	workdir=%(datadir),
 	help="test configuration phase1",
 	tag=config,
-):
-  sudo service %(TARGET) test
+): {
+	sudo service %(TARGET) test
+}
 
 # same as config1 without the trailing comma after the home property
 config2(
@@ -181,23 +180,27 @@ config2(
 	workdir=%(datadir),
 	help="test configuration phase2",
 	tag=config,
-):
+): {
 	sudo service %(TARGET) test
+}
 
-dummy = dummy
-
-purge(tag=service hazardous, hazardous=true):
+purge(tag=service hazardous, hazardous=true): {
 	rm -rf %(datadir)
 	rm -rf %(cachedir)
+}
 
-test(tag=service): purge
+test(tag=service): purge {
 	sudo service %(dummy) test
+}
 
-stop(tag=service):
+stop(tag=service): {
 	sudo service %(dummy) stop
+}
 
-start(tag=service): purge test
+start(tag=service): purge test {
 	sudo service %(dummy) start
+}
 
-restart(shell=bash, help="stop and start service"): stop start
+restart(shell=bash, help="stop and start service"): stop start {
 	echo %(TARGET) "restarted"
+}
