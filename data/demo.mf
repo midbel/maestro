@@ -5,18 +5,19 @@ binname = demo
 servers = "192.168.67.181" "192.168.67.236"
 
 # meta declaration
-.ALL     = verify test build
-.DEFAULT = build
-.PATH    =
-.ECHO    = true
+.ALL       = verify test build
+.DEFAULT   = build
+.PATH      =
+.ECHO      = true
+# .DUPLICATE = error|append|replace
 # .VERSION =
 # .AUTHOR  =
 
 # include
-include (
-	file1.mf
-	file2.mf
-)
+# include (
+# 	file1.mf
+# 	file2.mf
+# )
 
 # scripts
 # action([property...]): dependency([args...]),... {

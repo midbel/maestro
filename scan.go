@@ -27,6 +27,7 @@ const (
 	pound      = '#'
 	backslash  = '\\'
 	semicolon  = ';'
+	ampersand  = '&'
 )
 
 type Scanner struct {
@@ -70,17 +71,21 @@ func (s *Scanner) Scan() Token {
 		tok.Type = Eof
 		return tok
 	}
-  if s.char != rcurly && s.script {
-    s.scanScript(&tok)
-    return tok
-  }
+	if s.char != rcurly && s.script {
+		s.scanScript(&tok)
+		return tok
+	}
 	switch {
 	case isComment(s.char):
 		s.scanComment(&tok)
 	case isLetter(s.char):
 		s.scanIdent(&tok)
+	case isVariable(s.char):
+		s.scanVariable(&tok)
 	case isQuote(s.char):
 		s.scanString(&tok)
+	case isDigit(s.char):
+		s.scanInteger(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
 	case isMeta(s.char):
@@ -134,7 +139,26 @@ func (s *Scanner) scanString(tok *Token) {
 	s.read()
 
 	tok.Literal = s.str.String()
-	tok.Type = Ident
+	tok.Type = String
+}
+
+func (s *Scanner) scanInteger(tok *Token) {
+	for isDigit(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Type = Integer
+	tok.Literal = s.str.String()
+}
+
+func (s *Scanner) scanVariable(tok *Token) {
+	s.read()
+	for isIdent(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Type = Variable
+	tok.Literal = s.str.String()
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
@@ -144,6 +168,10 @@ func (s *Scanner) scanIdent(tok *Token) {
 	}
 	tok.Literal = s.str.String()
 	tok.Type = Ident
+	switch tok.Literal {
+	case kwTrue, kwFalse:
+		tok.Type = Boolean
+	}
 }
 
 func (s *Scanner) scanDelimiter(tok *Token) {
@@ -160,10 +188,10 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		tok.Type = EndList
 	case lcurly:
 		tok.Type = BegScript
-    s.script = true
+		s.script = true
 	case rcurly:
 		tok.Type = EndScript
-    s.script = false
+		s.script = false
 	default:
 	}
 	s.read()
@@ -279,6 +307,10 @@ func isComment(b rune) bool {
 
 func isMeta(b rune) bool {
 	return b == dot
+}
+
+func isVariable(b rune) bool {
+	return b == dollar
 }
 
 func isDelimiter(b rune) bool {

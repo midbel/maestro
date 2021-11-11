@@ -1,7 +1,12 @@
 package maestro
 
 import (
-  "fmt"
+	"fmt"
+)
+
+const (
+	kwTrue  = "true"
+	kwFalse = "false"
 )
 
 const (
@@ -9,8 +14,11 @@ const (
 	Eol
 	Comment
 	Ident
+	String
+	Integer
+	Boolean
+	Variable
 	Meta
-	Command
 	Script
 	Assign
 	Comma
@@ -60,14 +68,30 @@ func (t Token) String() string {
 		return "<invalid>"
 	case Ident:
 		prefix = "ident"
+	case String:
+		prefix = "string"
+	case Boolean:
+		prefix = "boolean"
+	case Integer:
+		prefix = "integer"
 	case Meta:
 		prefix = "meta"
+	case Variable:
+		prefix = "variable"
 	case Comment:
 		prefix = "comment"
 	case Script:
 		prefix = "script"
 	}
 	return fmt.Sprintf("%s(%s)", prefix, t.Literal)
+}
+
+func (t Token) IsVariable() bool {
+	return t.Type == Variable
+}
+
+func (t Token) IsValue() bool {
+	return t.Type == Ident || t.Type == String || t.Type == Boolean || t.Type == Integer || t.Type == Variable
 }
 
 func (t Token) IsEOF() bool {

@@ -18,16 +18,9 @@ func main() {
 	}
 	defer r.Close()
 
-	s, err := maestro.Scan(r)
+	_, err = maestro.Decode(r)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
-	}
-	for {
-		tok := s.Scan()
-		if tok.IsEOF() || tok.IsInvalid() {
-			break
-		}
-		fmt.Println(tok)
 	}
 }
