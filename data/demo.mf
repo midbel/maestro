@@ -1,12 +1,27 @@
+# variable declaration
 buildir = bin
 pkgdir  = remote
 binname = demo
 servers = "192.168.67.181" "192.168.67.236"
 
+# meta declaration
 .ALL     = verify test build
 .DEFAULT = build
 .PATH    =
 .ECHO    = true
+# .VERSION =
+# .AUTHOR  =
+
+# include
+include (
+	file1.mf
+	file2.mf
+)
+
+# scripts
+# action([property...]): dependency([args...]),... {
+# 	[script]
+# }
 
 build(help="build binary", tag=build, error=raise): {
 	echo "building main binary into ${buildir}"
@@ -22,6 +37,7 @@ verify(help="check source code and reformat it", tag=verify, error=discard): {
 	echo "running gofmt"
 	gofmt -w -s .
 	echo "running go vet"
+
  	go vet
 }
 
@@ -32,7 +48,7 @@ clean(help="remove temporary files", tag=verify): {
 }
 
 deploy(help="deploy binary on production server", tag=build): {
-
+	scp
 }
 
 package(help="create deb/rpm package from binary", tag=build): {
