@@ -1,0 +1,42 @@
+buildir = bin
+pkgdir  = remote
+binname = demo
+servers = "192.168.67.181" "192.168.67.236"
+
+.ALL     = verify test build
+.DEFAULT = build
+.PATH    =
+.ECHO    = true
+
+build(help="build binary", tag=build, error=raise): {
+	echo "building main binary into ${buildir}"
+	go build -trimpath -o ${builddir}/${binary} cmd/${binary}/main.go
+}
+
+test(help="run test", tag=build, error=discard) {
+	echo "testing current directory"
+	go test -v -coverprofile=cover.out
+}
+
+verify(help="check source code and reformat it", tag=verify, error=discard): {
+	echo "running gofmt"
+	gofmt -w -s .
+	echo "running go vet"
+ 	go vet
+}
+
+clean(help="remove temporary files", tag=verify): {
+	rm -rf tmp/*
+	rm -rf ${buildir}/*
+	rm -rf ${pkgdir}/*
+}
+
+deploy(help="deploy binary on production server", tag=build): {
+
+}
+
+package(help="create deb/rpm package from binary", tag=build): {
+	mkdir -pf ${pkgdir}
+	packit build -k deb -d ${pkgdir} ${manifest}
+	packit build -k rpm -d ${pkgdir} ${manifest}
+}
