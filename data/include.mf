@@ -1,0 +1,5 @@
+test = variable
+
+action(help="sample action"): {
+  echo "${test}"
+}

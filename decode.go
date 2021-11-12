@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"time"
 )
@@ -44,24 +45,21 @@ const (
 )
 
 type Decoder struct {
-	scan *Scanner
-	curr Token
-	peek Token
-
-	env map[string][]string
+	locals map[string][]string
+	env    map[string]string
+	frames []*frame
 }
 
 func Decode(r io.Reader) (*Maestro, error) {
-	s, err := Scan(r)
+	d := Decoder{
+		locals: make(map[string][]string),
+		env:    make(map[string]string),
+	}
+	f, err := makeFrame(r)
 	if err != nil {
 		return nil, err
 	}
-	d := Decoder{
-		scan: s,
-		env:  make(map[string][]string),
-	}
-	d.next()
-	d.next()
+	d.frames = append(d.frames, f)
 	return d.Decode()
 }
 
@@ -71,15 +69,17 @@ func (d *Decoder) Decode() (*Maestro, error) {
 	}
 	for !d.done() {
 		var err error
-		switch d.curr.Type {
+		switch d.curr().Type {
 		case Ident:
-			if d.peek.Type == Assign {
+			if d.peek().Type == Assign {
 				err = d.decodeVariable(&mst)
 				break
 			}
 			err = d.decodeCommand(&mst)
 		case Meta:
 			err = d.decodeMeta(&mst)
+		case Keyword:
+			err = d.decodeKeyword(&mst)
 		case Comment:
 			d.next()
 		default:
@@ -92,34 +92,99 @@ func (d *Decoder) Decode() (*Maestro, error) {
 	return &mst, nil
 }
 
-func (d *Decoder) decodeVariable(mst *Maestro) error {
-	ident := d.curr
+func (d *Decoder) decodeKeyword(mst *Maestro) error {
+	switch d.curr().Literal {
+	case kwInclude:
+		return d.decodeInclude()
+	case kwExport:
+		return d.decodeExport(mst)
+	case kwDelete:
+		return d.decodeDelete(mst)
+	default:
+	}
+	return nil
+}
+
+func (d *Decoder) decodeInclude() error {
 	d.next()
-	if d.curr.Type != Assign {
+	var list []string
+	switch d.curr().Type {
+	case String, Ident:
+		list = append(list, d.curr().Literal)
+		d.next()
+	case BegList:
+		d.next()
+		if err := d.ensureEOL(); err != nil {
+			return err
+		}
+		for !d.done() {
+			if d.curr().Type == EndList {
+				break
+			}
+			if d.curr().Type != String && d.curr().Type != Ident {
+				return d.unexpected()
+			}
+			list = append(list, d.curr().Literal)
+			d.next()
+			if err := d.ensureEOL(); err != nil {
+				return err
+			}
+		}
+		if d.curr().Type != EndList {
+			return d.unexpected()
+		}
+		d.next()
+	default:
+		return d.unexpected()
+	}
+	if err := d.ensureEOL(); err != nil {
+		return err
+	}
+	for i := range list {
+		if err := d.push(list[i]); err != nil {
+			return err
+		}
+	}
+	fmt.Println(">>", list)
+	return nil
+}
+
+func (d *Decoder) decodeExport(msg *Maestro) error {
+	return nil
+}
+
+func (d *Decoder) decodeDelete(msg *Maestro) error {
+	return nil
+}
+
+func (d *Decoder) decodeVariable(mst *Maestro) error {
+	ident := d.curr()
+	d.next()
+	if d.curr().Type != Assign {
 		return d.unexpected()
 	}
 	d.next()
-	for d.curr.IsValue() && !d.done() {
-		d.env[ident.Literal] = append(d.env[ident.Literal], d.curr.Literal)
+	for d.curr().IsValue() && !d.done() {
+		d.locals[ident.Literal] = append(d.locals[ident.Literal], d.curr().Literal)
 		d.next()
 	}
 	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	cmd := NewSingleWithLocals(d.curr.Literal, d.env)
+	cmd := NewSingleWithLocals(d.curr().Literal, d.locals)
 	d.next()
-	if d.curr.Type == BegList {
+	if d.curr().Type == BegList {
 		if err := d.decodeCommandProperties(cmd); err != nil {
 			return err
 		}
 	}
-	if d.curr.Type == Dependency {
+	if d.curr().Type == Dependency {
 		if err := d.decodeCommandDependencies(cmd); err != nil {
 			return err
 		}
 	}
-	if d.curr.Type == BegScript {
+	if d.curr().Type == BegScript {
 		if err := d.decodeCommandScripts(cmd); err != nil {
 			return err
 		}
@@ -127,24 +192,25 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if err := mst.Register(cmd); err != nil {
 		return err
 	}
-	return d.ensureEOL()
+	fmt.Printf("%+v\n", *cmd)
+	return nil
 }
 
 func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	d.next()
 	for !d.done() {
-		if d.curr.Type == EndList {
+		if d.curr().Type == EndList {
 			break
 		}
-		if d.curr.Type != Ident {
+		if d.curr().Type != Ident {
 			return d.unexpected()
 		}
 		var (
-			prop = d.curr
+			prop = d.curr()
 			err  error
 		)
 		d.next()
-		if d.curr.Type != Assign {
+		if d.curr().Type != Assign {
 			return d.unexpected()
 		}
 		d.next()
@@ -171,7 +237,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			return err
 		}
 
-		switch d.curr.Type {
+		switch d.curr().Type {
 		case Comma:
 			d.next()
 		case EndList:
@@ -179,7 +245,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			return d.unexpected()
 		}
 	}
-	if d.curr.Type != EndList {
+	if d.curr().Type != EndList {
 		return d.unexpected()
 	}
 	d.next()
@@ -189,22 +255,22 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	d.next()
 	for !d.done() {
-		if d.curr.Type == BegScript {
+		if d.curr().Type == BegScript {
 			break
 		}
-		if d.curr.Type != Ident {
+		if d.curr().Type != Ident {
 			return d.unexpected()
 		}
 		dep := Dep{
-			Name: d.curr.Literal,
+			Name: d.curr().Literal,
 		}
 		cmd.Dependencies = append(cmd.Dependencies, dep)
 		d.next()
-		if d.curr.Type == Background {
+		if d.curr().Type == Background {
 			d.next()
 			dep.Bg = true
 		}
-		switch d.curr.Type {
+		switch d.curr().Type {
 		case Comma:
 			d.next()
 		case BegScript:
@@ -212,7 +278,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 			return d.unexpected()
 		}
 	}
-	if d.curr.Type != BegScript {
+	if d.curr().Type != BegScript {
 		return d.unexpected()
 	}
 	return nil
@@ -221,29 +287,29 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 	d.next()
 	for !d.done() {
-		if d.curr.Type == EndScript {
+		if d.curr().Type == EndScript {
 			break
 		}
-		if d.curr.Type != Script {
+		if d.curr().Type != Script {
 			return d.unexpected()
 		}
-		cmd.Scripts = append(cmd.Scripts, d.curr.Literal)
+		cmd.Scripts = append(cmd.Scripts, d.curr().Literal)
 		d.next()
 	}
-	if d.curr.Type != EndScript {
+	if d.curr().Type != EndScript {
 		return d.unexpected()
 	}
 	d.next()
-	return nil
+	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeMeta(mst *Maestro) error {
 	var (
-		meta = d.curr
+		meta = d.curr()
 		err  error
 	)
 	d.next()
-	if d.curr.Type != Assign {
+	if d.curr().Type != Assign {
 		return d.unexpected()
 	}
 	d.next()
@@ -296,7 +362,7 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 }
 
 func (d *Decoder) ensureEOL() error {
-	switch d.curr.Type {
+	switch d.curr().Type {
 	case Eol, Comment:
 		d.next()
 	default:
@@ -306,19 +372,19 @@ func (d *Decoder) ensureEOL() error {
 }
 
 func (d *Decoder) parseStringList() ([]string, error) {
-	if d.curr.Type == Eol || d.curr.Type == Comment {
+	if d.curr().Type == Eol || d.curr().Type == Comment {
 		return nil, nil
 	}
 	var str []string
-	for d.curr.IsValue() {
-		if d.curr.IsVariable() {
-			vs, ok := d.env[d.curr.Literal]
+	for d.curr().IsValue() {
+		if d.curr().IsVariable() {
+			vs, ok := d.locals[d.curr().Literal]
 			if !ok {
 				return nil, d.undefined()
 			}
 			str = append(str, vs...)
 		} else {
-			str = append(str, d.curr.Literal)
+			str = append(str, d.curr().Literal)
 		}
 		d.next()
 	}
@@ -326,17 +392,17 @@ func (d *Decoder) parseStringList() ([]string, error) {
 }
 
 func (d *Decoder) parseString() (string, error) {
-	if d.curr.Type == Eol || d.curr.Type == Comment {
+	if d.curr().Type == Eol || d.curr().Type == Comment {
 		return "", nil
 	}
-	if !d.curr.IsValue() {
+	if !d.curr().IsValue() {
 		return "", d.unexpected()
 	}
 	defer d.next()
 
-	str := d.curr.Literal
-	if d.curr.IsVariable() {
-		vs, ok := d.env[d.curr.Literal]
+	str := d.curr().Literal
+	if d.curr().IsVariable() {
+		vs, ok := d.locals[d.curr().Literal]
 		if !ok {
 			return "", d.undefined()
 		}
@@ -372,23 +438,112 @@ func (d *Decoder) parseDuration() (time.Duration, error) {
 }
 
 func (d *Decoder) next() {
-	d.curr = d.peek
-	d.peek = d.scan.Scan()
+	z := len(d.frames)
+	if z == 0 {
+		return
+	}
+	z--
+	d.frames[z].next()
+	fmt.Println(d.curr(), d.peek())
+	if d.frames[z].done() {
+		d.pop()
+		z--
+	}
+	if z < 0 {
+		return
+	}
 }
 
 func (d *Decoder) done() bool {
-	return d.curr.IsEOF()
+	z := len(d.frames)
+	if z == 1 {
+		return d.frames[0].done()
+	}
+	return false
 }
 
 func (d *Decoder) unexpected() error {
-	return fmt.Errorf("%w %s", errUnexpected, d.curr)
+	curr := d.curr()
+	return fmt.Errorf("%d:%d: %w %s", curr.Line, curr.Column, errUnexpected, curr)
 }
 
 func (d *Decoder) undefined() error {
-	return fmt.Errorf("%s: %w", d.curr.Literal, errUndefined)
+	return fmt.Errorf("%s: %w", d.curr().Literal, errUndefined)
+}
+
+func (d *Decoder) push(file string) error {
+	f, err := createFrame(file)
+	if err != nil {
+		return err
+	}
+	d.frames = append(d.frames, f)
+	return nil
+}
+
+func (d *Decoder) pop() error {
+	z := len(d.frames)
+	if z >= 1 {
+		return nil
+	}
+	z--
+	d.frames = d.frames[:z]
+	return nil
+}
+
+func (d *Decoder) curr() Token {
+	var t Token
+	if z := len(d.frames); z > 0 {
+		t = d.frames[z-1].curr
+	}
+	return t
+}
+
+func (d *Decoder) peek() Token {
+	var t Token
+	if z := len(d.frames); z > 0 {
+		t = d.frames[z-1].peek
+	}
+	return t
 }
 
 var (
 	errUnexpected = errors.New("unexpected token")
 	errUndefined  = errors.New("undefined variable")
 )
+
+type frame struct {
+	curr Token
+	peek Token
+	scan *Scanner
+}
+
+func makeFrame(r io.Reader) (*frame, error) {
+	s, err := Scan(r)
+	if err != nil {
+		return nil, err
+	}
+	f := frame{
+		scan: s,
+	}
+	f.next()
+	f.next()
+	return &f, nil
+}
+
+func createFrame(file string) (*frame, error) {
+	r, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return makeFrame(r)
+}
+
+func (f *frame) next() {
+	f.curr = f.peek
+	f.peek = f.scan.Scan()
+}
+
+func (f *frame) done() bool {
+	return f.curr.IsEOF()
+}

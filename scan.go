@@ -42,7 +42,8 @@ type Scanner struct {
 	column int
 	seen   int
 
-	script bool
+	script    bool
+	identFunc func(rune) bool
 }
 
 func Scan(r io.Reader) (*Scanner, error) {
@@ -51,12 +52,21 @@ func Scan(r io.Reader) (*Scanner, error) {
 		return nil, err
 	}
 	s := Scanner{
-		input:  bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
-		line:   1,
-		column: 0,
+		input:     bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
+		line:      1,
+		column:    0,
+		identFunc: isIdent,
 	}
 	s.read()
 	return &s, nil
+}
+
+func (s *Scanner) SetIdentFunc(fn func(rune) bool) {
+	s.identFunc = isIdent
+}
+
+func (s *Scanner) ResetIdentFunc() {
+	s.identFunc = isIdent
 }
 
 func (s *Scanner) Scan() Token {
@@ -162,15 +172,18 @@ func (s *Scanner) scanVariable(tok *Token) {
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
-	for isIdent(s.char) {
+	for s.identFunc(s.char) {
 		s.str.WriteRune(s.char)
 		s.read()
 	}
 	tok.Literal = s.str.String()
-	tok.Type = Ident
 	switch tok.Literal {
 	case kwTrue, kwFalse:
 		tok.Type = Boolean
+	case kwInclude, kwExport, kwDelete:
+		tok.Type = Keyword
+	default:
+		tok.Type = Ident
 	}
 }
 

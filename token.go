@@ -5,8 +5,11 @@ import (
 )
 
 const (
-	kwTrue  = "true"
-	kwFalse = "false"
+	kwTrue    = "true"
+	kwFalse   = "false"
+	kwInclude = "include"
+	kwExport  = "export"
+	kwDelete  = "delete"
 )
 
 const (
@@ -14,6 +17,7 @@ const (
 	Eol
 	Comment
 	Ident
+	Keyword
 	String
 	Integer
 	Boolean
@@ -85,6 +89,8 @@ func (t Token) String() string {
 		prefix = "comment"
 	case Script:
 		prefix = "script"
+	case Keyword:
+		prefix = "keyword"
 	}
 	return fmt.Sprintf("%s(%s)", prefix, t.Literal)
 }
