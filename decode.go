@@ -45,14 +45,14 @@ const (
 )
 
 type Decoder struct {
-	locals map[string][]string
+	locals *env
 	env    map[string]string
 	frames []*frame
 }
 
 func Decode(r io.Reader) (*Maestro, error) {
 	d := Decoder{
-		locals: make(map[string][]string),
+		locals: emptyEnv(),
 		env:    make(map[string]string),
 	}
 	if err := d.push(r); err != nil {
@@ -104,6 +104,7 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeInclude() error {
+	d.setIdentFunc()
 	d.next()
 	var list []string
 	switch d.curr().Type {
@@ -138,6 +139,7 @@ func (d *Decoder) decodeInclude() error {
 	if err := d.ensureEOL(); err != nil {
 		return err
 	}
+	d.resetIdentFunc()
 	for i := range list {
 		if err := d.decodeFile(list[i]); err != nil {
 			return err
@@ -164,21 +166,35 @@ func (d *Decoder) decodeDelete(msg *Maestro) error {
 }
 
 func (d *Decoder) decodeVariable(mst *Maestro) error {
+	d.setIdentFunc()
+	defer d.resetIdentFunc()
+
 	ident := d.curr()
 	d.next()
 	if d.curr().Type != Assign {
 		return d.unexpected()
 	}
 	d.next()
+
+	var vs []string
 	for d.curr().IsValue() && !d.done() {
-		d.locals[ident.Literal] = append(d.locals[ident.Literal], d.curr().Literal)
+		if d.curr().IsVariable() {
+			xs, err := d.locals.Resolve(d.curr().Literal)
+			if err != nil {
+				return err
+			}
+			vs = append(vs, xs...)
+		} else {
+			vs = append(vs, d.curr().Literal)
+		}
 		d.next()
 	}
+	d.locals.Define(ident.Literal, vs)
 	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	cmd := NewSingleWithLocals(d.curr().Literal, d.locals)
+	cmd := NewSingleWithLocals(d.curr().Literal, d.locals.Values())
 	d.next()
 	if d.curr().Type == BegList {
 		if err := d.decodeCommandProperties(cmd); err != nil {
@@ -384,9 +400,9 @@ func (d *Decoder) parseStringList() ([]string, error) {
 	var str []string
 	for d.curr().IsValue() {
 		if d.curr().IsVariable() {
-			vs, ok := d.locals[d.curr().Literal]
-			if !ok {
-				return nil, d.undefined()
+			vs, err := d.locals.Resolve(d.curr().Literal)
+			if err != nil {
+				return nil, err
 			}
 			str = append(str, vs...)
 		} else {
@@ -408,9 +424,9 @@ func (d *Decoder) parseString() (string, error) {
 
 	str := d.curr().Literal
 	if d.curr().IsVariable() {
-		vs, ok := d.locals[d.curr().Literal]
-		if !ok {
-			return "", d.undefined()
+		vs, err := d.locals.Resolve(d.curr().Literal)
+		if err != nil {
+			return "", err
 		}
 		if len(vs) >= 0 {
 			str = vs[0]
@@ -468,8 +484,7 @@ func (d *Decoder) done() bool {
 }
 
 func (d *Decoder) unexpected() error {
-	curr := d.curr()
-	return fmt.Errorf("%d:%d: %w %s", curr.Line, curr.Column, errUnexpected, curr)
+	return fmt.Errorf("%w %s", errUnexpected, d.curr().Literal)
 }
 
 func (d *Decoder) undefined() error {
@@ -482,6 +497,7 @@ func (d *Decoder) push(r io.Reader) error {
 		return err
 	}
 	d.frames = append(d.frames, f)
+	d.locals = enclosedEnv(d.locals)
 	return nil
 }
 
@@ -492,6 +508,7 @@ func (d *Decoder) pop() error {
 	}
 	z--
 	d.frames = d.frames[:z]
+	d.locals = d.locals.Unwrap()
 	return nil
 }
 
@@ -509,6 +526,22 @@ func (d *Decoder) peek() Token {
 		t = d.frames[z-1].peek
 	}
 	return t
+}
+
+func (d *Decoder) setIdentFunc() {
+	z := len(d.frames)
+	if z == 0 {
+		return
+	}
+	d.frames[z-1].scan.SetIdentFunc(IsValue)
+}
+
+func (d *Decoder) resetIdentFunc() {
+	z := len(d.frames)
+	if z == 0 {
+		return
+	}
+	d.frames[z-1].scan.ResetIdentFunc()
 }
 
 var (

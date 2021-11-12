@@ -30,6 +30,10 @@ const (
 	ampersand  = '&'
 )
 
+func IsValue(r rune) bool {
+	return !isVariable(r) && !isBlank(r) && !isNL(r)
+}
+
 type Scanner struct {
 	input []byte
 	curr  int
@@ -62,7 +66,7 @@ func Scan(r io.Reader) (*Scanner, error) {
 }
 
 func (s *Scanner) SetIdentFunc(fn func(rune) bool) {
-	s.identFunc = isIdent
+	s.identFunc = fn
 }
 
 func (s *Scanner) ResetIdentFunc() {

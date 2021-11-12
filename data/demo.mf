@@ -1,6 +1,6 @@
 # variable declaration
 buildir = bin
-pkgdir  = remote
+pkgdir  = "var/deb"
 binname = demo
 servers = "192.168.67.181" "192.168.67.236"
 
@@ -15,8 +15,8 @@ servers = "192.168.67.181" "192.168.67.236"
 
 # include
 # include (
-# 	"tmp/file1.mf"
-# 	"tmp/file2.mf"
+# 	tmp/file1.mf
+# 	tmp/file2.mf
 # )
 include "data/include.mf"
 
