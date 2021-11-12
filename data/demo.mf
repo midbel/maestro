@@ -14,11 +14,11 @@ servers = "192.168.67.181" "192.168.67.236"
 # .AUTHOR  =
 
 # include
-include "data/include.mf"
 # include (
 # 	"tmp/file1.mf"
 # 	"tmp/file2.mf"
 # )
+include "data/include.mf"
 
 # export IDENT = VALUE
 # delete IDENT

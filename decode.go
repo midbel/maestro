@@ -55,11 +55,9 @@ func Decode(r io.Reader) (*Maestro, error) {
 		locals: make(map[string][]string),
 		env:    make(map[string]string),
 	}
-	f, err := makeFrame(r)
-	if err != nil {
+	if err := d.push(r); err != nil {
 		return nil, err
 	}
-	d.frames = append(d.frames, f)
 	return d.Decode()
 }
 
@@ -141,12 +139,20 @@ func (d *Decoder) decodeInclude() error {
 		return err
 	}
 	for i := range list {
-		if err := d.push(list[i]); err != nil {
+		if err := d.decodeFile(list[i]); err != nil {
 			return err
 		}
 	}
-	fmt.Println(">>", list)
 	return nil
+}
+
+func (d *Decoder) decodeFile(file string) error {
+	r, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	return d.push(r)
 }
 
 func (d *Decoder) decodeExport(msg *Maestro) error {
@@ -444,7 +450,6 @@ func (d *Decoder) next() {
 	}
 	z--
 	d.frames[z].next()
-	fmt.Println(d.curr(), d.peek())
 	if d.frames[z].done() {
 		d.pop()
 		z--
@@ -471,8 +476,8 @@ func (d *Decoder) undefined() error {
 	return fmt.Errorf("%s: %w", d.curr().Literal, errUndefined)
 }
 
-func (d *Decoder) push(file string) error {
-	f, err := createFrame(file)
+func (d *Decoder) push(r io.Reader) error {
+	f, err := makeFrame(r)
 	if err != nil {
 		return err
 	}
@@ -482,7 +487,7 @@ func (d *Decoder) push(file string) error {
 
 func (d *Decoder) pop() error {
 	z := len(d.frames)
-	if z >= 1 {
+	if z <= 1 {
 		return nil
 	}
 	z--
