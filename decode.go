@@ -45,14 +45,14 @@ const (
 )
 
 type Decoder struct {
-	locals *env
+	locals *Env
 	env    map[string]string
 	frames []*frame
 }
 
 func Decode(r io.Reader) (*Maestro, error) {
 	d := Decoder{
-		locals: emptyEnv(),
+		locals: EmptyEnv(),
 		env:    make(map[string]string),
 	}
 	if err := d.push(r); err != nil {
@@ -239,7 +239,7 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	cmd := NewSingleWithLocals(d.curr().Literal, d.locals.Values())
+	cmd := NewSingleWithLocals(d.curr().Literal, d.locals)
 	d.next()
 	if d.curr().Type == BegList {
 		if err := d.decodeCommandProperties(cmd); err != nil {
@@ -259,7 +259,6 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if err := mst.Register(cmd); err != nil {
 		return err
 	}
-	fmt.Printf("%+v\n", *cmd)
 	return nil
 }
 
@@ -542,7 +541,7 @@ func (d *Decoder) push(r io.Reader) error {
 		return err
 	}
 	d.frames = append(d.frames, f)
-	d.locals = enclosedEnv(d.locals)
+	d.locals = EnclosedEnv(d.locals)
 	return nil
 }
 

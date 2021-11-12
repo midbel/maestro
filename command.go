@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -32,30 +33,30 @@ type Single struct {
 	Dependencies []Dep
 	Scripts      []string
 	Env          map[string]string
-	Locals       map[string][]string
 	Options      map[string]string
+	Locals       *Env
 }
 
 func NewSingle(name string) *Single {
 	return NewSingleWithLocals(name, nil)
 }
 
-func NewSingleWithLocals(name string, locals map[string][]string) *Single {
+func NewSingleWithLocals(name string, locals *Env) *Single {
 	if locals == nil {
-		locals = make(map[string][]string)
+		locals = EmptyEnv()
 	}
 	cmd := Single{
 		Name:    name,
 		Options: make(map[string]string),
-		Locals:  make(map[string][]string),
-	}
-	for k := range locals {
-		cmd.Locals[k] = append(cmd.Locals[k], locals[k]...)
+		Locals:  locals,
 	}
 	return &cmd
 }
 
 func (s *Single) Execute(args []string) error {
+	for i := range s.Scripts {
+		fmt.Println(s.Scripts[i])
+	}
 	return nil
 }
 

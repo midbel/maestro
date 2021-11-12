@@ -3,6 +3,7 @@ package maestro
 import (
 	"errors"
 	"fmt"
+	"os"
 )
 
 var ErrDuplicate = errors.New("command already registered")
@@ -23,14 +24,32 @@ type Maestro struct {
 }
 
 func Load(file string) (*Maestro, error) {
-	return nil, nil
+	r, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return Decode(r)
 }
 
-func (m *Maestro) ExecuteDefault() error {
-	return nil
+func (m *Maestro) Execute(name string, args []string) error {
+	cmd, ok := m.Commands[name]
+	if !ok {
+		return fmt.Errorf("%s: command not found", name)
+	}
+	return cmd.Execute(args)
 }
 
-func (m *Maestro) ExecuteAll() error {
+func (m *Maestro) ExecuteDefault(args []string) error {
+	return m.Execute(m.MetaExec.Default, args)
+}
+
+func (m *Maestro) ExecuteAll(_ []string) error {
+	for _, n := range m.MetaExec.All {
+		if err := m.Execute(n, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

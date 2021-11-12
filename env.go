@@ -1,34 +1,34 @@
 package maestro
 
 import (
-  "fmt"
+	"fmt"
 )
 
-type env struct {
-	parent *env
+type Env struct {
+	parent *Env
 	locals map[string][]string
 }
 
-func emptyEnv() *env {
-	return enclosedEnv(nil)
+func EmptyEnv() *Env {
+	return EnclosedEnv(nil)
 }
 
-func enclosedEnv(parent *env) *env {
-	return &env{
+func EnclosedEnv(parent *Env) *Env {
+	return &Env{
 		parent: parent,
 		locals: make(map[string][]string),
 	}
 }
 
-func (e *env) Define(key string, vs []string) {
+func (e *Env) Define(key string, vs []string) {
 	e.locals[key] = append(e.locals[key], vs...)
 }
 
-func (e *env) Delete(key string) {
+func (e *Env) Delete(key string) {
 	delete(e.locals, key)
 }
 
-func (e *env) Resolve(key string) ([]string, error) {
+func (e *Env) Resolve(key string) ([]string, error) {
 	var err error
 	vs, ok := e.locals[key]
 	if !ok {
@@ -40,20 +40,20 @@ func (e *env) Resolve(key string) ([]string, error) {
 	return vs, err
 }
 
-func (e *env) Unwrap() *env {
+func (e *Env) Unwrap() *Env {
 	if e.parent == nil {
 		return e
 	}
 	return e.parent
 }
 
-func (e *env) Values() map[string][]string {
+func (e *Env) Copy() *Env {
 	locals := make(map[string][]string)
 	locals = copyLocals(locals, e.locals)
 	if e.parent != nil {
-		locals = copyLocals(locals, e.parent.Values())
+
 	}
-	return locals
+	return &Env{locals: locals}
 }
 
 func copyLocals(locals, others map[string][]string) map[string][]string {
