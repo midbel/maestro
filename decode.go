@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-  "time"
+	"time"
 )
 
 const (
 	metaDuplicate = "DUPLICATE"
-  metaWorkDir   = "WORKDIR"
+	metaWorkDir   = "WORKDIR"
 	metaPath      = "PATH"
 	metaEcho      = "ECHO"
 	metaParallel  = "PARALLEL"
@@ -67,7 +67,7 @@ func Decode(r io.Reader) (*Maestro, error) {
 
 func (d *Decoder) Decode() (*Maestro, error) {
 	mst := Maestro{
-		Commands: make(map[string]*Command),
+		Commands: make(map[string]Command),
 	}
 	for !d.done() {
 		var err error
@@ -103,15 +103,11 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 		d.env[ident.Literal] = append(d.env[ident.Literal], d.curr.Literal)
 		d.next()
 	}
-	fmt.Println(d.env)
 	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	fmt.Println("enter Command", d.curr)
-	defer fmt.Println("leave Command")
-
-	cmd := NewCommandWithLocals(d.curr.Literal, d.env)
+	cmd := NewSingleWithLocals(d.curr.Literal, d.env)
 	d.next()
 	if d.curr.Type == BegList {
 		if err := d.decodeCommandProperties(cmd); err != nil {
@@ -128,10 +124,13 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 			return err
 		}
 	}
-	return nil
+	if err := mst.Register(cmd); err != nil {
+		return err
+	}
+	return d.ensureEOL()
 }
 
-func (d *Decoder) decodeCommandProperties(cmd *Command) error {
+func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	d.next()
 	for !d.done() {
 		if d.curr.Type == EndList {
@@ -140,10 +139,10 @@ func (d *Decoder) decodeCommandProperties(cmd *Command) error {
 		if d.curr.Type != Ident {
 			return d.unexpected()
 		}
-    var (
-      prop = d.curr
-      err error
-    )
+		var (
+			prop = d.curr
+			err  error
+		)
 		d.next()
 		if d.curr.Type != Assign {
 			return d.unexpected()
@@ -151,26 +150,26 @@ func (d *Decoder) decodeCommandProperties(cmd *Command) error {
 		d.next()
 		switch prop.Literal {
 		default:
-      err = fmt.Errorf("%s: unknown command property", prop.Literal)
-    case propError:
-      cmd.Error, err = d.parseString()
+			err = fmt.Errorf("%s: unknown command property", prop.Literal)
+		case propError:
+			cmd.Error, err = d.parseString()
 		case propHelp:
-      cmd.Help, err = d.parseString()
+			cmd.Help, err = d.parseString()
 		case propUsage:
-      cmd.Usage, err = d.parseString()
+			cmd.Usage, err = d.parseString()
 		case propTags:
-      cmd.Tags, err = d.parseStringList()
+			cmd.Tags, err = d.parseStringList()
 		case propRetry:
-      cmd.Retry, err = d.parseInt()
+			cmd.Retry, err = d.parseInt()
 		case propTimeout:
-      cmd.Timeout, err = d.parseDuration()
+			cmd.Timeout, err = d.parseDuration()
 		case propHosts:
-      cmd.Tags, err = d.parseStringList()
+			cmd.Tags, err = d.parseStringList()
 		case propArgs:
 		}
-    if err != nil {
-      return err
-    }
+		if err != nil {
+			return err
+		}
 
 		switch d.curr.Type {
 		case Comma:
@@ -187,7 +186,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Command) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandDependencies(cmd *Command) error {
+func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	d.next()
 	for !d.done() {
 		if d.curr.Type == BegScript {
@@ -201,6 +200,10 @@ func (d *Decoder) decodeCommandDependencies(cmd *Command) error {
 		}
 		cmd.Dependencies = append(cmd.Dependencies, dep)
 		d.next()
+		if d.curr.Type == Background {
+			d.next()
+			dep.Bg = true
+		}
 		switch d.curr.Type {
 		case Comma:
 			d.next()
@@ -215,7 +218,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *Command) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandScripts(cmd *Command) error {
+func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 	d.next()
 	for !d.done() {
 		if d.curr.Type == EndScript {
@@ -225,10 +228,12 @@ func (d *Decoder) decodeCommandScripts(cmd *Command) error {
 			return d.unexpected()
 		}
 		cmd.Scripts = append(cmd.Scripts, d.curr.Literal)
+		d.next()
 	}
 	if d.curr.Type != EndScript {
 		return d.unexpected()
 	}
+	d.next()
 	return nil
 }
 
@@ -243,6 +248,8 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	}
 	d.next()
 	switch meta.Literal {
+	case metaDuplicate:
+		mst.Duplicate, err = d.parseString()
 	case metaWorkDir:
 		mst.MetaExec.WorkDir, err = d.parseString()
 	case metaPath:
@@ -282,7 +289,6 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	default:
 		return fmt.Errorf("%s: unknown/unsupported meta", meta)
 	}
-	fmt.Println(meta)
 	if err == nil {
 		err = d.ensureEOL()
 	}

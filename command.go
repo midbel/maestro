@@ -4,17 +4,26 @@ import (
 	"time"
 )
 
+const (
+	errSilent = "silent"
+	errRaise  = "raise"
+)
+
+type Command interface {
+	Execute([]string) error
+}
+
 type Dep struct {
 	Name string
 	Args []string
 	Bg   bool
 }
 
-type Command struct {
+type Single struct {
 	Name         string
 	Help         string
 	Usage        string
-  Error        string
+	Error        string
 	Tags         []string
 	Retry        int64
 	WorkDir      string
@@ -25,21 +34,19 @@ type Command struct {
 	Env          map[string]string
 	Locals       map[string][]string
 	Options      map[string]string
-	Meta         map[string][]string
 }
 
-func NewCommand(name string) *Command {
-	return NewCommandWithLocals(name, nil)
+func NewSingle(name string) *Single {
+	return NewSingleWithLocals(name, nil)
 }
 
-func NewCommandWithLocals(name string, locals map[string][]string) *Command {
+func NewSingleWithLocals(name string, locals map[string][]string) *Single {
 	if locals == nil {
 		locals = make(map[string][]string)
 	}
-	cmd := Command{
+	cmd := Single{
 		Name:    name,
 		Options: make(map[string]string),
-		Meta:    make(map[string][]string),
 		Locals:  make(map[string][]string),
 	}
 	for k := range locals {
@@ -48,6 +55,12 @@ func NewCommandWithLocals(name string, locals map[string][]string) *Command {
 	return &cmd
 }
 
-func (c *Command) Execute(args []string) error {
+func (s *Single) Execute(args []string) error {
+	return nil
+}
+
+type CombinedCommand []Command
+
+func (c CombinedCommand) Execute(args []string) error {
 	return nil
 }

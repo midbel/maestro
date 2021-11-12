@@ -1,11 +1,25 @@
 package maestro
 
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrDuplicate = errors.New("command already registered")
+
+const (
+	dupError   = "error"
+	dupAppend  = "append"
+	dupReplace = "replace"
+)
+
 type Maestro struct {
 	MetaExec
 	MetaAbout
 	MetaSSH
 
-	Commands map[string]*Command
+	Duplicate string
+	Commands  map[string]Command
 }
 
 func Load(file string) (*Maestro, error) {
@@ -20,9 +34,35 @@ func (m *Maestro) ExecuteAll() error {
 	return nil
 }
 
+func (m *Maestro) Register(cmd *Single) error {
+	curr, ok := m.Commands[cmd.Name]
+	if !ok {
+		m.Commands[cmd.Name] = cmd
+		return nil
+	}
+	switch m.Duplicate {
+	case dupError:
+		return fmt.Errorf("%s %w", cmd.Name, ErrDuplicate)
+	case dupReplace, "":
+		m.Commands[cmd.Name] = cmd
+	case dupAppend:
+		if mul, ok := curr.(CombinedCommand); ok {
+			curr = append(mul, cmd)
+			break
+		}
+		mul := make(CombinedCommand, 0, 2)
+		mul = append(mul, curr)
+		mul = append(mul, cmd)
+		m.Commands[cmd.Name] = mul
+	default:
+		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
+	}
+	return nil
+}
+
 type MetaExec struct {
-  WorkDir  string
-  
+	WorkDir string
+
 	Path     []string
 	Echo     bool
 	Parallel int64

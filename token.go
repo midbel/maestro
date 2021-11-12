@@ -22,6 +22,7 @@ const (
 	Script
 	Assign
 	Comma
+	Background
 	Dependency
 	BegList
 	EndList
@@ -56,6 +57,8 @@ func (t Token) String() string {
 		return "<comma>"
 	case Dependency:
 		return "<dependency>"
+	case Background:
+		return "<background>"
 	case BegList:
 		return "<beg-list>"
 	case EndList:
