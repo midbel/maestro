@@ -20,7 +20,10 @@ servers = "192.168.67.181" "192.168.67.236"
 # )
 include "data/include.mf"
 
-# export IDENT = VALUE
+# export (
+# 	IDENT = ""
+# 	IDENT = ""
+# )
 # delete IDENT
 
 # scripts

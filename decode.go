@@ -104,7 +104,6 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeInclude() error {
-	d.setIdentFunc()
 	d.next()
 	var list []string
 	switch d.curr().Type {
@@ -139,7 +138,6 @@ func (d *Decoder) decodeInclude() error {
 	if err := d.ensureEOL(); err != nil {
 		return err
 	}
-	d.resetIdentFunc()
 	for i := range list {
 		if err := d.decodeFile(list[i]); err != nil {
 			return err
@@ -158,7 +156,57 @@ func (d *Decoder) decodeFile(file string) error {
 }
 
 func (d *Decoder) decodeExport(msg *Maestro) error {
-	return nil
+	decode := func() error {
+		ident := d.curr()
+		d.next()
+		if d.curr().Type != Assign {
+			return d.unexpected()
+		}
+		d.next()
+		if !d.curr().IsValue() {
+			return d.unexpected()
+		}
+		if d.curr().IsVariable() {
+			vs, err := d.locals.Resolve(d.curr().Literal)
+			if err != nil {
+				return err
+			}
+			if len(vs) > 0 {
+				d.env[ident.Literal] = vs[0]
+			}
+		} else {
+			d.env[ident.Literal] = d.curr().Literal
+		}
+		d.next()
+		return d.ensureEOL()
+	}
+	d.next()
+	switch d.curr().Type {
+	case Ident:
+		if err := decode(); err != nil {
+			return err
+		}
+	case BegList:
+		d.next()
+		if err := d.ensureEOL(); err != nil {
+			return err
+		}
+		for !d.done() {
+			if d.curr().Type == EndList {
+				break
+			}
+			if err := decode(); err != nil {
+				return err
+			}
+		}
+		if d.curr().Type != EndList {
+			return d.unexpected()
+		}
+		d.next()
+	default:
+		return d.unexpected()
+	}
+	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeDelete(msg *Maestro) error {
@@ -166,9 +214,6 @@ func (d *Decoder) decodeDelete(msg *Maestro) error {
 }
 
 func (d *Decoder) decodeVariable(mst *Maestro) error {
-	d.setIdentFunc()
-	defer d.resetIdentFunc()
-
 	ident := d.curr()
 	d.next()
 	if d.curr().Type != Assign {
