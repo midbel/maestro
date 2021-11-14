@@ -6,6 +6,7 @@ servers = "192.168.67.181" "192.168.67.236"
 
 # meta declaration
 .ALL       = verify test build
+.HELP      = "help message should span multiple lines - so heredoc should be introduced + text wrapping"
 .DEFAULT   = build
 .PATH      =
 .ECHO      = true

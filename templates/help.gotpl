@@ -1,0 +1,12 @@
+{{.File}} ({{.Version}})
+
+{{if .Help -}}
+{{.Help}}
+{{- end}}
+
+{{range $k, $cs := .Commands}}
+{{$k}}
+{{- range $cs}}
+- {{.Name -}}
+{{end -}}
+{{end -}}

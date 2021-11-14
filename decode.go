@@ -342,17 +342,17 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propError:
 			cmd.Error, err = d.parseString()
 		case propHelp:
-			cmd.Help, err = d.parseString()
+			cmd.Desc, err = d.parseString()
 		case propUsage:
 			cmd.Usage, err = d.parseString()
 		case propTags:
-			cmd.Tags, err = d.parseStringList()
+			cmd.Cats, err = d.parseStringList()
 		case propRetry:
 			cmd.Retry, err = d.parseInt()
 		case propTimeout:
 			cmd.Timeout, err = d.parseDuration()
 		case propHosts:
-			cmd.Tags, err = d.parseStringList()
+			cmd.Hosts, err = d.parseStringList()
 		case propArgs:
 		}
 		if err != nil {

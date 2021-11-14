@@ -2,6 +2,7 @@ package maestro
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -12,6 +13,9 @@ const (
 
 type Command interface {
 	Execute([]string) error
+	Help() string
+	Tags() []string
+	Command() string
 }
 
 type Dep struct {
@@ -22,10 +26,10 @@ type Dep struct {
 
 type Single struct {
 	Name         string
-	Help         string
+	Desc         string
 	Usage        string
 	Error        string
-	Tags         []string
+	Cats         []string
 	Retry        int64
 	WorkDir      string
 	Timeout      time.Duration
@@ -53,6 +57,18 @@ func NewSingleWithLocals(name string, locals *Env) *Single {
 	return &cmd
 }
 
+func (s *Single) Command() string {
+	return s.Name
+}
+
+func (s *Single) Help() string {
+	return s.Desc
+}
+
+func (s *Single) Tags() []string {
+	return s.Cats
+}
+
 func (s *Single) Execute(args []string) error {
 	for i := range s.Scripts {
 		fmt.Println(s.Scripts[i])
@@ -61,6 +77,38 @@ func (s *Single) Execute(args []string) error {
 }
 
 type CombinedCommand []Command
+
+func (c CombinedCommand) Command() string {
+	return c[0].Command()
+}
+
+func (c CombinedCommand) Tags() []string {
+	var (
+		tags []string
+		seen = make(map[string]struct{})
+	)
+	for i := range c {
+		for _, t := range c[i].Tags() {
+			if _, ok := seen[t]; ok {
+				continue
+			}
+			seen[t] = struct{}{}
+			tags = append(tags, t)
+		}
+	}
+	return tags
+}
+
+func (c CombinedCommand) Help() string {
+	var str strings.Builder
+	for i := range c {
+		if i > 0 {
+			str.WriteRune('\n')
+		}
+		str.WriteString(c[i].Help())
+	}
+	return str.String()
+}
 
 func (c CombinedCommand) Execute(args []string) error {
 	return nil

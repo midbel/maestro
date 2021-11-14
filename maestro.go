@@ -1,9 +1,13 @@
 package maestro
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+	"text/template"
 )
 
 var ErrDuplicate = errors.New("command already registered")
@@ -13,6 +17,9 @@ const (
 	dupAppend  = "append"
 	dupReplace = "replace"
 )
+
+//go:embed templates/help.gotpl
+var helptext string
 
 type Maestro struct {
 	MetaExec
@@ -38,22 +45,56 @@ func Load(file string) (*Maestro, error) {
 		return nil, err
 	}
 	defer r.Close()
-	return Decode(r)
+	m, err := Decode(r)
+	if err != nil {
+		return nil, err
+	}
+	m.MetaAbout.File = file
+	return m, nil
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
-	cmd, ok := m.Commands[name]
-	if !ok {
-		return fmt.Errorf("%s: command not found", name)
+	cmd, err := m.lookup(name)
+	if err != nil {
+		return err
 	}
 	return cmd.Execute(args)
 }
 
+func (m *Maestro) ExecuteHelp(name string) error {
+	var help string
+	if name != "" {
+		cmd, err := m.lookup(name)
+		if err != nil {
+			return err
+		}
+		help = cmd.Help()
+	} else {
+		h, err := m.help()
+		if err != nil {
+			return err
+		}
+		help = h
+	}
+	fmt.Println(help)
+	return nil
+}
+
+func (m *Maestro) ExecuteVersion() error {
+	return nil
+}
+
 func (m *Maestro) ExecuteDefault(args []string) error {
+	if m.MetaExec.Default == "" {
+		return fmt.Errorf("no default command defined")
+	}
 	return m.Execute(m.MetaExec.Default, args)
 }
 
 func (m *Maestro) ExecuteAll(_ []string) error {
+	if len(m.MetaExec.All) == 0 {
+		return fmt.Errorf("no all command defined")
+	}
 	for _, n := range m.MetaExec.All {
 		if err := m.Execute(n, nil); err != nil {
 			return err
@@ -88,6 +129,42 @@ func (m *Maestro) Register(cmd *Single) error {
 	return nil
 }
 
+func (m *Maestro) help() (string, error) {
+	h := help{
+		Version:  m.Version,
+		File:     m.File,
+		Usage:    m.Usage,
+		Help:     m.Help,
+		Commands: make(map[string][]Command),
+	}
+	for _, c := range m.Commands {
+		for _, t := range c.Tags() {
+			h.Commands[t] = append(h.Commands[t], c)
+		}
+	}
+	t, err := template.New("help").Parse(helptext)
+	if err != nil {
+		return "", err
+	}
+	var str strings.Builder
+	if err := t.Execute(&str, h); err != nil {
+		return "", err
+	}
+	return str.String(), nil
+}
+
+func (m *Maestro) Name() string {
+	return strings.TrimSuffix(filepath.Base(m.File), filepath.Ext(m.File))
+}
+
+func (m *Maestro) lookup(name string) (Command, error) {
+	cmd, ok := m.Commands[name]
+	if !ok {
+		return nil, fmt.Errorf("%s: command not defined")
+	}
+	return cmd, nil
+}
+
 type MetaExec struct {
 	WorkDir string
 
@@ -104,6 +181,7 @@ type MetaExec struct {
 }
 
 type MetaAbout struct {
+	File    string
 	Author  string
 	Email   string
 	Version string
@@ -116,4 +194,12 @@ type MetaSSH struct {
 	Pass       string
 	PublicKey  string
 	PrivateKey string
+}
+
+type help struct {
+	File     string
+	Help     string
+	Usage    string
+	Version  string
+	Commands map[string][]Command
 }
