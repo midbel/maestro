@@ -210,13 +210,19 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 }
 
 func (d *Decoder) decodeDelete(mst *Maestro) error {
-	return nil
+	d.next()
+	for !d.done() {
+		if !d.curr().IsValue() {
+			return d.unexpected()
+		}
+		d.locals.Delete(d.curr().Literal)
+	}
+	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeAlias(mst *Maestro) error {
 	decode := func() error {
-		// d.setLineFunc()
-		// defer d.resetIdentFunc()
+		d.setLineFunc()
 		ident := d.curr()
 		d.next()
 		if d.curr().Type != Assign {
@@ -227,8 +233,9 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 			return d.unexpected()
 		}
 		mst.Alias[ident.Literal] = d.curr().Literal
+		d.resetIdentFunc()
 		d.next()
-		return d.ensureEOL()
+		return nil
 	}
 	d.next()
 	switch d.curr().Type {
@@ -246,6 +253,9 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 				break
 			}
 			if err := decode(); err != nil {
+				return err
+			}
+			if err := d.ensureEOL(); err != nil {
 				return err
 			}
 		}

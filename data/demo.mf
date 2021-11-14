@@ -10,8 +10,8 @@ servers = "192.168.67.181" "192.168.67.236"
 .PATH      =
 .ECHO      = true
 # .DUPLICATE = error|append|replace (default replace)
-# .VERSION =
-# .AUTHOR  =
+.VERSION = "1.0.0"
+.AUTHOR  = "midbel@midbel.org"
 
 # includes
 # include (
@@ -27,11 +27,11 @@ include "data/include.mf"
 # delete IDENT
 
 # aliases
-# alias buildtest = go build -o bin/test cmd/test/main.go
-# alias (
-# 	builtest1 = go build -o bin/test1 cmd/test1/main.go
-# 	builtest2 = go build -o bin/test2 cmd/test2/main.go
-# )
+alias buildtest = go build -o bin/test cmd/test/main.go
+alias (
+	builtest1 = go build -o bin/test1 cmd/test1/main.go
+	builtest2 = go build -o bin/test2 cmd/test2/main.go
+)
 
 # scripts
 # action([property...]): dependency([args...]),... {
