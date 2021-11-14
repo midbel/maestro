@@ -7,14 +7,14 @@ servers = "192.168.67.181" "192.168.67.236"
 # meta declaration
 .ALL       = verify test build
 .HELP      = <<HELP
-an heredoc starts with a double left arrow and a uppercasen string prefix.
-it ends with the same uppercase string prefix.
+an heredoc starts with a double left arrow and an uppercase string
+prefix. it ends with the same uppercase string prefix.
 
-blank lines can be written in a heredoc and will kept as is in the resulting
-string.
+blank lines can be written in a heredoc and will kept as is in the
+resulting string.
 
-heredoc are very helpfull to write help text of the maestro file and the
-commands that are defined.
+heredoc are very helpfull to write help text of the maestro file and
+the commands that are defined.
 
 thanks for reading and enjoy maestro!
 HELP
@@ -50,17 +50,17 @@ alias (
 # 	[script]
 # }
 
-build(help="build binary", tag=build, error=raise): {
+build(short="build binary", tag=build, error=raise): {
 	echo "building main binary into ${buildir}"
 	go build -trimpath -o ${builddir}/${binary} cmd/${binary}/main.go
 }
 
-test(help="run test", tag=build, error=discard) {
+test(short="run test", tag=build, error=discard) {
 	echo "testing current directory"
 	go test -v -coverprofile=cover.out
 }
 
-verify(help="check source code and reformat it", tag=verify, error=discard): {
+verify(short="check source code and reformat it", tag=verify, error=discard): {
 	echo "running gofmt"
 	gofmt -w -s .
 	echo "running go vet"
@@ -68,17 +68,17 @@ verify(help="check source code and reformat it", tag=verify, error=discard): {
  	go vet
 }
 
-clean(help="remove temporary files", tag=verify): {
+clean(short="remove temporary files", tag=verify): {
 	rm -rf tmp/*
 	rm -rf ${buildir}/*
 	rm -rf ${pkgdir}/*
 }
 
-deploy(help="deploy binary on production server", tag=build): {
+deploy(short="deploy binary on production server", tag=build): {
 	scp
 }
 
-package(help="create deb/rpm package from binary", tag=build): {
+package(short="create deb/rpm package from binary", tag=build): {
 	mkdir -pf ${pkgdir}
 	packit build -k deb -d ${pkgdir} ${manifest}
 	packit build -k rpm -d ${pkgdir} ${manifest}

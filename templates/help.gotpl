@@ -4,9 +4,10 @@
 
 Available commands:
 {{range $k, $cs := .Commands}}
-{{$k}}
+{{$k}}:
+{{repeat "-" $k}}-
 {{- range $cs}}
-- {{.Name -}}
+  - {{printf "%-20s %s" .Name .Short -}}
 {{end}}
 {{end}}
 {{.File}} ({{.Version}})

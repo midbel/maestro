@@ -164,7 +164,7 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 		return
 	}
 	var (
-		tmp bytes.Buffer
+		tmp    bytes.Buffer
 		prefix = s.str.String()
 	)
 	s.str.Reset()

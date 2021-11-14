@@ -13,9 +13,11 @@ const (
 
 type Command interface {
 	Execute([]string) error
+	About() string
 	Help() string
 	Tags() []string
 	Command() string
+	Combined() bool
 }
 
 type Dep struct {
@@ -26,6 +28,7 @@ type Dep struct {
 
 type Single struct {
 	Name         string
+	Short        string
 	Desc         string
 	Usage        string
 	Error        string
@@ -61,12 +64,20 @@ func (s *Single) Command() string {
 	return s.Name
 }
 
+func (s *Single) About() string {
+	return s.Short
+}
+
 func (s *Single) Help() string {
 	return s.Desc
 }
 
 func (s *Single) Tags() []string {
 	return s.Cats
+}
+
+func (_ *Single) Combined() bool {
+	return false
 }
 
 func (s *Single) Execute(args []string) error {
@@ -76,13 +87,13 @@ func (s *Single) Execute(args []string) error {
 	return nil
 }
 
-type CombinedCommand []Command
+type Combined []Command
 
-func (c CombinedCommand) Command() string {
+func (c Combined) Command() string {
 	return c[0].Command()
 }
 
-func (c CombinedCommand) Tags() []string {
+func (c Combined) Tags() []string {
 	var (
 		tags []string
 		seen = make(map[string]struct{})
@@ -99,7 +110,11 @@ func (c CombinedCommand) Tags() []string {
 	return tags
 }
 
-func (c CombinedCommand) Help() string {
+func (c Combined) About() string {
+	return c[0].About()
+}
+
+func (c Combined) Help() string {
 	var str strings.Builder
 	for i := range c {
 		if i > 0 {
@@ -110,6 +125,10 @@ func (c CombinedCommand) Help() string {
 	return str.String()
 }
 
-func (c CombinedCommand) Execute(args []string) error {
+func (_ Combined) Combined() bool {
+	return true
+}
+
+func (c Combined) Execute(args []string) error {
 	return nil
 }

@@ -34,6 +34,7 @@ const (
 
 const (
 	propHelp    = "help"
+	propShort   = "short"
 	propUsage   = "usage"
 	propTags    = "tag"
 	propRetry   = "retry"
@@ -341,6 +342,8 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			err = fmt.Errorf("%s: unknown command property", prop.Literal)
 		case propError:
 			cmd.Error, err = d.parseString()
+		case propShort:
+			cmd.Short, err = d.parseString()
 		case propHelp:
 			cmd.Desc, err = d.parseString()
 		case propUsage:

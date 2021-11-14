@@ -21,6 +21,11 @@ const (
 //go:embed templates/help.gotpl
 var helptext string
 
+const (
+	defaultFile    = "maestro.mf"
+	defaultVersion = "0.1.0"
+)
+
 type Maestro struct {
 	MetaExec
 	MetaAbout
@@ -32,7 +37,12 @@ type Maestro struct {
 }
 
 func New() *Maestro {
+	about := MetaAbout{
+		File:    defaultFile,
+		Version: defaultVersion,
+	}
 	return &Maestro{
+		MetaAbout: about,
 		Duplicate: dupReplace,
 		Commands:  make(map[string]Command),
 		Alias:     make(map[string]string),
@@ -76,13 +86,13 @@ func (m *Maestro) ExecuteHelp(name string) error {
 		}
 		help = h
 	}
-	fmt.Println(strings.TrimSpace(help))
+	fmt.Fprintln(os.Stdout, strings.TrimSpace(help))
 	return nil
 }
 
 func (m *Maestro) ExecuteVersion() error {
-	fmt.Printf("%s %s", m.Name(), m.Version)
-	fmt.Println()
+	fmt.Fprintf(os.Stdout, "%s %s", m.Name(), m.Version)
+	fmt.Fprintln(os.Stdout)
 	return nil
 }
 
@@ -117,11 +127,11 @@ func (m *Maestro) Register(cmd *Single) error {
 	case dupReplace, "":
 		m.Commands[cmd.Name] = cmd
 	case dupAppend:
-		if mul, ok := curr.(CombinedCommand); ok {
+		if mul, ok := curr.(Combined); ok {
 			curr = append(mul, cmd)
 			break
 		}
-		mul := make(CombinedCommand, 0, 2)
+		mul := make(Combined, 0, 2)
 		mul = append(mul, curr)
 		mul = append(mul, cmd)
 		m.Commands[cmd.Name] = mul
@@ -129,6 +139,10 @@ func (m *Maestro) Register(cmd *Single) error {
 		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
 	}
 	return nil
+}
+
+var funcmap = template.FuncMap{
+	"repeat": repeat,
 }
 
 func (m *Maestro) help() (string, error) {
@@ -144,7 +158,7 @@ func (m *Maestro) help() (string, error) {
 			h.Commands[t] = append(h.Commands[t], c)
 		}
 	}
-	t, err := template.New("help").Parse(helptext)
+	t, err := template.New("help").Funcs(funcmap).Parse(helptext)
 	if err != nil {
 		return "", err
 	}
@@ -204,4 +218,17 @@ type help struct {
 	Usage    string
 	Version  string
 	Commands map[string][]Command
+}
+
+func repeat(char string, value interface{}) (string, error) {
+	var n int
+	switch v := value.(type) {
+	case string:
+		n = len(v)
+	case int:
+		n = v
+	default:
+		return "", fmt.Errorf("expected string or int! got %T", value)
+	}
+	return strings.Repeat(char, n), nil
 }
