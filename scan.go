@@ -116,6 +116,11 @@ func (s *Scanner) scanScript(tok *Token) {
 	s.skipNL()
 	s.skipBlank()
 	for !isNL(s.char) && !s.done() {
+		if s.char == backslash && isNL(s.peek()) {
+			s.read()
+			s.read()
+			s.skipBlank()
+		}
 		s.str.WriteRune(s.char)
 		s.read()
 	}
