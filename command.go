@@ -2,7 +2,6 @@ package maestro
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -14,7 +13,7 @@ const (
 type Command interface {
 	Execute([]string) error
 	About() string
-	Help() string
+	Help() (string, error)
 	Tags() []string
 	Command() string
 	Combined() bool
@@ -68,8 +67,8 @@ func (s *Single) About() string {
 	return s.Short
 }
 
-func (s *Single) Help() string {
-	return s.Desc
+func (s *Single) Help() (string, error) {
+	return renderTemplate(cmdhelp, s)
 }
 
 func (s *Single) Tags() []string {
@@ -114,15 +113,8 @@ func (c Combined) About() string {
 	return c[0].About()
 }
 
-func (c Combined) Help() string {
-	var str strings.Builder
-	for i := range c {
-		if i > 0 {
-			str.WriteRune('\n')
-		}
-		str.WriteString(c[i].Help())
-	}
-	return str.String()
+func (c Combined) Help() (string, error) {
+	return c[0].Help()
 }
 
 func (_ Combined) Combined() bool {

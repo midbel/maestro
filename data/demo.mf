@@ -50,7 +50,22 @@ alias (
 # 	[script]
 # }
 
-build(short="build binary", tag=build, error=raise): {
+helptext = <<HELP
+build will build the main binary of the application
+
+the binary will be store in ${bindir}
+
+it can be good if variable used inside string and heredoc
+are expanded with their current value when they are used.
+alues of the variable will be found in the current environment
+of the command.
+
+enjoy building your application with the build command. and adding
+unicode support inside string can also be a great addition to add
+smiley
+HELP
+
+build(short="build binary", help=$helptext, tag=build, error=raise): {
 	echo "building main binary into ${buildir}"
 	go build -trimpath -o ${builddir}/${binary} cmd/${binary}/main.go
 }

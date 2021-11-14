@@ -1,13 +1,11 @@
 package maestro
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 )
 
 var ErrDuplicate = errors.New("command already registered")
@@ -17,9 +15,6 @@ const (
 	dupAppend  = "append"
 	dupReplace = "replace"
 )
-
-//go:embed templates/help.gotpl
-var helptext string
 
 const (
 	defaultFile    = "maestro.mf"
@@ -72,22 +67,23 @@ func (m *Maestro) Execute(name string, args []string) error {
 }
 
 func (m *Maestro) ExecuteHelp(name string) error {
-	var help string
+	var (
+		help string
+		err  error
+	)
 	if name != "" {
 		cmd, err := m.lookup(name)
 		if err != nil {
 			return err
 		}
-		help = cmd.Help()
+		help, err = cmd.Help()
 	} else {
-		h, err := m.help()
-		if err != nil {
-			return err
-		}
-		help = h
+		help, err = m.help()
 	}
-	fmt.Fprintln(os.Stdout, strings.TrimSpace(help))
-	return nil
+	if err == nil {
+		fmt.Fprintln(os.Stdout, strings.TrimSpace(help))
+	}
+	return err
 }
 
 func (m *Maestro) ExecuteVersion() error {
@@ -141,10 +137,6 @@ func (m *Maestro) Register(cmd *Single) error {
 	return nil
 }
 
-var funcmap = template.FuncMap{
-	"repeat": repeat,
-}
-
 func (m *Maestro) help() (string, error) {
 	h := help{
 		Version:  m.Version,
@@ -158,15 +150,7 @@ func (m *Maestro) help() (string, error) {
 			h.Commands[t] = append(h.Commands[t], c)
 		}
 	}
-	t, err := template.New("help").Funcs(funcmap).Parse(helptext)
-	if err != nil {
-		return "", err
-	}
-	var str strings.Builder
-	if err := t.Execute(&str, h); err != nil {
-		return "", err
-	}
-	return str.String(), nil
+	return renderTemplate(helptext, h)
 }
 
 func (m *Maestro) Name() string {
@@ -218,17 +202,4 @@ type help struct {
 	Usage    string
 	Version  string
 	Commands map[string][]Command
-}
-
-func repeat(char string, value interface{}) (string, error) {
-	var n int
-	switch v := value.(type) {
-	case string:
-		n = len(v)
-	case int:
-		n = v
-	default:
-		return "", fmt.Errorf("expected string or int! got %T", value)
-	}
-	return strings.Repeat(char, n), nil
 }
