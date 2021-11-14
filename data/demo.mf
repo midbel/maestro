@@ -6,7 +6,18 @@ servers = "192.168.67.181" "192.168.67.236"
 
 # meta declaration
 .ALL       = verify test build
-.HELP      = "help message should span multiple lines - so heredoc should be introduced + text wrapping"
+.HELP      = <<HELP
+an heredoc starts with a double left arrow and a uppercasen string prefix.
+it ends with the same uppercase string prefix.
+
+blank lines can be written in a heredoc and will kept as is in the resulting
+string.
+
+heredoc are very helpfull to write help text of the maestro file and the
+commands that are defined.
+
+thanks for reading and enjoy maestro!
+HELP
 .DEFAULT   = build
 .PATH      =
 .ECHO      = true

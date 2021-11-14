@@ -76,7 +76,7 @@ func (m *Maestro) ExecuteHelp(name string) error {
 		}
 		help = h
 	}
-	fmt.Println(help)
+	fmt.Println(strings.TrimSpace(help))
 	return nil
 }
 
@@ -134,7 +134,7 @@ func (m *Maestro) Register(cmd *Single) error {
 func (m *Maestro) help() (string, error) {
 	h := help{
 		Version:  m.Version,
-		File:     m.File,
+		File:     m.Name(),
 		Usage:    m.Usage,
 		Help:     m.Help,
 		Commands: make(map[string][]Command),

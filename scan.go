@@ -3,6 +3,7 @@ package maestro
 import (
 	"bytes"
 	"io"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -28,6 +29,7 @@ const (
 	backslash  = '\\'
 	semicolon  = ';'
 	ampersand  = '&'
+	langle     = '<'
 )
 
 func IsValue(r rune) bool {
@@ -94,6 +96,8 @@ func (s *Scanner) Scan() Token {
 		return tok
 	}
 	switch {
+	case isHeredoc(s.char, s.peek()):
+		s.scanHeredoc(&tok)
 	case isComment(s.char):
 		s.scanComment(&tok)
 	case isLetter(s.char):
@@ -146,6 +150,41 @@ func (s *Scanner) scanMeta(tok *Token) {
 	}
 	tok.Literal = s.str.String()
 	tok.Type = Meta
+}
+
+func (s *Scanner) scanHeredoc(tok *Token) {
+	s.read()
+	s.read()
+	for !s.done() && isUpper(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	if !isNL(s.char) {
+		tok.Type = Invalid
+		return
+	}
+	var (
+		tmp bytes.Buffer
+		prefix = s.str.String()
+	)
+	s.str.Reset()
+	s.skipNL()
+	for !s.done() {
+		for !isNL(s.char) {
+			tmp.WriteRune(s.char)
+			s.read()
+		}
+		if tmp.String() == prefix {
+			break
+		}
+		for isNL(s.char) {
+			tmp.WriteRune(s.char)
+			s.read()
+		}
+		io.Copy(&s.str, &tmp)
+	}
+	tok.Literal = strings.TrimSpace(s.str.String())
+	tok.Type = String
 }
 
 func (s *Scanner) scanString(tok *Token) {
@@ -291,6 +330,10 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	for fn(s.char) {
 		s.read()
 	}
+}
+
+func isHeredoc(c, p rune) bool {
+	return c == p && c == langle
 }
 
 func isNL(b rune) bool {
