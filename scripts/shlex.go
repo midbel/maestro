@@ -33,6 +33,9 @@ func main() {
 		`echo ${upper-first^}`,
 		`echo ${upper-all^^}`,
 		`echo | echo; echo && echo || echo; echo`,
+		`echo < file.txt`,
+		`echo > file.txt`,
+		`echo >> file.txt`,
 	}
 
 	for i := range list {
@@ -73,6 +76,8 @@ const (
 	ampersand  = '&'
 	pipe       = '|'
 	semicolon  = ';'
+	langle     = '<'
+	rangle     = '>'
 )
 
 const (
@@ -88,6 +93,9 @@ const (
 	Pipe
 	And
 	Or
+	RedirectIn
+	RedirectOut
+	AppendOut
 	Length         // ${#var}
 	Slice          // ${var:from:to}
 	Replace        // ${var/from/to}
@@ -171,6 +179,12 @@ func (t Token) String() string {
 		return "<val-if-set>"
 	case ExitIfUnset:
 		return "<exit-if-unset>"
+	case RedirectIn:
+		return "<redirect-in>"
+	case RedirectOut:
+		return "<redirect-out>"
+	case AppendOut:
+		return "<append-out>"
 	case Variable:
 		prefix = "variable"
 	case Comment:
@@ -233,6 +247,8 @@ func (s *Scanner) Scan() Token {
 		s.skipBlank()
 	case isSequence(s.char) && !s.quoted:
 		s.scanSequence(&tok)
+	case isRedirect(s.char) && !s.quoted:
+		s.scanRedirect(&tok)
 	case isDouble(s.char):
 		tok.Type = Quote
 		s.read()
@@ -247,6 +263,22 @@ func (s *Scanner) Scan() Token {
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanRedirect(tok *Token) {
+	switch s.char {
+	case langle:
+		tok.Type = RedirectIn
+	case rangle:
+		tok.Type = RedirectOut
+		if k := s.peek(); k == s.char {
+			tok.Type = AppendOut
+			s.read()
+		}
+	default:
+		tok.Type = Invalid
+	}
+	s.read()
 }
 
 func (s *Scanner) scanSequence(tok *Token) {
@@ -502,4 +534,8 @@ func isOperator(r rune) bool {
 
 func isSequence(r rune) bool {
 	return r == ampersand || r == pipe || r == semicolon
+}
+
+func isRedirect(r rune) bool {
+	return r == langle || r == rangle
 }
