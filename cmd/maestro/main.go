@@ -20,11 +20,12 @@ func main() {
 	switch cmd, args := arguments(); cmd {
 	case "help":
 		err = mst.ExecuteHelp(flag.Arg(1))
+	case "version":
+		err = mst.ExecuteVersion()
 	case "all":
 		err = mst.ExecuteAll(args)
 	case "default":
 		err = mst.ExecuteDefault(args)
-	case "version":
 	default:
 		err = mst.Execute(cmd, args)
 	}

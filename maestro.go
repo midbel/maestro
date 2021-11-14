@@ -81,6 +81,8 @@ func (m *Maestro) ExecuteHelp(name string) error {
 }
 
 func (m *Maestro) ExecuteVersion() error {
+	fmt.Printf("%s %s", m.Name(), m.Version)
+	fmt.Println()
 	return nil
 }
 
