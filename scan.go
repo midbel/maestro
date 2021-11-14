@@ -34,6 +34,10 @@ func IsValue(r rune) bool {
 	return !isVariable(r) && !isBlank(r) && !isNL(r)
 }
 
+func IsLine(r rune) bool {
+	return !isNL(r)
+}
+
 type Scanner struct {
 	input []byte
 	curr  int
@@ -189,7 +193,7 @@ func (s *Scanner) scanIdent(tok *Token) {
 	switch tok.Literal {
 	case kwTrue, kwFalse:
 		tok.Type = Boolean
-	case kwInclude, kwExport, kwDelete:
+	case kwInclude, kwExport, kwDelete, kwAlias:
 		tok.Type = Keyword
 	default:
 		tok.Type = Ident

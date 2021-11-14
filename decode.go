@@ -62,22 +62,20 @@ func Decode(r io.Reader) (*Maestro, error) {
 }
 
 func (d *Decoder) Decode() (*Maestro, error) {
-	mst := Maestro{
-		Commands: make(map[string]Command),
-	}
+	mst := New()
 	for !d.done() {
 		var err error
 		switch d.curr().Type {
 		case Ident:
 			if d.peek().Type == Assign {
-				err = d.decodeVariable(&mst)
+				err = d.decodeVariable(mst)
 				break
 			}
-			err = d.decodeCommand(&mst)
+			err = d.decodeCommand(mst)
 		case Meta:
-			err = d.decodeMeta(&mst)
+			err = d.decodeMeta(mst)
 		case Keyword:
-			err = d.decodeKeyword(&mst)
+			err = d.decodeKeyword(mst)
 		case Comment:
 			d.next()
 		default:
@@ -87,7 +85,7 @@ func (d *Decoder) Decode() (*Maestro, error) {
 			return nil, err
 		}
 	}
-	return &mst, nil
+	return mst, nil
 }
 
 func (d *Decoder) decodeKeyword(mst *Maestro) error {
@@ -98,6 +96,8 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 		return d.decodeExport(mst)
 	case kwDelete:
 		return d.decodeDelete(mst)
+	case kwAlias:
+		return d.decodeAlias(mst)
 	default:
 	}
 	return nil
@@ -209,8 +209,54 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 	return d.ensureEOL()
 }
 
-func (d *Decoder) decodeDelete(msg *Maestro) error {
+func (d *Decoder) decodeDelete(mst *Maestro) error {
 	return nil
+}
+
+func (d *Decoder) decodeAlias(mst *Maestro) error {
+	decode := func() error {
+		// d.setLineFunc()
+		// defer d.resetIdentFunc()
+		ident := d.curr()
+		d.next()
+		if d.curr().Type != Assign {
+			return d.unexpected()
+		}
+		d.next()
+		if !d.curr().IsValue() {
+			return d.unexpected()
+		}
+		mst.Alias[ident.Literal] = d.curr().Literal
+		d.next()
+		return d.ensureEOL()
+	}
+	d.next()
+	switch d.curr().Type {
+	case Ident:
+		if err := decode(); err != nil {
+			return err
+		}
+	case BegList:
+		d.next()
+		if err := d.ensureEOL(); err != nil {
+			return err
+		}
+		for !d.done() {
+			if d.curr().Type == EndList {
+				break
+			}
+			if err := decode(); err != nil {
+				return err
+			}
+		}
+		if d.curr().Type != EndList {
+			return d.unexpected()
+		}
+		d.next()
+	default:
+		return d.unexpected()
+	}
+	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeVariable(mst *Maestro) error {
@@ -572,7 +618,15 @@ func (d *Decoder) peek() Token {
 	return t
 }
 
-func (d *Decoder) setIdentFunc() {
+func (d *Decoder) setLineFunc() {
+	z := len(d.frames)
+	if z == 0 {
+		return
+	}
+	d.frames[z-1].scan.SetIdentFunc(IsLine)
+}
+
+func (d *Decoder) setValueFunc() {
 	z := len(d.frames)
 	if z == 0 {
 		return

@@ -13,7 +13,7 @@ servers = "192.168.67.181" "192.168.67.236"
 # .VERSION =
 # .AUTHOR  =
 
-# include
+# includes
 # include (
 # 	tmp/file1.mf
 # 	tmp/file2.mf
@@ -25,6 +25,13 @@ include "data/include.mf"
 # 	IDENT = ""
 # )
 # delete IDENT
+
+# aliases
+# alias buildtest = go build -o bin/test cmd/test/main.go
+# alias (
+# 	builtest1 = go build -o bin/test1 cmd/test1/main.go
+# 	builtest2 = go build -o bin/test2 cmd/test2/main.go
+# )
 
 # scripts
 # action([property...]): dependency([args...]),... {

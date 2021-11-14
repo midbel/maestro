@@ -21,6 +21,15 @@ type Maestro struct {
 
 	Duplicate string
 	Commands  map[string]Command
+	Alias     map[string]string
+}
+
+func New() *Maestro {
+	return &Maestro{
+		Duplicate: dupReplace,
+		Commands:  make(map[string]Command),
+		Alias:     make(map[string]string),
+	}
 }
 
 func Load(file string) (*Maestro, error) {
