@@ -1,5 +1,27 @@
 test = variable
 
-action(help="sample action"): {
+# trailing comma between parenthesis when using multi line definition can be optional
+action(
+	short   = "sample action",
+	help    = "",
+	timeout = "10s",
+	error   = "raise",
+	tags    = demo action,
+	options = (
+		short    = "a",
+		long     = "all",
+		required = true,
+		default  = $test,
+	), (
+		short   = "b",
+		long    = "bind",
+		default = "false",
+	)
+): action1&, action2, action3& {
+	# prefix !: reverse the result of the result code returned by the command
+	# prefix -: ignore error when result return a non zero code
+	both prefix can be combined
+  !echo "${test}"
+  echo "${test}"
   echo "${test}"
 }

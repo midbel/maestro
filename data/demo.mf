@@ -30,7 +30,7 @@ HELP
 # 	tmp/file1.mf
 # 	tmp/file2.mf
 # )
-include "data/include.mf"
+# include "data/include.mf"
 
 # export (
 # 	IDENT = ""

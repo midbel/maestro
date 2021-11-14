@@ -319,6 +319,10 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	return nil
 }
 
+func (d *Decoder) decodeCommandArguments(cmd *Single) error {
+	return nil
+}
+
 func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	d.next()
 	for !d.done() {

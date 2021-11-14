@@ -10,8 +10,13 @@ const (
 	errRaise  = "raise"
 )
 
-type Command interface {
+type Action interface {
 	Execute([]string) error
+}
+
+type Command interface {
+	Action
+
 	About() string
 	Help() (string, error)
 	Tags() []string
@@ -23,6 +28,23 @@ type Dep struct {
 	Name string
 	Args []string
 	Bg   bool
+}
+
+type Option struct {
+	Short    string
+	Long     string
+	Default  string
+	Required bool
+}
+
+type Script struct {
+	Line    string
+	Reverse bool
+	Ignore  bool
+}
+
+func (s Script) Execute(args []string) error {
+	return nil
 }
 
 type Single struct {
@@ -39,7 +61,7 @@ type Single struct {
 	Dependencies []Dep
 	Scripts      []string
 	Env          map[string]string
-	Options      map[string]string
+	Options      map[string]Option
 	Locals       *Env
 }
 
@@ -72,6 +94,9 @@ func (s *Single) Help() (string, error) {
 }
 
 func (s *Single) Tags() []string {
+	if len(s.Cats) == 0 {
+		return []string{"default"}
+	}
 	return s.Cats
 }
 
