@@ -42,7 +42,15 @@ const (
 	propTimeout = "timeout"
 	propHosts   = "host"
 	propError   = "error"
-	propArgs    = "args"
+	propArgs    = "options"
+)
+
+const (
+	optShort    = "short"
+	optLong     = "long"
+	optRequired = "required"
+	optDefault  = "default"
+	optFlag     = "flag"
 )
 
 type Decoder struct {
@@ -319,12 +327,9 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandArguments(cmd *Single) error {
-	return nil
-}
-
 func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	d.next()
+	d.skipNL()
 	for !d.done() {
 		if d.curr().Type == EndList {
 			break
@@ -361,14 +366,15 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
 		case propArgs:
+			err = d.decodeCommandOptions(cmd)
 		}
 		if err != nil {
 			return err
 		}
-
 		switch d.curr().Type {
 		case Comma:
 			d.next()
+			d.skipNL()
 		case EndList:
 		default:
 			return d.unexpected()
@@ -378,6 +384,81 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		return d.unexpected()
 	}
 	d.next()
+	return nil
+}
+
+func (d *Decoder) decodeCommandOptions(cmd *Single) error {
+	fmt.Println("enter decodeCommandOptions")
+	defer fmt.Println("leave decodeCommandOptions")
+
+	var done bool
+	for !d.done() && !done {
+		if d.curr().Type != BegList {
+			return d.unexpected()
+		}
+		d.next()
+		d.skipNL()
+		var opt Option
+		for !d.done() {
+			if d.curr().Type == EndList {
+				break
+			}
+			if d.curr().Type != Ident {
+				return d.unexpected()
+			}
+			var (
+				prop = d.curr()
+				err  error
+			)
+			d.next()
+			if d.curr().Type != Assign {
+				return d.unexpected()
+			}
+			d.next()
+			switch prop.Literal {
+			default:
+				return fmt.Errorf("%s: unknown option property", prop.Literal)
+			case optShort:
+				opt.Short, err = d.parseString()
+			case optLong:
+				opt.Long, err = d.parseString()
+			case optDefault:
+				opt.Default, err = d.parseString()
+			case optRequired:
+				opt.Required, err = d.parseBool()
+			case optFlag:
+				opt.Flag, err = d.parseBool()
+			}
+			if err != nil {
+				return err
+			}
+			switch d.curr().Type {
+			case Comma:
+				d.next()
+				d.skipNL()
+			case EndList:
+			default:
+				return d.unexpected()
+			}
+		}
+		if d.curr().Type != EndList {
+			return d.unexpected()
+		}
+		fmt.Printf("%+v\n", opt)
+		d.next()
+		switch d.curr().Type {
+		case Comma:
+			d.next()
+			d.skipNL()
+		case EndList:
+		default:
+			return d.unexpected()
+		}
+		cmd.Options = append(cmd.Options, opt)
+	}
+	if !done {
+		return d.unexpected()
+	}
 	return nil
 }
 
@@ -589,6 +670,12 @@ func (d *Decoder) parseDuration() (time.Duration, error) {
 		return 0, err
 	}
 	return time.ParseDuration(str)
+}
+
+func (d *Decoder) skipNL() {
+	for d.curr().Type == Eol {
+		d.next()
+	}
 }
 
 func (d *Decoder) next() {

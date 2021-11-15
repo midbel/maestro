@@ -94,7 +94,7 @@ deploy(short="deploy binary on production server", tag=build): {
 }
 
 package(short="create deb/rpm package from binary", tag=build): {
-	mkdir -pf ${pkgdir}
-	packit build -k deb -d ${pkgdir} ${manifest}
-	packit build -k rpm -d ${pkgdir} ${manifest}
+	!-mkdir -pf ${pkgdir}
+	@packit build -k deb -d ${pkgdir} ${manifest}
+	@packit build -k rpm -d ${pkgdir} ${manifest}
 }

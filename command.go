@@ -35,6 +35,7 @@ type Option struct {
 	Long     string
 	Default  string
 	Required bool
+	Flag     bool
 }
 
 type Line struct {
@@ -66,7 +67,7 @@ type Single struct {
 	Dependencies []Dep
 	Scripts      []Line
 	Env          map[string]string
-	Options      map[string]Option
+	Options      []Option
 	Locals       *Env
 }
 
@@ -79,9 +80,8 @@ func NewSingleWithLocals(name string, locals *Env) *Single {
 		locals = EmptyEnv()
 	}
 	cmd := Single{
-		Name:    name,
-		Options: make(map[string]Option),
-		Locals:  locals,
+		Name:   name,
+		Locals: locals,
 	}
 	return &cmd
 }

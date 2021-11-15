@@ -6,7 +6,7 @@ action(
 	help    = "",
 	timeout = "10s",
 	error   = "raise",
-	tags    = demo action,
+	tag     = demo action,
 	options = (
 		short    = "a",
 		long     = "all",
