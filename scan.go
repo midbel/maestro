@@ -32,8 +32,8 @@ const (
 	langle     = '<'
 	tilde      = '~'
 	minus      = '-'
-	bang = '!'
-	arobase = '@'
+	bang       = '!'
+	arobase    = '@'
 )
 
 func IsValue(r rune) bool {

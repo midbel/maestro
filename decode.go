@@ -420,7 +420,7 @@ func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 			break
 		}
 		var (
-			i Line
+			i    Line
 			seen = make(map[rune]struct{})
 		)
 		for d.curr().IsOperator() {
