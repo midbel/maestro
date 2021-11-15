@@ -37,13 +37,18 @@ type Option struct {
 	Required bool
 }
 
-type Script struct {
+type Line struct {
 	Line    string
 	Reverse bool
 	Ignore  bool
+	Echo    bool
+	Empty   bool
 }
 
-func (s Script) Execute(args []string) error {
+func (i Line) Execute(args []string) error {
+	if i.Echo {
+
+	}
 	return nil
 }
 
@@ -59,7 +64,7 @@ type Single struct {
 	Timeout      time.Duration
 	Hosts        []string
 	Dependencies []Dep
-	Scripts      []string
+	Scripts      []Line
 	Env          map[string]string
 	Options      map[string]Option
 	Locals       *Env
@@ -75,7 +80,7 @@ func NewSingleWithLocals(name string, locals *Env) *Single {
 	}
 	cmd := Single{
 		Name:    name,
-		Options: make(map[string]string),
+		Options: make(map[string]Option),
 		Locals:  locals,
 	}
 	return &cmd

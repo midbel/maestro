@@ -419,10 +419,35 @@ func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 		if d.curr().Type == EndScript {
 			break
 		}
+		var (
+			i Line
+			seen = make(map[rune]struct{})
+		)
+		for d.curr().IsOperator() {
+			if _, ok := seen[d.curr().Type]; ok {
+				return fmt.Errorf("operator already set")
+			}
+			seen[d.curr().Type] = struct{}{}
+			switch d.curr().Type {
+			case Echo:
+				i.Echo = !i.Echo
+			case Reverse:
+				i.Reverse = !i.Reverse
+			case Ignore:
+				i.Ignore = !i.Ignore
+			case Isolated:
+				i.Empty = !i.Empty
+			default:
+				return d.unexpected()
+			}
+			d.next()
+		}
 		if d.curr().Type != Script {
 			return d.unexpected()
 		}
-		cmd.Scripts = append(cmd.Scripts, d.curr().Literal)
+		i.Line = d.curr().Literal
+		fmt.Printf("%+v\n", i)
+		cmd.Scripts = append(cmd.Scripts, i)
 		d.next()
 	}
 	if d.curr().Type != EndScript {
@@ -591,7 +616,8 @@ func (d *Decoder) done() bool {
 }
 
 func (d *Decoder) unexpected() error {
-	return fmt.Errorf("%w %s", errUnexpected, d.curr().Literal)
+	curr := d.curr()
+	return fmt.Errorf("%w %s at %d:%d", errUnexpected, curr.Literal, curr.Line, curr.Column)
 }
 
 func (d *Decoder) undefined() error {

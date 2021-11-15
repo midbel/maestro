@@ -33,6 +33,10 @@ const (
 	EndList
 	BegScript
 	EndScript
+	Reverse
+	Ignore
+	Echo
+	Isolated
 	Invalid
 )
 
@@ -52,6 +56,14 @@ func (t Token) String() string {
 	switch t.Type {
 	default:
 		prefix = "unknown"
+	case Echo:
+		return "<echo>"
+	case Reverse:
+		return "<reverse>"
+	case Isolated:
+		return "<isolated>"
+	case Ignore:
+		return "<ignore>"
 	case Eof:
 		return "<eof>"
 	case Eol:
@@ -110,4 +122,8 @@ func (t Token) IsEOF() bool {
 
 func (t Token) IsInvalid() bool {
 	return t.Type == Invalid
+}
+
+func (t Token) IsOperator() bool {
+	return t.Type == Echo || t.Type == Reverse || t.Type == Ignore || t.Type == Isolated
 }

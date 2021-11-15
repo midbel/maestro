@@ -20,8 +20,10 @@ action(
 ): action1&, action2, action3& {
 	# prefix !: reverse the result of the result code returned by the command
 	# prefix -: ignore error when result return a non zero code
-	both prefix can be combined
+	# prefix @: script will be printed to stdout before execution
+	# prefix ~: script will have an empty env given to it
+	# all prefix can be combined
   !echo "${test}"
-  echo "${test}"
-  echo "${test}"
+  @-echo "${test}"
+  !-~echo "${test}"
 }

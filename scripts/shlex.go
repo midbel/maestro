@@ -8,6 +8,102 @@ import (
 	"unicode/utf8"
 )
 
+type Environment interface {
+	Resolve(string) ([]string, error)
+	Define(string, []string) error
+	Delete(string)
+}
+
+type Expander interface {
+	Expand(Environment) ([]string, error)
+}
+
+type Executer interface {
+	Execute(Environment) error
+}
+
+type And struct {
+	Left  Executer
+	Right Executer
+}
+
+func (a And) Execute(env Environment) error {
+	if err := a.Left.Execute(env); err != nil {
+		return err
+	}
+	return a.Right.Execute(env)
+}
+
+type Or struct {
+	Left  Executer
+	Right Executer
+}
+
+func (o Or) Execute(env Environment) error {
+	err := o.Left.Execute(env)
+	if err == nil {
+		return err
+	}
+	return o.Right.Execute(env)
+}
+
+type Pipe struct {
+	Left  Executer
+	Right Executer
+}
+
+func (p Pipe) Execute(env Environment) error {
+	return nil
+}
+
+type List struct {
+	List []Executer
+}
+
+func (i List) Execute(env Environment) error {
+	return nil
+}
+
+type Simple struct {
+	Words []Expander
+	In    Expander
+	Out   Expander
+	Err   Expander
+}
+
+func (s Simple) Execute(env Environment) error {
+	return nil
+}
+
+func (s Simple) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type Assign struct {
+	Ident string
+	Words []Expander
+}
+
+func (a Assign) Execute(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type Word struct {
+	Literal string
+}
+
+func (w Word) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type Variable struct {
+	Ident string
+}
+
+func (v Variable) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
 func main() {
 	list := []string{
 		`maestro -f "maestro.mf" all $file foo-"test"-bar # comment`,
@@ -91,6 +187,7 @@ const (
 	EndExp
 	List
 	Pipe
+	PipeBoth
 	And
 	Or
 	RedirectIn
@@ -137,6 +234,8 @@ func (t Token) String() string {
 		return "<or>"
 	case Pipe:
 		return "<pipe>"
+	case PipeBoth:
+		return "<pipe-both>"
 	case List:
 		return "<list>"
 	case BegExp:
@@ -291,7 +390,10 @@ func (s *Scanner) scanSequence(tok *Token) {
 	case s.char == pipe && k == s.char:
 		tok.Type = Or
 		s.read()
-	case s.char == pipe && k != s.char:
+	case s.char == pipe && k == ampersand:
+		tok.Type = PipeBoth
+		s.read()
+	case s.char == pipe:
 		tok.Type = Pipe
 	default:
 		tok.Type = Invalid

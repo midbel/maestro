@@ -30,6 +30,10 @@ const (
 	semicolon  = ';'
 	ampersand  = '&'
 	langle     = '<'
+	tilde      = '~'
+	minus      = '-'
+	bang = '!'
+	arobase = '@'
 )
 
 func IsValue(r rune) bool {
@@ -120,9 +124,40 @@ func (s *Scanner) Scan() Token {
 	return tok
 }
 
+func (s *Scanner) scanOperator(tok *Token) {
+	switch s.char {
+	case minus:
+		tok.Type = Ignore
+	case bang:
+		tok.Type = Reverse
+	case arobase:
+		tok.Type = Echo
+	case tilde:
+		tok.Type = Isolated
+	default:
+		tok.Type = Invalid
+		return
+	}
+	s.read()
+}
+
 func (s *Scanner) scanScript(tok *Token) {
 	s.skipNL()
 	s.skipBlank()
+
+	var ok bool
+	switch {
+	default:
+		ok = !ok
+	case isOperator(s.char):
+		s.scanOperator(tok)
+	case isComment(s.char):
+		s.scanComment(tok)
+	}
+	if !ok {
+		return
+	}
+
 	for !isNL(s.char) && !s.done() {
 		if s.char == backslash && isNL(s.peek()) {
 			s.read()
@@ -262,6 +297,9 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	default:
 	}
 	s.read()
+	if s.script && isNL(s.char) {
+		s.skipNL()
+	}
 }
 
 func (s *Scanner) scanComment(tok *Token) {
@@ -387,4 +425,8 @@ func isVariable(b rune) bool {
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
 		b == lcurly || b == rcurly || b == equal || b == ampersand
+}
+
+func isOperator(b rune) bool {
+	return b == bang || b == minus || b == arobase || b == tilde
 }
