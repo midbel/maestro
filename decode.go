@@ -391,13 +391,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 }
 
 func (d *Decoder) decodeCommandOptions(cmd *Single) error {
-	var done bool
-	for !d.done() && !done {
-		if d.curr().Type != BegList {
-			return d.unexpected()
-		}
-		d.next()
-		d.skipNL()
+	decode := func() (Option, error) {
 		var opt Option
 		for !d.done() {
 			if d.curr().Type == EndList {
@@ -405,7 +399,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			}
 			d.skipComment()
 			if d.curr().Type != Ident {
-				return d.unexpected()
+				return opt, d.unexpected()
 			}
 			var (
 				prop = d.curr()
@@ -413,12 +407,12 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			)
 			d.next()
 			if d.curr().Type != Assign {
-				return d.unexpected()
+				return opt, d.unexpected()
 			}
 			d.next()
 			switch prop.Literal {
 			default:
-				return fmt.Errorf("%s: unknown option property", prop.Literal)
+				return opt, fmt.Errorf("%s: unknown option property", prop.Literal)
 			case optShort:
 				opt.Short, err = d.parseString()
 			case optLong:
@@ -433,7 +427,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 				opt.Help, err = d.parseString()
 			}
 			if err != nil {
-				return err
+				return opt, err
 			}
 			switch d.curr().Type {
 			case Comma:
@@ -441,13 +435,26 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 				d.skipNL()
 			case EndList:
 			default:
-				return d.unexpected()
+				return opt, d.unexpected()
 			}
 		}
 		if d.curr().Type != EndList {
+			return opt, d.unexpected()
+		}
+		d.next()
+		return opt, nil
+	}
+	var done bool
+	for !d.done() && !done {
+		if d.curr().Type != BegList {
 			return d.unexpected()
 		}
 		d.next()
+		d.skipNL()
+		opt, err := decode()
+		if err != nil {
+			return err
+		}
 		switch d.curr().Type {
 		case Comma:
 			d.next()

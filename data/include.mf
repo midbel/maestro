@@ -2,15 +2,13 @@ test = variable
 
 # trailing comma between parenthesis when using multi line definition can be optional
 action(
-	# a comment
 	short   = "sample action", # inline comment
 	help    = "",
 	timeout = "10s",
 	error   = "raise",
 	tag     = demo action,
 	options = (
-		# option to get all
-		short    = "a", # a comment
+		short    = "a",
 		long     = "all",
 		required = true,
 		default  = $test,
