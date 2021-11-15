@@ -51,6 +51,7 @@ const (
 	optRequired = "required"
 	optDefault  = "default"
 	optFlag     = "flag"
+	optHelp     = "help"
 )
 
 type Decoder struct {
@@ -334,6 +335,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		if d.curr().Type == EndList {
 			break
 		}
+		d.skipComment()
 		if d.curr().Type != Ident {
 			return d.unexpected()
 		}
@@ -374,6 +376,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		switch d.curr().Type {
 		case Comma:
 			d.next()
+			d.skipComment()
 			d.skipNL()
 		case EndList:
 		default:
@@ -388,9 +391,6 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 }
 
 func (d *Decoder) decodeCommandOptions(cmd *Single) error {
-	fmt.Println("enter decodeCommandOptions")
-	defer fmt.Println("leave decodeCommandOptions")
-
 	var done bool
 	for !d.done() && !done {
 		if d.curr().Type != BegList {
@@ -403,6 +403,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			if d.curr().Type == EndList {
 				break
 			}
+			d.skipComment()
 			if d.curr().Type != Ident {
 				return d.unexpected()
 			}
@@ -428,6 +429,8 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 				opt.Required, err = d.parseBool()
 			case optFlag:
 				opt.Flag, err = d.parseBool()
+			case optHelp:
+				opt.Help, err = d.parseString()
 			}
 			if err != nil {
 				return err
@@ -444,12 +447,16 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 		if d.curr().Type != EndList {
 			return d.unexpected()
 		}
-		fmt.Printf("%+v\n", opt)
 		d.next()
 		switch d.curr().Type {
 		case Comma:
 			d.next()
+			d.skipComment()
 			d.skipNL()
+			done = d.curr().Type == EndList
+		case Eol:
+			d.skipNL()
+			done = d.curr().Type == EndList
 		case EndList:
 		default:
 			return d.unexpected()
@@ -500,6 +507,10 @@ func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 		if d.curr().Type == EndScript {
 			break
 		}
+		if d.curr().Type == Comment {
+			d.next()
+			continue
+		}
 		var (
 			i    Line
 			seen = make(map[rune]struct{})
@@ -527,7 +538,6 @@ func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 			return d.unexpected()
 		}
 		i.Line = d.curr().Literal
-		fmt.Printf("%+v\n", i)
 		cmd.Scripts = append(cmd.Scripts, i)
 		d.next()
 	}
@@ -674,6 +684,12 @@ func (d *Decoder) parseDuration() (time.Duration, error) {
 
 func (d *Decoder) skipNL() {
 	for d.curr().Type == Eol {
+		d.next()
+	}
+}
+
+func (d *Decoder) skipComment() {
+	for d.curr().Type == Comment {
 		d.next()
 	}
 }

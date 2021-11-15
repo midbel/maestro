@@ -34,6 +34,7 @@ type Option struct {
 	Short    string
 	Long     string
 	Default  string
+	Help     string
 	Required bool
 	Flag     bool
 }
