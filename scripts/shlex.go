@@ -22,24 +22,24 @@ type Executer interface {
 	Execute(Environment) error
 }
 
-type And struct {
+type ExecAnd struct {
 	Left  Executer
 	Right Executer
 }
 
-func (a And) Execute(env Environment) error {
+func (a ExecAnd) Execute(env Environment) error {
 	if err := a.Left.Execute(env); err != nil {
 		return err
 	}
 	return a.Right.Execute(env)
 }
 
-type Or struct {
+type ExecOr struct {
 	Left  Executer
 	Right Executer
 }
 
-func (o Or) Execute(env Environment) error {
+func (o ExecOr) Execute(env Environment) error {
 	err := o.Left.Execute(env)
 	if err == nil {
 		return err
@@ -47,60 +47,158 @@ func (o Or) Execute(env Environment) error {
 	return o.Right.Execute(env)
 }
 
-type Pipe struct {
+type ExecPipe struct {
 	Left  Executer
 	Right Executer
+	Both  bool
 }
 
-func (p Pipe) Execute(env Environment) error {
+func (p ExecPipe) Execute(env Environment) error {
 	return nil
 }
 
-type List struct {
+type ExecList struct {
 	List []Executer
 }
 
-func (i List) Execute(env Environment) error {
+func (i ExecList) Execute(env Environment) error {
 	return nil
 }
 
-type Simple struct {
+type ExecSimple struct {
 	Words []Expander
 	In    Expander
 	Out   Expander
 	Err   Expander
 }
 
-func (s Simple) Execute(env Environment) error {
+func (s ExecSimple) Execute(env Environment) error {
 	return nil
 }
 
-func (s Simple) Expand(env Environment) ([]string, error) {
-	return nil, nil
-}
-
-type Assign struct {
+type ExpandAssign struct {
 	Ident string
 	Words []Expander
 }
 
-func (a Assign) Execute(env Environment) ([]string, error) {
+func (a ExpandAssign) Execute(env Environment) ([]string, error) {
 	return nil, nil
 }
 
-type Word struct {
+type ExpandWord struct {
 	Literal string
 }
 
-func (w Word) Expand(env Environment) ([]string, error) {
+func (w ExpandWord) Expand(env Environment) ([]string, error) {
 	return nil, nil
 }
 
-type Variable struct {
+type ExpandMulti struct {
+	List []Expander
+}
+
+func (m ExpandMulti) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandVariable struct {
 	Ident string
 }
 
-func (v Variable) Expand(env Environment) ([]string, error) {
+func (v ExpandVariable) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandLength struct {
+	Ident string
+}
+
+func (v ExpandLength) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandReplace struct {
+	Ident string
+	From  string
+	To    string
+	What  rune
+}
+
+func (v ExpandReplace) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandTrim struct {
+	Ident string
+	Trim  string
+	What  rune
+}
+
+func (v ExpandTrim) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandSlice struct {
+	Ident string
+	From  int
+	To    int
+}
+
+func (v ExpandSlice) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandLower struct {
+	Ident string
+	All   bool
+}
+
+func (v ExpandLower) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandUpper struct {
+	Ident string
+	All   bool
+}
+
+func (v ExpandUpper) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandValIfUnset struct {
+	Ident string
+	Str   string
+}
+
+func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandSetValIfUnset struct {
+	Ident string
+	Str   string
+}
+
+func (v ExpandSetValIfUnset) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandValIfSet struct {
+	Ident string
+	Str   string
+}
+
+func (v ExpandValIfSet) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
+type ExpandExitIfUnset struct {
+	Ident string
+	Str   string
+}
+
+func (v ExpandExitIfUnset) Expand(env Environment) ([]string, error) {
 	return nil, nil
 }
 
@@ -128,10 +226,13 @@ func main() {
 		`echo ${lower-all,,}`,
 		`echo ${upper-first^}`,
 		`echo ${upper-all^^}`,
-		`echo | echo; echo && echo || echo; echo`,
-		`echo < file.txt`,
-		`echo > file.txt`,
-		`echo >> file.txt`,
+		`echo first && echo second`,
+		`echo first || echo second`,
+		`echo first | echo -`,
+		// `echo | echo; echo && echo || echo; echo`,
+		// `echo < file.txt`,
+		// `echo > file.txt`,
+		// `echo >> file.txt`,
 	}
 
 	for i := range list {
@@ -147,6 +248,363 @@ func main() {
 			}
 		}
 	}
+	fmt.Println("===")
+	fmt.Println("===")
+	for i := range list {
+		if i > 0 {
+			fmt.Println("---")
+		}
+		p := NewParser(strings.NewReader(list[i]))
+		ex, err := p.Parse()
+		if err != nil {
+			fmt.Println(list[i], err)
+			continue
+		}
+		fmt.Println(">>", list[i])
+		fmt.Printf("%#v\n", ex)
+	}
+}
+
+type Parser struct {
+	scan *Scanner
+	curr Token
+	peek Token
+
+	quoted bool
+}
+
+func NewParser(r io.Reader) *Parser {
+	p := Parser{
+		scan: Scan(r),
+	}
+	p.next()
+	p.next()
+
+	return &p
+}
+
+func (p *Parser) Parse() (Executer, error) {
+	var list ExecList
+	for !p.done() {
+		ex, err := p.parse()
+		if err != nil {
+			return nil, err
+		}
+		list.List = append(list.List, ex)
+	}
+	var ex Executer = list
+	if len(list.List) == 1 {
+		ex = list.List[0]
+	}
+	return ex, nil
+}
+
+func (p *Parser) parse() (Executer, error) {
+	var ex ExecSimple
+	for !p.done() {
+		var (
+			next Expander
+			err  error
+		)
+		switch p.curr.Type {
+		case List, Comment:
+			p.next()
+			return ex, nil
+		case And:
+			return p.parseAnd(ex)
+		case Or:
+			return p.parseOr(ex)
+		case Pipe, PipeBoth:
+			return p.parsePipe(ex)
+		case BegExp, Variable, Quote, Literal:
+			next, err = p.parseWords()
+		default:
+			err = p.unexpected()
+		}
+		if err != nil {
+			return nil, err
+		}
+		ex.Words = append(ex.Words, next)
+	}
+	return ex, nil
+}
+
+func (p *Parser) parsePipe(left Executer) (Executer, error) {
+	both := p.curr.Type == PipeBoth
+	p.next()
+	right, err := p.parse()
+	if err != nil {
+		return nil, err
+	}
+	return ExecPipe{
+		Left:  left,
+		Right: right,
+		Both:  both,
+	}, nil
+}
+
+func (p *Parser) parseAnd(left Executer) (Executer, error) {
+	p.next()
+	right, err := p.parse()
+	if err != nil {
+		return nil, err
+	}
+	return ExecAnd{
+		Left:  left,
+		Right: right,
+	}, nil
+}
+
+func (p *Parser) parseOr(left Executer) (Executer, error) {
+	p.next()
+	right, err := p.parse()
+	if err != nil {
+		return nil, err
+	}
+	return ExecOr{
+		Left:  left,
+		Right: right,
+	}, nil
+}
+
+func (p *Parser) parseWords() (Expander, error) {
+	var list ExpandMulti
+	for !p.done() {
+		if p.curr.Eow() {
+			if !p.curr.IsSequence() {
+				p.next()
+			}
+			break
+		}
+		var (
+			next Expander
+			err  error
+		)
+		switch p.curr.Type {
+		case Literal:
+			next, err = p.parseLiteral()
+		case Variable:
+			next, err = p.parseVariable()
+		case Quote:
+			next, err = p.parseQuote()
+		case BegExp:
+			next, err = p.parseExpansion()
+		default:
+			err = p.unexpected()
+		}
+		if err != nil {
+			return nil, err
+		}
+		list.List = append(list.List, next)
+	}
+	var ex Expander = list
+	if len(list.List) == 1 {
+		ex = list.List[0]
+	}
+	return ex, nil
+}
+
+func (p *Parser) parseQuote() (ExpandMulti, error) {
+	p.enterQuote()
+
+	p.next()
+	var ex ExpandMulti
+	for !p.done() {
+		if p.curr.Type == Quote {
+			break
+		}
+		var (
+			next Expander
+			err  error
+		)
+		switch p.curr.Type {
+		case Literal:
+			next, err = p.parseLiteral()
+		case Variable:
+			next, err = p.parseVariable()
+		case BegExp:
+			next, err = p.parseExpansion()
+		default:
+			err = p.unexpected()
+		}
+		if err != nil {
+			return ex, err
+		}
+		ex.List = append(ex.List, next)
+	}
+	if p.curr.Type != Quote {
+		return ex, p.unexpected()
+	}
+	p.leaveQuote()
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseLiteral() (ExpandWord, error) {
+	ex := ExpandWord{
+		Literal: p.curr.Literal,
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseExpansion() (Expander, error) {
+	p.next()
+	if p.curr.Type == Length {
+		p.next()
+		if p.curr.Type != Literal {
+			return nil, p.unexpected()
+		}
+		ex := ExpandLength{
+			Ident: p.curr.Literal,
+		}
+		p.next()
+		if p.curr.Type != EndExp {
+			return nil, p.unexpected()
+		}
+		p.next()
+		return ex, nil
+	}
+	if p.curr.Type != Literal {
+		return nil, p.unexpected()
+	}
+	ident := p.curr
+	p.next()
+	var (
+		ex  Expander
+		err error
+	)
+	switch p.curr.Type {
+	case EndExp:
+		ex = ExpandVariable{
+			Ident: ident.Literal,
+		}
+	case Slice:
+		e := ExpandSlice{
+			Ident: ident.Literal,
+		}
+		p.next()
+		e.From = 0 // p.curr.Literal
+		p.next()
+		if p.curr.Type != Slice {
+			err = p.unexpected()
+			break
+		}
+		p.next()
+		e.To = 0 // p.curr.Literal
+		p.next()
+		ex = e
+	case TrimSuffix, TrimSuffixLong, TrimPrefix, TrimPrefixLong:
+		e := ExpandTrim{
+			Ident: ident.Literal,
+			What:  p.curr.Type,
+		}
+		p.next()
+		e.Trim = p.curr.Literal
+		p.next()
+		ex = e
+	case Replace, ReplaceAll, ReplacePrefix, ReplaceSuffix:
+		e := ExpandReplace{
+			Ident: ident.Literal,
+			What:  p.curr.Type,
+		}
+		p.next()
+		e.From = p.curr.Literal
+		p.next()
+		if p.curr.Type != Replace {
+			err = p.unexpected()
+			break
+		}
+		p.next()
+		e.To = p.curr.Literal
+		p.next()
+		ex = e
+	case Lower, LowerAll:
+		e := ExpandLower{
+			Ident: ident.Literal,
+			All:   p.curr.Type == LowerAll,
+		}
+		p.next()
+		ex = e
+	case Upper, UpperAll:
+		e := ExpandUpper{
+			Ident: ident.Literal,
+			All:   p.curr.Type == UpperAll,
+		}
+		p.next()
+		ex = e
+	case ValIfUnset:
+		e := ExpandValIfUnset{
+			Ident: ident.Literal,
+		}
+		p.next()
+		e.Str = p.curr.Literal
+		p.next()
+		ex = e
+	case SetValIfUnset:
+		e := ExpandSetValIfUnset{
+			Ident: ident.Literal,
+		}
+		p.next()
+		e.Str = p.curr.Literal
+		p.next()
+		ex = e
+	case ValIfSet:
+		e := ExpandValIfSet{
+			Ident: ident.Literal,
+		}
+		p.next()
+		e.Str = p.curr.Literal
+		p.next()
+		ex = e
+	case ExitIfUnset:
+		e := ExpandExitIfUnset{
+			Ident: ident.Literal,
+		}
+		p.next()
+		e.Str = p.curr.Literal
+		p.next()
+		ex = e
+	default:
+		err = p.unexpected()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != EndExp {
+		return nil, p.unexpected()
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseVariable() (ExpandVariable, error) {
+	ex := ExpandVariable{
+		Ident: p.curr.Literal,
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) enterQuote() {
+	p.quoted = true
+}
+
+func (p *Parser) leaveQuote() {
+	p.quoted = false
+}
+
+func (p *Parser) next() {
+	p.curr = p.peek
+	p.peek = p.scan.Scan()
+}
+
+func (p *Parser) done() bool {
+	return p.curr.Type == EOF
+}
+
+func (p *Parser) unexpected() error {
+	return fmt.Errorf("unexpected token %s [%s]", p.curr, p.peek)
 }
 
 const (
@@ -217,6 +675,19 @@ const (
 type Token struct {
 	Literal string
 	Type    rune
+}
+
+func (t Token) IsSequence() bool {
+	switch t.Type {
+	case And, Or, List, Pipe, PipeBoth:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t Token) Eow() bool {
+	return t.Type == Comment || t.Type == EOF || t.Type == Blank || t.IsSequence()
 }
 
 func (t Token) String() string {
