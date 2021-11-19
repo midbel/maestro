@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -12,6 +13,42 @@ type Environment interface {
 	Resolve(string) ([]string, error)
 	Define(string, []string) error
 	Delete(string)
+}
+
+type Env struct {
+	parent *Env
+	values map[string][]string
+}
+
+func EmptyEnv() *Env {
+	return EnclosedEnv(nil)
+}
+
+func EnclosedEnv(parent *Env) *Env {
+	return &Env{
+		parent: parent,
+		values: make(map[string][]string),
+	}
+}
+
+func (e *Env) Resolve(ident string) ([]string, error) {
+	vs, ok := e.values[ident]
+	if ok {
+		return vs, nil
+	}
+	if e.parent != nil {
+		return e.parent.Resolve(ident)
+	}
+	return nil, fmt.Errorf("%s: undefined variable", ident)
+}
+
+func (e *Env) Define(ident string, vs []string) error {
+	e.values[ident] = vs
+	return nil
+}
+
+func (e *Env) Delete(ident string) {
+	delete(e.values, ident)
 }
 
 type Expander interface {
@@ -48,9 +85,7 @@ func (o ExecOr) Execute(env Environment) error {
 }
 
 type ExecPipe struct {
-	Left  Executer
-	Right Executer
-	Both  bool
+	List []Executer
 }
 
 func (p ExecPipe) Execute(env Environment) error {
@@ -67,12 +102,21 @@ func (i ExecList) Execute(env Environment) error {
 
 type ExecSimple struct {
 	Words []Expander
-	In    Expander
-	Out   Expander
-	Err   Expander
+	// In    Expander
+	// Out   Expander
+	// Err   Expander
 }
 
 func (s ExecSimple) Execute(env Environment) error {
+	var words []string
+	for _, w := range s.Words {
+		ws, err := w.Expand(env)
+		if err != nil {
+			return err
+		}
+		words = append(words, ws...)
+	}
+	fmt.Println(strings.Join(words, " "))
 	return nil
 }
 
@@ -89,8 +133,8 @@ type ExpandWord struct {
 	Literal string
 }
 
-func (w ExpandWord) Expand(env Environment) ([]string, error) {
-	return nil, nil
+func (w ExpandWord) Expand(_ Environment) ([]string, error) {
+	return []string{w.Literal}, nil
 }
 
 type ExpandMulti struct {
@@ -98,7 +142,16 @@ type ExpandMulti struct {
 }
 
 func (m ExpandMulti) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	var words []string
+	for _, w := range m.List {
+		ws, err := w.Expand(env)
+		if err != nil {
+			return nil, err
+		}
+		words = append(words, ws...)
+	}
+	str := strings.Join(words, "")
+	return []string{str}, nil
 }
 
 type ExpandVariable struct {
@@ -106,7 +159,7 @@ type ExpandVariable struct {
 }
 
 func (v ExpandVariable) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	return env.Resolve(v.Ident)
 }
 
 type ExpandLength struct {
@@ -114,7 +167,18 @@ type ExpandLength struct {
 }
 
 func (v ExpandLength) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	var (
+		ws, err = env.Resolve(v.Ident)
+		sz int
+	)
+	if err != nil {
+		return nil, err
+	}
+	for i := range ws {
+		sz += len(ws[i])
+	}
+	s := strconv.Itoa(sz)
+	return []string{s}, nil
 }
 
 type ExpandReplace struct {
@@ -125,7 +189,7 @@ type ExpandReplace struct {
 }
 
 func (v ExpandReplace) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	return env.Resolve(v.Ident)
 }
 
 type ExpandTrim struct {
@@ -135,7 +199,7 @@ type ExpandTrim struct {
 }
 
 func (v ExpandTrim) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	return env.Resolve(v.Ident)
 }
 
 type ExpandSlice struct {
@@ -145,7 +209,7 @@ type ExpandSlice struct {
 }
 
 func (v ExpandSlice) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	return env.Resolve(v.Ident)
 }
 
 type ExpandLower struct {
@@ -154,7 +218,7 @@ type ExpandLower struct {
 }
 
 func (v ExpandLower) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	return env.Resolve(v.Ident)
 }
 
 type ExpandUpper struct {
@@ -163,7 +227,7 @@ type ExpandUpper struct {
 }
 
 func (v ExpandUpper) Expand(env Environment) ([]string, error) {
-	return nil, nil
+	return env.Resolve(v.Ident)
 }
 
 type ExpandValIfUnset struct {
@@ -208,33 +272,37 @@ func main() {
 		`echo "string with a $variable in middle"`,
 		`echo test-$variable-test`,
 		`echo ${var}`,
-		`echo ${var:-val}`,
-		`echo ${var:=val}`,
-		`echo ${var:+val}`,
-		`echo ${var:?message}`,
-		`echo ${#length}`,
-		`echo ${var/from/to}`,
-		`echo ${var//from/to}`,
-		`echo ${var/%replace/suffix}`,
-		`echo ${var/#replace/prefix}`,
-		`echo ${var:0:2}`,
-		`echo ${var%suffix}`,
-		`echo ${var#prefix}`,
-		`echo ${var%%long-suffix}`,
-		`echo ${var##long-prefix}`,
-		`echo ${lower-first,}`,
-		`echo ${lower-all,,}`,
-		`echo ${upper-first^}`,
-		`echo ${upper-all^^}`,
+		// `echo ${var:-val}`,
+		// `echo ${var:=val}`,
+		// `echo ${var:+val}`,
+		// `echo ${var:?message}`,
+		// `echo ${#length}`,
+		// `echo ${var/from/to}`,
+		// `echo ${var//from/to}`,
+		// `echo ${var/%replace/suffix}`,
+		// `echo ${var/#replace/prefix}`,
+		// `echo ${var:0:2}`,
+		// `echo ${var%suffix}`,
+		// `echo ${var#prefix}`,
+		// `echo ${var%%long-suffix}`,
+		// `echo ${var##long-prefix}`,
+		// `echo ${lower-first,}`,
+		// `echo ${lower-all,,}`,
+		// `echo ${upper-first^}`,
+		// `echo ${upper-all^^}`,
 		`echo first && echo second`,
 		`echo first || echo second`,
 		`echo first | echo -`,
-		// `echo | echo; echo && echo || echo; echo`,
+		`echo | echo; echo && echo || echo; echo`,
 		// `echo < file.txt`,
 		// `echo > file.txt`,
 		// `echo >> file.txt`,
 	}
 
+	env := EmptyEnv()
+	env.Define("file", []string{"shlex"})
+	env.Define("variable", []string{"foobar"})
+	env.Define("var", []string{"a variable"})
 	for i := range list {
 		if i > 0 {
 			fmt.Println("---")
@@ -262,6 +330,7 @@ func main() {
 		}
 		fmt.Println(">>", list[i])
 		fmt.Printf("%#v\n", ex)
+		fmt.Println("result: ", ex.Execute(env))
 	}
 }
 
@@ -300,12 +369,11 @@ func (p *Parser) Parse() (Executer, error) {
 }
 
 func (p *Parser) parse() (Executer, error) {
-	var ex ExecSimple
+	ex, err := p.parseSimple()
+	if err != nil {
+		return nil, err
+	}
 	for !p.done() {
-		var (
-			next Expander
-			err  error
-		)
 		switch p.curr.Type {
 		case List, Comment:
 			p.next()
@@ -315,7 +383,28 @@ func (p *Parser) parse() (Executer, error) {
 		case Or:
 			return p.parseOr(ex)
 		case Pipe, PipeBoth:
-			return p.parsePipe(ex)
+			ex, err = p.parsePipe(ex)
+		default:
+			err = p.unexpected()
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ex, nil
+}
+
+func (p *Parser) parseSimple() (Executer, error) {
+	var ex ExecSimple
+	for !p.done() {
+		if p.curr.IsSequence() {
+			break
+		}
+		var (
+			next Expander
+			err  error
+		)
+		switch p.curr.Type {
 		case BegExp, Variable, Quote, Literal:
 			next, err = p.parseWords()
 		default:
@@ -330,17 +419,21 @@ func (p *Parser) parse() (Executer, error) {
 }
 
 func (p *Parser) parsePipe(left Executer) (Executer, error) {
-	both := p.curr.Type == PipeBoth
-	p.next()
-	right, err := p.parse()
-	if err != nil {
-		return nil, err
+	ex := ExecPipe{
+		List: []Executer{left},
 	}
-	return ExecPipe{
-		Left:  left,
-		Right: right,
-		Both:  both,
-	}, nil
+	for !p.done() {
+		if p.curr.Type != Pipe && p.curr.Type != PipeBoth {
+			break
+		}
+		p.next()
+		e, err := p.parseSimple()
+		if err != nil {
+			return nil, err
+		}
+		ex.List = append(ex.List, e)
+	}
+	return ex, nil
 }
 
 func (p *Parser) parseAnd(left Executer) (Executer, error) {
@@ -448,6 +541,68 @@ func (p *Parser) parseLiteral() (ExpandWord, error) {
 	return ex, nil
 }
 
+func (p *Parser) parseSlice(ident Token) (Expander, error) {
+	e := ExpandSlice{
+		Ident: ident.Literal,
+	}
+	p.next()
+	e.From = 0 // p.curr.Literal
+	p.next()
+	if p.curr.Type != Slice {
+		return nil, p.unexpected()
+	}
+	p.next()
+	e.To = 0 // p.curr.Literal
+	p.next()
+	return e, nil
+}
+
+func (p *Parser) parseReplace(ident Token) (Expander, error) {
+	e := ExpandReplace{
+		Ident: ident.Literal,
+		What:  p.curr.Type,
+	}
+	p.next()
+	e.From = p.curr.Literal
+	p.next()
+	if p.curr.Type != Replace {
+		return nil, p.unexpected()
+	}
+	p.next()
+	e.To = p.curr.Literal
+	p.next()
+	return e, nil
+}
+
+func (p *Parser) parseTrim(ident Token) (Expander, error) {
+	e := ExpandTrim{
+		Ident: ident.Literal,
+		What:  p.curr.Type,
+	}
+	p.next()
+	e.Trim = p.curr.Literal
+	p.next()
+	return e, nil
+}
+
+func (p *Parser) parseLower(ident Token) (Expander, error) {
+	e := ExpandLower{
+		Ident: ident.Literal,
+		All:   p.curr.Type == LowerAll,
+	}
+	p.next()
+	return e, nil
+}
+
+func (p *Parser) parseUpper(ident Token) (Expander, error) {
+	e := ExpandUpper{
+		Ident: ident.Literal,
+		All:   p.curr.Type == UpperAll,
+	}
+	p.next()
+	return e, nil
+}
+
 func (p *Parser) parseExpansion() (Expander, error) {
 	p.next()
 	if p.curr.Type == Length {
@@ -480,59 +635,15 @@ func (p *Parser) parseExpansion() (Expander, error) {
 			Ident: ident.Literal,
 		}
 	case Slice:
-		e := ExpandSlice{
-			Ident: ident.Literal,
-		}
-		p.next()
-		e.From = 0 // p.curr.Literal
-		p.next()
-		if p.curr.Type != Slice {
-			err = p.unexpected()
-			break
-		}
-		p.next()
-		e.To = 0 // p.curr.Literal
-		p.next()
-		ex = e
+		ex, err = p.parseSlice(ident)
 	case TrimSuffix, TrimSuffixLong, TrimPrefix, TrimPrefixLong:
-		e := ExpandTrim{
-			Ident: ident.Literal,
-			What:  p.curr.Type,
-		}
-		p.next()
-		e.Trim = p.curr.Literal
-		p.next()
-		ex = e
+		ex, err = p.parseTrim(ident)
 	case Replace, ReplaceAll, ReplacePrefix, ReplaceSuffix:
-		e := ExpandReplace{
-			Ident: ident.Literal,
-			What:  p.curr.Type,
-		}
-		p.next()
-		e.From = p.curr.Literal
-		p.next()
-		if p.curr.Type != Replace {
-			err = p.unexpected()
-			break
-		}
-		p.next()
-		e.To = p.curr.Literal
-		p.next()
-		ex = e
+		ex, err = p.parseReplace(ident)
 	case Lower, LowerAll:
-		e := ExpandLower{
-			Ident: ident.Literal,
-			All:   p.curr.Type == LowerAll,
-		}
-		p.next()
-		ex = e
+		ex, err = p.parseLower(ident)
 	case Upper, UpperAll:
-		e := ExpandUpper{
-			Ident: ident.Literal,
-			All:   p.curr.Type == UpperAll,
-		}
-		p.next()
-		ex = e
+		ex, err = p.parseUpper(ident)
 	case ValIfUnset:
 		e := ExpandValIfUnset{
 			Ident: ident.Literal,
