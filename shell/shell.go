@@ -41,6 +41,7 @@ func WithAlias(ident, script string) ShellOption {
 type Shell struct {
 	locals *Env
 	alias  map[string][]string
+	builtins map[string]string
 	echo   bool
 	now    time.Time
 }
@@ -50,6 +51,7 @@ func New(options ...ShellOption) (*Shell, error) {
 		locals: EmptyEnv(),
 		now:    time.Now(),
 		alias:  make(map[string][]string),
+		builtins: make(map[string]string),
 	}
 	for i := range options {
 		if err := options[i](&s); err != nil {
@@ -152,6 +154,9 @@ func (s *Shell) executeSingle(ex Expander) error {
 	if err != nil {
 		return err
 	}
+	if s.isBuiltin(str[0]) {
+		return s.executeBuiltin(str)
+	}
 	if _, err := exec.LookPath(str[0]); err != nil {
 		return err
 	}
@@ -206,6 +211,15 @@ func (s *Shell) executeAssign(ex ExecAssign) error {
 		return err
 	}
 	return s.Define(ex.Ident, str)
+}
+
+func (s *Shell) executeBuiltin(str []string) error {
+
+}
+
+func (s *Shell) isBuiltin(ident string) bool {
+	_, ok := s.builtins[ident]
+	return ok
 }
 
 func (s *Shell) expand(ex Expander) ([]string, error) {
