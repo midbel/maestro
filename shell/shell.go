@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,19 +39,34 @@ func WithAlias(ident, script string) ShellOption {
 	}
 }
 
+func WithCwd(dir string) ShellOption {
+	return func(s *Shell) error {
+		if dir == "" {
+			return nil
+		}
+		err := os.Chdir(dir)
+		if err == nil {
+			s.cwd = dir
+		}
+		return err
+	}
+}
+
 type Shell struct {
-	locals *Env
-	alias  map[string][]string
+	locals   *Env
+	alias    map[string][]string
 	builtins map[string]string
-	echo   bool
-	now    time.Time
+	echo     bool
+	cwd      string
+	now      time.Time
 }
 
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
-		locals: EmptyEnv(),
-		now:    time.Now(),
-		alias:  make(map[string][]string),
+		locals:   EmptyEnv(),
+		now:      time.Now(),
+		cwd:      ".",
+		alias:    make(map[string][]string),
 		builtins: make(map[string]string),
 	}
 	for i := range options {
@@ -82,10 +98,30 @@ var specials = map[string]struct{}{
 func (s *Shell) Resolve(ident string) ([]string, error) {
 	switch ident {
 	case "SECONDS":
+		var (
+			sec = time.Since(s.now).Seconds()
+			str = strconv.FormatInt(int64(sec), 10)
+		)
+		return []string{str}, nil
 	case "PWD":
+		cwd, err := os.Getwd()
+		if err != nil {
+			cwd = s.cwd
+		}
+		return []string{cwd}, nil
 	case "OLDPWD":
 	case "PID":
+		var (
+			pid = os.Getpid()
+			str = strconv.Itoa(pid)
+		)
+		return []string{str}, nil
 	case "PPID":
+		var (
+			pid = os.Getppid()
+			str = strconv.Itoa(pid)
+		)
+		return []string{str}, nil
 	case "RANDOM":
 	case "PATH":
 	default:
@@ -214,7 +250,7 @@ func (s *Shell) executeAssign(ex ExecAssign) error {
 }
 
 func (s *Shell) executeBuiltin(str []string) error {
-
+	return nil
 }
 
 func (s *Shell) isBuiltin(ident string) bool {

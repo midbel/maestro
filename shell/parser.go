@@ -111,7 +111,7 @@ func (p *Parser) parseAssignment() (Executer, error) {
 		list.List = append(list.List, w)
 	}
 	ex.Expander = list
-	
+
 	if p.curr.Type == List || p.curr.Type == Comment {
 		p.next()
 	}

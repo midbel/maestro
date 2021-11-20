@@ -9,12 +9,20 @@ import (
 )
 
 func main() {
+	var (
+		cwd  = flag.String("c", ".", "set working directory")
+		echo = flag.Bool("e", false, "echo each command before executing")
+	)
 	flag.Parse()
 
 	options := []shell.ShellOption{
 		shell.WithVar("foo", "foo"),
 		shell.WithVar("bar", "bar"),
 		shell.WithVar("foobar", "foobar"),
+		shell.WithCwd(*cwd),
+	}
+	if *echo {
+		options = append(options, shell.WithEcho())
 	}
 
 	sh, err := shell.New(options...)
