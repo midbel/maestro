@@ -9,7 +9,7 @@ import (
 type Environment interface {
 	Resolve(string) ([]string, error)
 	Define(string, []string) error
-	Delete(string)
+	Delete(string) error
 }
 
 type Env struct {
@@ -44,8 +44,9 @@ func (e *Env) Define(ident string, vs []string) error {
 	return nil
 }
 
-func (e *Env) Delete(ident string) {
+func (e *Env) Delete(ident string) error {
 	delete(e.values, ident)
+	return nil
 }
 
 type Executer interface{}

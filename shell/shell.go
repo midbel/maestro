@@ -12,6 +12,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var (
+	ErrReadOnly = errors.New("read only")
+	ErrEmpty    = errors.New("empty command")
+)
+
 type ShellOption func(*Shell) error
 
 func WithEcho() ShellOption {
@@ -27,8 +32,15 @@ func WithVar(ident string, values ...string) ShellOption {
 	}
 }
 
+func WithAlias(ident, script string) ShellOption {
+	return func(s *Shell) error {
+		return s.Alias(ident, script)
+	}
+}
+
 type Shell struct {
 	locals *Env
+	alias  map[string][]string
 	echo   bool
 	now    time.Time
 }
@@ -37,6 +49,7 @@ func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
 		locals: EmptyEnv(),
 		now:    time.Now(),
+		alias:  make(map[string][]string),
 	}
 	for i := range options {
 		if err := options[i](&s); err != nil {
@@ -44,6 +57,52 @@ func New(options ...ShellOption) (*Shell, error) {
 		}
 	}
 	return &s, nil
+}
+
+func (s *Shell) Alias(ident, script string) error {
+	return nil
+}
+
+func (s *Shell) Unalias(ident string) {
+
+}
+
+var specials = map[string]struct{}{
+	"SECONDS": {},
+	"PWD":     {},
+	"OLDPWD":  {},
+	"PID":     {},
+	"PPID":    {},
+	"RANDOM":  {},
+	"PATH":    {},
+}
+
+func (s *Shell) Resolve(ident string) ([]string, error) {
+	switch ident {
+	case "SECONDS":
+	case "PWD":
+	case "OLDPWD":
+	case "PID":
+	case "PPID":
+	case "RANDOM":
+	case "PATH":
+	default:
+	}
+	return s.locals.Resolve(ident)
+}
+
+func (s *Shell) Define(ident string, values []string) error {
+	if _, ok := specials[ident]; ok {
+		return ErrReadOnly
+	}
+	return s.locals.Define(ident, values)
+}
+
+func (s *Shell) Delete(ident string) error {
+	if _, ok := specials[ident]; ok {
+		return ErrReadOnly
+	}
+	return s.locals.Delete(ident)
 }
 
 func (s *Shell) Execute(str string) error {
@@ -89,8 +148,8 @@ func (s *Shell) execute(ex Executer) error {
 }
 
 func (s *Shell) executeSingle(ex Expander) error {
-	str, err := ex.Expand(s.locals)
-	if err != nil || len(str) == 0 {
+	str, err := s.expand(ex)
+	if err != nil {
 		return err
 	}
 	if _, err := exec.LookPath(str[0]); err != nil {
@@ -109,8 +168,8 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		if !ok {
 			return fmt.Errorf("single command expected")
 		}
-		str, err := sex.Expand(s.locals)
-		if err != nil || len(str) == 0 {
+		str, err := s.expand(sex.Expander)
+		if err != nil {
 			return err
 		}
 		if _, err = exec.LookPath(str[0]); err != nil {
@@ -142,9 +201,26 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 }
 
 func (s *Shell) executeAssign(ex ExecAssign) error {
-	str, err := ex.Expand(s.locals)
+	str, err := ex.Expand(s)
 	if err != nil {
 		return err
 	}
-	return s.locals.Define(ex.Ident, str)
+	return s.Define(ex.Ident, str)
+}
+
+func (s *Shell) expand(ex Expander) ([]string, error) {
+	str, err := ex.Expand(s)
+	if err != nil {
+		return nil, err
+	}
+	if len(str) == 0 {
+		return nil, ErrEmpty
+	}
+	alias, ok := s.alias[str[0]]
+	if ok {
+		as := make([]string, len(alias))
+		copy(as, alias)
+		str = append(as, str[1:]...)
+	}
+	return str, nil
 }
