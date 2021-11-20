@@ -2,22 +2,9 @@ package main
 
 import (
 	"fmt"
-  "io"
 	"strconv"
 	"strings"
 )
-
-type Script struct {
-	Stdout io.Writer
-	Stderr io.Writer
-	Stdin  io.Reader
-
-  env Environment
-}
-
-type Executer interface {
-	Execute(Environment) error
-}
 
 type Environment interface {
 	Resolve(string) ([]string, error)
@@ -61,8 +48,15 @@ func (e *Env) Delete(ident string) {
 	delete(e.values, ident)
 }
 
+type Executer interface{}
+
 type Expander interface {
 	Expand(Environment) ([]string, error)
+}
+
+type ExecAssign struct {
+	Ident string
+	Expander
 }
 
 type ExecAnd struct {
@@ -70,74 +64,36 @@ type ExecAnd struct {
 	Right Executer
 }
 
-func (a ExecAnd) Execute(env Environment) error {
-	if err := a.Left.Execute(env); err != nil {
-		return err
-	}
-	return a.Right.Execute(env)
-}
-
 type ExecOr struct {
 	Left  Executer
 	Right Executer
-}
-
-func (o ExecOr) Execute(env Environment) error {
-	err := o.Left.Execute(env)
-	if err == nil {
-		return err
-	}
-	return o.Right.Execute(env)
 }
 
 type ExecPipe struct {
 	List []Executer
 }
 
-func (p ExecPipe) Execute(env Environment) error {
-	return nil
-}
-
-type ExecList struct {
-	List []Executer
-}
-
-func (i ExecList) Execute(env Environment) error {
-  for _, i := range i.List {
-    if err := i.Execute(env); err != nil {
-      return err
-    }
-  }
-	return nil
-}
-
 type ExecSimple struct {
-	Words []Expander
+	Expander
 	// In    Expander
 	// Out   Expander
 	// Err   Expander
 }
 
-func (s ExecSimple) Execute(env Environment) error {
-	var words []string
-	for _, w := range s.Words {
-		ws, err := w.Expand(env)
+type ExpandList struct {
+	List []Expander
+}
+
+func (e ExpandList) Expand(env Environment) ([]string, error) {
+	var str []string
+	for i := range e.List {
+		ws, err := e.List[i].Expand(env)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		words = append(words, ws...)
+		str = append(str, ws...)
 	}
-	fmt.Println(strings.Join(words, " "))
-	return nil
-}
-
-type ExecAssign struct {
-	Ident string
-	Words []Expander
-}
-
-func (a ExecAssign) Execute(env Environment) ([]string, error) {
-	return nil, nil
+	return str, nil
 }
 
 type ExpandWord struct {
@@ -177,7 +133,7 @@ func (v ExpandVariable) Expand(env Environment) ([]string, error) {
 	}
 	if v.Quoted {
 		str[0] = strings.Join(str, " ")
-		str = str[1:]
+		str = str[:1]
 	}
 	return str, nil
 }
@@ -314,13 +270,51 @@ func (v ExpandSlice) Expand(env Environment) ([]string, error) {
 	return env.Resolve(v.Ident)
 }
 
+var (
+	lowerA byte = 'a'
+	lowerZ byte = 'z'
+	upperA byte = 'A'
+	upperZ byte = 'Z'
+	deltaLU byte = 32
+)
+
 type ExpandLower struct {
 	Ident string
 	All   bool
 }
 
 func (v ExpandLower) Expand(env Environment) ([]string, error) {
-	return env.Resolve(v.Ident)
+	str, err := env.Resolve(v.Ident)
+	if err != nil {
+		return nil, err
+	}
+	if v.All {
+		str = v.lowerAll(str)
+	} else {
+		str = v.lowerFirst(str)
+	}
+	return str, nil
+}
+
+func (v ExpandLower) lowerFirst(str []string) []string {
+	for i := range str {
+		if len(str) == 0 {
+			continue
+		}
+		b := []byte(str[i])
+		if b[0] >= upperA && b[0] <= upperZ {
+			b[0] += deltaLU
+		}
+		str[i] = string(b)
+	}
+	return str
+}
+
+func (v ExpandLower) lowerAll(str []string) []string {
+	for i := range str {
+		str[i] = strings.ToLower(str[i])
+	}
+	return str
 }
 
 type ExpandUpper struct {
@@ -329,7 +323,37 @@ type ExpandUpper struct {
 }
 
 func (v ExpandUpper) Expand(env Environment) ([]string, error) {
-	return env.Resolve(v.Ident)
+	str, err := env.Resolve(v.Ident)
+	if err != nil {
+		return nil, err
+	}
+	if v.All {
+		str = v.upperAll(str)
+	} else {
+		str = v.upperFirst(str)
+	}
+	return str, nil
+}
+
+func (v ExpandUpper) upperFirst(str []string) []string {
+	for i := range str {
+		if len(str) == 0 {
+			continue
+		}
+		b := []byte(str[i])
+		if b[0] >= lowerA && b[0] <= lowerZ {
+			b[0] -= deltaLU
+		}
+		str[i] = string(b)
+	}
+	return str
+}
+
+func (v ExpandUpper) upperAll(str []string) []string {
+	for i := range str {
+		str[i] = strings.ToUpper(str[i])
+	}
+	return str
 }
 
 type ExpandValIfUnset struct {

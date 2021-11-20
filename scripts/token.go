@@ -18,6 +18,7 @@ const (
 	PipeBoth
 	And
 	Or
+	Assign
 	RedirectIn
 	RedirectOut
 	AppendOut
@@ -49,7 +50,7 @@ type Token struct {
 
 func (t Token) IsSequence() bool {
 	switch t.Type {
-	case And, Or, List, Pipe, PipeBoth:
+	case And, Or, List, Pipe, PipeBoth, Comment:
 		return true
 	default:
 		return false
@@ -119,6 +120,8 @@ func (t Token) String() string {
 		return "<val-if-set>"
 	case ExitIfUnset:
 		return "<exit-if-unset>"
+	case Assign:
+		return "<assignment>"
 	case RedirectIn:
 		return "<redirect-in>"
 	case RedirectOut:

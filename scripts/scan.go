@@ -83,6 +83,8 @@ func (s *Scanner) Scan() Token {
 		s.scanSequence(&tok)
 	case isRedirect(s.char) && !s.quoted:
 		s.scanRedirect(&tok)
+	case isAssign(s.char) && !s.quoted:
+		s.scanAssignment(&tok)
 	case isDouble(s.char):
 		tok.Type = Quote
 		s.read()
@@ -97,6 +99,12 @@ func (s *Scanner) Scan() Token {
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanAssignment(tok *Token) {
+	tok.Type = Assign
+	s.read()
+	s.skipBlank()
 }
 
 func (s *Scanner) scanRedirect(tok *Token) {
@@ -244,7 +252,9 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	}
 	tok.Type = Literal
 	tok.Literal = s.string()
-	s.skipBlankUntil(isSequence)
+	s.skipBlankUntil(func(r rune) bool {
+		return isSequence(r) || isAssign(r)
+	})
 }
 
 func (s *Scanner) scanQuoted(tok *Token) {
@@ -371,6 +381,10 @@ func isOperator(r rune) bool {
 
 func isSequence(r rune) bool {
 	return r == ampersand || r == pipe || r == semicolon
+}
+
+func isAssign(r rune) bool {
+	return r == equal
 }
 
 func isRedirect(r rune) bool {

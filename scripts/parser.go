@@ -25,22 +25,16 @@ func NewParser(r io.Reader) *Parser {
 }
 
 func (p *Parser) Parse() (Executer, error) {
-	var list ExecList
-	for !p.done() {
-		ex, err := p.parse()
-		if err != nil {
-			return nil, err
-		}
-		list.List = append(list.List, ex)
+	if p.done() {
+		return nil, io.EOF
 	}
-	var ex Executer = list
-	if len(list.List) == 1 {
-		ex = list.List[0]
-	}
-	return ex, nil
+	return p.parse()
 }
 
 func (p *Parser) parse() (Executer, error) {
+	if p.peek.Type == Assign {
+		return p.parseAssignment()
+	}
 	ex, err := p.parseSimple()
 	if err != nil {
 		return nil, err
@@ -67,7 +61,7 @@ func (p *Parser) parse() (Executer, error) {
 }
 
 func (p *Parser) parseSimple() (Executer, error) {
-	var ex ExecSimple
+	var ex ExpandList
 	for !p.done() {
 		if p.curr.IsSequence() {
 			break
@@ -85,8 +79,38 @@ func (p *Parser) parseSimple() (Executer, error) {
 		if err != nil {
 			return nil, err
 		}
-		ex.Words = append(ex.Words, next)
+		ex.List = append(ex.List, next)
 	}
+	e := ExecSimple{
+		Expander: ex,
+	}
+	return e, nil
+}
+
+func (p *Parser) parseAssignment() (Executer, error) {
+	if p.curr.Type != Literal {
+		return nil, p.unexpected()
+	}
+	ex := ExecAssign{
+		Ident: p.curr.Literal,
+	}
+	p.next()
+	if p.curr.Type != Assign {
+		return nil, p.unexpected()
+	}
+	p.next()
+	var list ExpandList
+	for !p.done() {
+		if p.curr.IsSequence() {
+			break
+		}
+		w, err := p.parseWords()
+		if err != nil {
+			return nil, err
+		}
+		list.List = append(list.List, w)
+	}
+	ex.Expander = list
 	return ex, nil
 }
 
@@ -412,5 +436,5 @@ func (p *Parser) done() bool {
 }
 
 func (p *Parser) unexpected() error {
-	return fmt.Errorf("unexpected token %s [%s]", p.curr, p.peek)
+	return fmt.Errorf("unexpected token %s", p.curr)
 }
