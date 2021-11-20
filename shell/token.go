@@ -1,4 +1,4 @@
-package main
+package shell
 
 import (
 	"fmt"
@@ -21,6 +21,7 @@ const (
 	Assign
 	RedirectIn
 	RedirectOut
+	RedirectBoth
 	AppendOut
 	Length         // ${#var}
 	Slice          // ${var:from:to}
@@ -126,6 +127,8 @@ func (t Token) String() string {
 		return "<redirect-in>"
 	case RedirectOut:
 		return "<redirect-out>"
+	case RedirectBoth:
+		return "<redirect-both>"
 	case AppendOut:
 		return "<append-out>"
 	case Variable:

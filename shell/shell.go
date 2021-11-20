@@ -1,0 +1,150 @@
+package shell
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+
+	"golang.org/x/sync/errgroup"
+)
+
+type ShellOption func(*Shell) error
+
+func WithEcho() ShellOption {
+	return func(s *Shell) error {
+		s.echo = true
+		return nil
+	}
+}
+
+func WithVar(ident string, values ...string) ShellOption {
+	return func(s *Shell) error {
+		return s.locals.Define(ident, values)
+	}
+}
+
+type Shell struct {
+	locals *Env
+	echo   bool
+	now    time.Time
+}
+
+func New(options ...ShellOption) (*Shell, error) {
+	s := Shell{
+		locals: EmptyEnv(),
+		now:    time.Now(),
+	}
+	for i := range options {
+		if err := options[i](&s); err != nil {
+			return nil, err
+		}
+	}
+	return &s, nil
+}
+
+func (s *Shell) Execute(str string) error {
+	p := NewParser(strings.NewReader(str))
+	for {
+		ex, err := p.Parse()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+			break
+		}
+		if err := s.execute(ex); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Shell) execute(ex Executer) error {
+	var err error
+	switch ex := ex.(type) {
+	case ExecSimple:
+		err = s.executeSingle(ex.Expander)
+	case ExecAssign:
+		err = s.executeAssign(ex)
+	case ExecAnd:
+		if err = s.execute(ex.Left); err != nil {
+			break
+		}
+		err = s.execute(ex.Right)
+	case ExecOr:
+		if err = s.execute(ex.Left); err == nil {
+			break
+		}
+		err = s.execute(ex.Right)
+	case ExecPipe:
+		err = s.executePipe(ex)
+	default:
+		err = fmt.Errorf("unsupported executer type %s", ex)
+	}
+	return err
+}
+
+func (s *Shell) executeSingle(ex Expander) error {
+	str, err := ex.Expand(s.locals)
+	if err != nil || len(str) == 0 {
+		return err
+	}
+	if _, err := exec.LookPath(str[0]); err != nil {
+		return err
+	}
+	cmd := exec.Command(str[0], str[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func (s *Shell) executePipe(ex ExecPipe) error {
+	var cs []*exec.Cmd
+	for i := range ex.List {
+		sex, ok := ex.List[i].(ExecSimple)
+		if !ok {
+			return fmt.Errorf("single command expected")
+		}
+		str, err := sex.Expand(s.locals)
+		if err != nil || len(str) == 0 {
+			return err
+		}
+		if _, err = exec.LookPath(str[0]); err != nil {
+			return err
+		}
+		cmd := exec.Command(str[0], str[1:]...)
+		cmd.Stderr = os.Stderr
+		cs = append(cs, cmd)
+	}
+	var (
+		err error
+		grp errgroup.Group
+	)
+	for i := 0; i < len(cs)-1; i++ {
+		var (
+			curr = cs[i]
+			next = cs[i+1]
+		)
+		if next.Stdin, err = curr.StdoutPipe(); err != nil {
+			return err
+		}
+		grp.Go(curr.Start)
+		defer curr.Wait()
+	}
+	last := cs[len(cs)-1]
+	last.Stdout = os.Stdout
+	grp.Go(last.Run)
+	return grp.Wait()
+}
+
+func (s *Shell) executeAssign(ex ExecAssign) error {
+	str, err := ex.Expand(s.locals)
+	if err != nil {
+		return err
+	}
+	return s.locals.Define(ex.Ident, str)
+}

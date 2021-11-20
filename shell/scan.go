@@ -1,4 +1,4 @@
-package main
+package shell
 
 import (
 	"bytes"
@@ -339,7 +339,7 @@ func (s *Scanner) stopLiteral(r rune) bool {
 	if s.expanded && isOperator(r) {
 		return true
 	}
-	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) || isVariable(s.char)
+	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) || isVariable(s.char) || isAssign(s.char)
 	return ok
 }
 
