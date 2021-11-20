@@ -127,6 +127,9 @@ func (p *Parser) parsePipe(left Executer) (Executer, error) {
 		if err != nil {
 			return nil, err
 		}
+		if _, ok := e.(ExecSimple); !ok {
+			return nil, fmt.Errorf("single command expected")
+		}
 		ex.List = append(ex.List, e)
 	}
 	return ex, nil

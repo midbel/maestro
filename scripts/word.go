@@ -166,42 +166,42 @@ type ExpandReplace struct {
 
 func (v ExpandReplace) Expand(env Environment) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
-  if err != nil {
-    return nil, err
-  }
-  switch v.What {
-  case Replace:
-    str = v.replace(str)
-  case ReplaceAll:
-    str = v.replaceAll(str)
-  case ReplacePrefix:
-    str = v.replacePrefix(str)
-  case ReplaceSuffix:
-    str = v.replaceSuffix(str)
-  }
-  return str, nil
+	if err != nil {
+		return nil, err
+	}
+	switch v.What {
+	case Replace:
+		str = v.replace(str)
+	case ReplaceAll:
+		str = v.replaceAll(str)
+	case ReplacePrefix:
+		str = v.replacePrefix(str)
+	case ReplaceSuffix:
+		str = v.replaceSuffix(str)
+	}
+	return str, nil
 }
 
 func (v ExpandReplace) replace(str []string) []string {
-  for i := range str {
-    str[i] = strings.Replace(str[i], v.From, v.To, 1)
-  }
-  return str
+	for i := range str {
+		str[i] = strings.Replace(str[i], v.From, v.To, 1)
+	}
+	return str
 }
 
 func (v ExpandReplace) replaceAll(str []string) []string {
-  for i := range str {
-    str[i] = strings.ReplaceAll(str[i], v.From, v.To)
-  }
-  return str
+	for i := range str {
+		str[i] = strings.ReplaceAll(str[i], v.From, v.To)
+	}
+	return str
 }
 
 func (v ExpandReplace) replacePrefix(str []string) []string {
-  return v.replace(str)
+	return v.replace(str)
 }
 
 func (v ExpandReplace) replaceSuffix(str []string) []string {
-  return v.replace(str)
+	return v.replace(str)
 }
 
 type ExpandTrim struct {
@@ -212,52 +212,52 @@ type ExpandTrim struct {
 
 func (v ExpandTrim) Expand(env Environment) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
-  if err != nil {
-    return nil, err
-  }
-  switch v.What {
-  case TrimSuffix:
-    str = v.trimSuffix(str)
-  case TrimSuffixLong:
-    str = v.trimSuffixLong(str)
-  case TrimPrefix:
-    str = v.trimPrefix(str)
-  case TrimPrefixLong:
-    str = v.trimPrefixLong(str)
-  }
-  return str, nil
+	if err != nil {
+		return nil, err
+	}
+	switch v.What {
+	case TrimSuffix:
+		str = v.trimSuffix(str)
+	case TrimSuffixLong:
+		str = v.trimSuffixLong(str)
+	case TrimPrefix:
+		str = v.trimPrefix(str)
+	case TrimPrefixLong:
+		str = v.trimPrefixLong(str)
+	}
+	return str, nil
 }
 
 func (v ExpandTrim) trimSuffix(str []string) []string {
-  for i := range str {
-    str[i] = strings.TrimSuffix(str[i], v.Trim)
-  }
-  return str
+	for i := range str {
+		str[i] = strings.TrimSuffix(str[i], v.Trim)
+	}
+	return str
 }
 
 func (v ExpandTrim) trimSuffixLong(str []string) []string {
-  for i := range str {
-    for strings.HasSuffix(str[i], v.Trim) {
-      str[i] = strings.TrimSuffix(str[i], v.Trim)
-    }
-  }
-  return str
+	for i := range str {
+		for strings.HasSuffix(str[i], v.Trim) {
+			str[i] = strings.TrimSuffix(str[i], v.Trim)
+		}
+	}
+	return str
 }
 
 func (v ExpandTrim) trimPrefix(str []string) []string {
-  for i := range str {
-    str[i] = strings.TrimPrefix(str[i], v.Trim)
-  }
-  return str
+	for i := range str {
+		str[i] = strings.TrimPrefix(str[i], v.Trim)
+	}
+	return str
 }
 
 func (v ExpandTrim) trimPrefixLong(str []string) []string {
-  for i := range str {
-    for strings.HasPrefix(str[i], v.Trim) {
-      str[i] = strings.TrimPrefix(str[i], v.Trim)
-    }
-  }
-  return str
+	for i := range str {
+		for strings.HasPrefix(str[i], v.Trim) {
+			str[i] = strings.TrimPrefix(str[i], v.Trim)
+		}
+	}
+	return str
 }
 
 type ExpandSlice struct {
@@ -271,10 +271,10 @@ func (v ExpandSlice) Expand(env Environment) ([]string, error) {
 }
 
 var (
-	lowerA byte = 'a'
-	lowerZ byte = 'z'
-	upperA byte = 'A'
-	upperZ byte = 'Z'
+	lowerA  byte = 'a'
+	lowerZ  byte = 'z'
+	upperA  byte = 'A'
+	upperZ  byte = 'Z'
 	deltaLU byte = 32
 )
 

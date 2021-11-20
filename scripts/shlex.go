@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -36,8 +39,8 @@ func main() {
 		`echo ${upperall} "=>" ${upperall^^}`,
 		`echo first && echo second`,
 		`echo first || echo second`,
-		`echo first | echo - | echo`,
-		`echo | echo; echo && echo || echo; echo`,
+		`echo foobar | cat`,
+		// `echo | echo; echo && echo || echo; echo`,
 		// `echo < file.txt`,
 		// `echo > file.txt`,
 		// `echo >> file.txt`,
@@ -94,13 +97,7 @@ func Execute(ex Executer, env Environment) error {
 		fmt.Println("simple")
 		err = execute(ex.Expander, env)
 	case ExecAssign:
-		fmt.Println("assignment", ex.Ident)
-		str, err := ex.Expand(env)
-		if err != nil {
-			return err
-		}
-		env.Define(ex.Ident, str)
-		err = execute(ex.Expander, env)
+		err = executeAssign(ex, env)
 	case ExecAnd:
 		fmt.Println("and")
 		if err = Execute(ex.Left, env); err != nil {
@@ -114,20 +111,89 @@ func Execute(ex Executer, env Environment) error {
 		}
 		err = Execute(ex.Right, env)
 	case ExecPipe:
-		fmt.Println("pipe")
-		for i := range ex.List {
-			Execute(ex.List[i], env)
-		}
+		executePipe(ex, env)
 	default:
 		err = fmt.Errorf("unsupported executer type %s", ex)
 	}
 	return err
 }
 
+func executeAssign(ex ExecAssign, env Environment) error {
+	fmt.Println("assignment", ex.Ident)
+	str, err := ex.Expand(env)
+	if err != nil {
+		return err
+	}
+	return env.Define(ex.Ident, str)
+}
+
+func executePipe(ex ExecPipe, env Environment) error {
+	fmt.Println("pipe")
+	var cs []*exec.Cmd
+	for i := range ex.List {
+		sex, ok := ex.List[i].(ExecSimple)
+		if !ok {
+			return fmt.Errorf("single command expected")
+		}
+		str, err := sex.Expand(env)
+		if err != nil || len(str) == 0 {
+			return err
+		}
+		if _, err = exec.LookPath(str[0]); err != nil {
+			return err
+		}
+		cmd := exec.Command(str[0], str[1:]...)
+		cmd.Stderr = os.Stderr
+		cs = append(cs, cmd)
+	}
+	var (
+		err error
+		out io.Reader
+		grp errgroup.Group
+	)
+	for i := 0; i < len(cs)-1; i++ {
+		var (
+			curr = cs[i]
+			next = cs[i+1]
+		)
+		if out, err = curr.StdoutPipe(); err != nil {
+			return err
+		}
+		next.Stdin = io.TeeReader(out, New(fmt.Sprintf("stdout-%d", i)))
+		grp.Go(curr.Run)
+	}
+	last := cs[len(cs)-1]
+	last.Stdout = os.Stdout
+	grp.Go(last.Run)
+	return grp.Wait()
+}
+
 func execute(ex Expander, env Environment) error {
 	str, err := ex.Expand(env)
-	if err == nil {
-		fmt.Printf("%d: %q\n", len(str), str)
+	if err != nil || len(str) == 0 {
+		return err
 	}
-	return err
+	fmt.Printf("%d: %q\n", len(str), str)
+	if _, err := exec.LookPath(str[0]); err != nil {
+		return err
+	}
+	cmd := exec.Command(str[0], str[1:]...)
+	cmd.Stdout = New("stdout")
+	cmd.Stderr = New("stderr")
+	return cmd.Run()
+}
+
+type CommandWriter struct {
+	prefix string
+}
+
+func New(prefix string) io.Writer {
+	return &CommandWriter{
+		prefix: fmt.Sprintf("[%s] ", prefix),
+	}
+}
+
+func (w *CommandWriter) Write(b []byte) (int, error) {
+	io.WriteString(os.Stdout, w.prefix)
+	return os.Stdout.Write(b)
 }
