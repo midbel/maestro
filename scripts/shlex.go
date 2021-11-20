@@ -39,7 +39,7 @@ func main() {
 		`echo ${upperall} "=>" ${upperall^^}`,
 		`echo first && echo second`,
 		`echo first || echo second`,
-		`echo foobar | cat`,
+		`echo foobar | cat | cut -d b -f 1`,
 		// `echo | echo; echo && echo || echo; echo`,
 		// `echo < file.txt`,
 		// `echo > file.txt`,
@@ -160,7 +160,8 @@ func executePipe(ex ExecPipe, env Environment) error {
 			return err
 		}
 		next.Stdin = io.TeeReader(out, New(fmt.Sprintf("stdout-%d", i)))
-		grp.Go(curr.Run)
+		grp.Go(curr.Start)
+		defer curr.Wait()
 	}
 	last := cs[len(cs)-1]
 	last.Stdout = os.Stdout
