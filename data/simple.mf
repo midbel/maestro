@@ -1,9 +1,59 @@
-name = foobar
+.VERSION = "0.1.1"
+.DEFAULT = build
+.ALL     = test build
 
-cut(short = "cut short variable for demo"): {
-	@echo $name | cat | cut -d b -f 1
+maestro = maestro
+tish    = tish
+bindir  = bin
+
+buildoptions = "-v" "-trimpath"
+
+test(
+	short = "run test in current directory",
+	tag   = build test,
+): {
+	@go clean -testcache
+	@go test -v -coverprofile cover.out .
+	#go tool cover -html cover.out
 }
 
-find(short = "find go files in current directory"): {
-	@!find -type f -name "*go"
+build(
+	short = "build binaries",
+	tag   = build,
+): {
+	rm -f ${bindir,,}/${maestro,,}
+	rm -f ${bindir,,}/${tish,,}
+
+	echo "build ${maestro,,} in ${bindir,,}/${maestro,,}"
+	go build ${buildoptions} -o ${bindir,,}/${maestro,,} cmd/${maestro,,}/main.go
+
+	echo "build ${tish,,} in ${bindir,,}/${tish,,}"
+	go build ${buildoptions} -o ${bindir,,}/${tish,,} cmd/${tish,,}/main.go
+}
+
+verify(
+	short = "verify code",
+	tag   = "build" "verify",
+): {
+	@-go vet github.com/midbel/maestro
+	@-go vet github.com/midbel/maestro/shell
+}
+
+commit(
+	short = "commit changes and push to remote",
+	tag   = build,
+): {
+	gofmt -w -s .
+	git commit -am "updates"
+	git push
+}
+
+combine(
+	short = "combine test and build",
+	tag   = build,
+): {
+	echo ">> run tests"
+	<test
+	echo ">> run build"
+	<build
 }
