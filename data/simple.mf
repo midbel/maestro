@@ -52,8 +52,8 @@ combine(
 	short = "combine test and build",
 	tag   = build,
 ): {
-	echo ">> run tests"
+	@echo ">> run tests"
 	<test
-	echo ">> run build"
+	@echo ">> run build"
 	<build
 }

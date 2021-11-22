@@ -37,6 +37,7 @@ const (
 	Ignore
 	Echo
 	Isolated
+	Call
 	Invalid
 )
 
@@ -64,6 +65,8 @@ func (t Token) String() string {
 		return "<isolated>"
 	case Ignore:
 		return "<ignore>"
+	case Call:
+		return "<call>"
 	case Eof:
 		return "<eof>"
 	case Eol:
@@ -125,5 +128,5 @@ func (t Token) IsInvalid() bool {
 }
 
 func (t Token) IsOperator() bool {
-	return t.Type == Echo || t.Type == Reverse || t.Type == Ignore || t.Type == Isolated
+	return t.Type == Echo || t.Type == Reverse || t.Type == Ignore || t.Type == Isolated || t.Type == Call
 }

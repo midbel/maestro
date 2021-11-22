@@ -321,7 +321,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 		}
 	}
 	if d.curr().Type == BegScript {
-		if err := d.decodeCommandScripts(cmd); err != nil {
+		if err := d.decodeCommandScripts(cmd, mst); err != nil {
 			return err
 		}
 	}
@@ -511,8 +511,9 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandScripts(cmd *Single) error {
+func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 	d.next()
+Script:
 	for !d.done() {
 		if d.curr().Type == EndScript {
 			break
@@ -539,6 +540,21 @@ func (d *Decoder) decodeCommandScripts(cmd *Single) error {
 				i.Ignore = !i.Ignore
 			case Isolated:
 				i.Empty = !i.Empty
+			case Call:
+				// TODO: revise own Call is handled + give option to pass arguments to call
+				// NOTE: when Call is encountered, other line operator are discarded!
+				d.next()
+				other, err := mst.lookup(d.curr().Literal)
+				if err != nil {
+					return err
+				}
+				single, ok := other.(*Single)
+				if !ok {
+					return fmt.Errorf("call can only be made for single command")
+				}
+				cmd.Scripts = append(cmd.Scripts, single.Scripts...)
+				d.next()
+				continue Script
 			default:
 				return d.unexpected()
 			}
