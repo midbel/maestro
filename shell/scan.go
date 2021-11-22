@@ -376,7 +376,7 @@ func isDigit(r rune) bool {
 }
 
 func isOperator(r rune) bool {
-	return r == caret || r == pound || r == colon || r == slash || r == percent || r == comma || r == slash || r == rcurly
+	return r == caret || r == pound || r == colon || r == slash || r == percent || r == comma || r == rcurly
 }
 
 func isSequence(r rune) bool {

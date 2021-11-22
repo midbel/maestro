@@ -119,9 +119,6 @@ func (s *Single) Execute(args []string) error {
 		if cmd.Echo {
 			fmt.Fprintln(os.Stdout, cmd.Line)
 		}
-		if cmd.Dry {
-			continue
-		}
 		err := s.shell.Execute(cmd.Line)
 		if cmd.Reverse {
 			if err == nil {
@@ -130,7 +127,7 @@ func (s *Single) Execute(args []string) error {
 				err = nil
 			}
 		}
-		if !cmd.Ignore {
+		if !cmd.Ignore && err != nil {
 			return err
 		}
 	}
