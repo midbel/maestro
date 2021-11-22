@@ -18,7 +18,27 @@ var (
 	ErrEmpty    = errors.New("empty command")
 )
 
+type Command interface{
+	Run() error
+	Start() error
+	Wait() error
+	StdoutPipe() (io.ReadCloser, error)
+	StderrPipe() (io.ReadCloser, error)
+}
+
 type ShellOption func(*Shell) error
+
+func WithStdout(w ...io.Writer) ShellOption {
+	return func(s *Shell) error {
+		return nil
+	}
+}
+
+func WithStderr(w ...io.Writer) ShellOption {
+	return func(s *Shell) error {
+		return nil
+	}
+}
 
 func WithEcho() ShellOption {
 	return func(s *Shell) error {
@@ -79,6 +99,9 @@ type Shell struct {
 	echo     bool
 	cwd      string
 	now      time.Time
+
+	stdout io.Writer
+	stderr io.Writer
 }
 
 func New(options ...ShellOption) (*Shell, error) {
@@ -87,6 +110,8 @@ func New(options ...ShellOption) (*Shell, error) {
 		cwd:      ".",
 		alias:    make(map[string][]string),
 		builtins: make(map[string]string),
+		stdout: os.Stdout,
+		stderr: os.Stderr,
 	}
 	for i := range options {
 		if err := options[i](&s); err != nil {
