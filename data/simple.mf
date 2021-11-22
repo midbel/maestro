@@ -1,0 +1,9 @@
+name = foobar
+
+cut(short = "cut short variable for demo"): {
+	@echo $name | cat | cut -d b -f 1
+}
+
+find(short = "find go files in current directory"): {
+	@!find -type f -name "*go"
+}

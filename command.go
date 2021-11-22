@@ -2,6 +2,7 @@ package maestro
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/midbel/maestro/shell"
@@ -43,17 +44,11 @@ type Option struct {
 
 type Line struct {
 	Line    string
+	Dry     bool
 	Reverse bool
 	Ignore  bool
 	Echo    bool
 	Empty   bool
-}
-
-func (i Line) Execute(args []string) error {
-	if i.Echo {
-
-	}
-	return nil
 }
 
 type Single struct {
@@ -120,8 +115,24 @@ func (_ *Single) Combined() bool {
 }
 
 func (s *Single) Execute(args []string) error {
-	for i := range s.Scripts {
-		fmt.Println(s.Scripts[i])
+	for _, cmd := range s.Scripts {
+		if cmd.Echo {
+			fmt.Fprintln(os.Stdout, cmd.Line)
+		}
+		if cmd.Dry {
+			continue
+		}
+		err := s.shell.Execute(cmd.Line)
+		if cmd.Reverse {
+			if err == nil {
+				err = fmt.Errorf("command succeed")
+			} else {
+				err = nil
+			}
+		}
+		if !cmd.Ignore {
+			return err
+		}
 	}
 	return nil
 }
@@ -162,5 +173,10 @@ func (_ Combined) Combined() bool {
 }
 
 func (c Combined) Execute(args []string) error {
+	for i := range c {
+		if err := c[i].Execute(args); err != nil {
+			return err
+		}
+	}
 	return nil
 }
