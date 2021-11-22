@@ -31,6 +31,7 @@ const (
 	semicolon  = ';'
 	langle     = '<'
 	rangle     = '>'
+	backslash  = '\\'
 )
 
 var colonOps = map[rune]rune{
@@ -247,6 +248,13 @@ func (s *Scanner) scanLiteral(tok *Token) {
 		return
 	}
 	for !s.done() && !s.stopLiteral(s.char) {
+		if s.char == backslash {
+			switch k := s.peek(); k {
+			case semicolon, backslash, dquote:
+				s.read()
+			default:
+			}
+		}
 		s.write()
 		s.read()
 	}

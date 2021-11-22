@@ -48,6 +48,13 @@ commit(
 	git push
 }
 
+count(
+	short = "count number of LoC",
+	tag   = "info" "verify",
+): {
+	@find -type f -name "*go" -exec cat {} \; | wc -l
+}
+
 combine(
 	short = "combine test and build",
 	tag   = build,
