@@ -3,6 +3,8 @@ package maestro
 import (
 	"fmt"
 	"time"
+
+	"github.com/midbel/maestro/shell"
 )
 
 const (
@@ -70,6 +72,8 @@ type Single struct {
 	Env          map[string]string
 	Options      []Option
 	Locals       *Env
+
+	shell *shell.Shell
 }
 
 func NewSingle(name string) *Single {

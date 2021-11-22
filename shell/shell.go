@@ -29,6 +29,9 @@ func WithEcho() ShellOption {
 
 func WithVar(ident string, values ...string) ShellOption {
 	return func(s *Shell) error {
+		if s.locals == nil {
+			s.locals = EmptyEnv()
+		}
 		return s.locals.Define(ident, values)
 	}
 }
@@ -52,6 +55,17 @@ func WithCwd(dir string) ShellOption {
 	}
 }
 
+func WithEnv(e Environment) ShellOption {
+	return func(s *Shell) error {
+		if s.locals == nil {
+			s.locals = e
+		} else {
+			s.locals = EnclosedEnv(e)
+		}
+		return nil
+	}
+}
+
 var specials = map[string]struct{}{
 	"SECONDS": {},
 	"PWD":     {},
@@ -63,7 +77,7 @@ var specials = map[string]struct{}{
 }
 
 type Shell struct {
-	locals   *Env
+	locals   Environment
 	alias    map[string][]string
 	builtins map[string]string
 	echo     bool
@@ -73,7 +87,6 @@ type Shell struct {
 
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
-		locals:   EmptyEnv(),
 		now:      time.Now(),
 		cwd:      ".",
 		alias:    make(map[string][]string),
@@ -83,6 +96,9 @@ func New(options ...ShellOption) (*Shell, error) {
 		if err := options[i](&s); err != nil {
 			return nil, err
 		}
+	}
+	if s.locals == nil {
+		s.locals = EmptyEnv()
 	}
 	return &s, nil
 }

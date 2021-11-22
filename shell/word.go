@@ -13,15 +13,15 @@ type Environment interface {
 }
 
 type Env struct {
-	parent *Env
+	parent Environment
 	values map[string][]string
 }
 
-func EmptyEnv() *Env {
+func EmptyEnv() Environment {
 	return EnclosedEnv(nil)
 }
 
-func EnclosedEnv(parent *Env) *Env {
+func EnclosedEnv(parent Environment) Environment {
 	return &Env{
 		parent: parent,
 		values: make(map[string][]string),
