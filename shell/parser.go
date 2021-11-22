@@ -119,22 +119,27 @@ func (p *Parser) parseAssignment() (Executer, error) {
 }
 
 func (p *Parser) parsePipe(left Executer) (Executer, error) {
+	pi := pipeitem{
+		Executer: left,
+		Both: p.curr.Type == PipeBoth,
+	}
 	ex := ExecPipe{
-		List: []Executer{left},
+		List: []pipeitem{pi},
 	}
 	for !p.done() {
 		if p.curr.Type != Pipe && p.curr.Type != PipeBoth {
 			break
 		}
+		var (
+			pi pipeitem
+			err error
+		)
+		pi.Both = p.curr.Type == PipeBoth
 		p.next()
-		e, err := p.parseSimple()
-		if err != nil {
+		if pi.Executer, err = p.parseSimple(); err != nil {
 			return nil, err
 		}
-		if _, ok := e.(ExecSimple); !ok {
-			return nil, fmt.Errorf("single command expected")
-		}
-		ex.List = append(ex.List, e)
+		ex.List = append(ex.List, pi)
 	}
 	return ex, nil
 }

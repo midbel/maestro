@@ -52,6 +52,16 @@ func WithCwd(dir string) ShellOption {
 	}
 }
 
+var specials = map[string]struct{}{
+	"SECONDS": {},
+	"PWD":     {},
+	"OLDPWD":  {},
+	"PID":     {},
+	"PPID":    {},
+	"RANDOM":  {},
+	"PATH":    {},
+}
+
 type Shell struct {
 	locals   *Env
 	alias    map[string][]string
@@ -85,14 +95,8 @@ func (s *Shell) Unalias(ident string) {
 
 }
 
-var specials = map[string]struct{}{
-	"SECONDS": {},
-	"PWD":     {},
-	"OLDPWD":  {},
-	"PID":     {},
-	"PPID":    {},
-	"RANDOM":  {},
-	"PATH":    {},
+func (s *Shell) Subshell() *Shell {
+	return nil
 }
 
 func (s *Shell) Resolve(ident string) ([]string, error) {
@@ -144,7 +148,10 @@ func (s *Shell) Delete(ident string) error {
 }
 
 func (s *Shell) Execute(str string) error {
-	p := NewParser(strings.NewReader(str))
+	var (
+		p = NewParser(strings.NewReader(str))
+		ret error
+	)
 	for {
 		ex, err := p.Parse()
 		if err != nil {
@@ -153,11 +160,9 @@ func (s *Shell) Execute(str string) error {
 			}
 			break
 		}
-		if err := s.execute(ex); err != nil {
-			return err
-		}
+		ret = s.execute(ex)
 	}
-	return nil
+	return ret
 }
 
 func (s *Shell) execute(ex Executer) error {
@@ -205,7 +210,7 @@ func (s *Shell) executeSingle(ex Expander) error {
 func (s *Shell) executePipe(ex ExecPipe) error {
 	var cs []*exec.Cmd
 	for i := range ex.List {
-		sex, ok := ex.List[i].(ExecSimple)
+		sex, ok := ex.List[i].Executer.(ExecSimple)
 		if !ok {
 			return fmt.Errorf("single command expected")
 		}
@@ -217,7 +222,9 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 			return err
 		}
 		cmd := exec.Command(str[0], str[1:]...)
-		cmd.Stderr = os.Stderr
+		if !ex.List[i].Both {
+			cmd.Stderr = os.Stderr
+		}
 		cs = append(cs, cmd)
 	}
 	var (

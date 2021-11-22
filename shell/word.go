@@ -71,7 +71,12 @@ type ExecOr struct {
 }
 
 type ExecPipe struct {
-	List []Executer
+	List []pipeitem
+}
+
+type pipeitem struct {
+	Executer
+	Both bool
 }
 
 type ExecSimple struct {
