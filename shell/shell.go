@@ -18,7 +18,7 @@ var (
 	ErrEmpty    = errors.New("empty command")
 )
 
-type Command interface{
+type Command interface {
 	Run() error
 	Start() error
 	Wait() error
@@ -93,12 +93,11 @@ var specials = map[string]struct{}{
 }
 
 type Shell struct {
-	locals   Environment
-	alias    map[string][]string
-	builtins map[string]string
-	echo     bool
-	cwd      string
-	now      time.Time
+	locals Environment
+	alias  map[string][]string
+	echo   bool
+	cwd    string
+	now    time.Time
 
 	stdout io.Writer
 	stderr io.Writer
@@ -106,10 +105,9 @@ type Shell struct {
 
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
-		now:      time.Now(),
-		cwd:      ".",
-		alias:    make(map[string][]string),
-		builtins: make(map[string]string),
+		now:    time.Now(),
+		cwd:    ".",
+		alias:  make(map[string][]string),
 		stdout: os.Stdout,
 		stderr: os.Stderr,
 	}
@@ -258,9 +256,6 @@ func (s *Shell) executeSingle(ex Expander) error {
 	if err != nil {
 		return err
 	}
-	if s.isBuiltin(str[0]) {
-		return s.executeBuiltin(str)
-	}
 	if _, err := exec.LookPath(str[0]); err != nil {
 		return err
 	}
@@ -317,15 +312,6 @@ func (s *Shell) executeAssign(ex ExecAssign) error {
 		return err
 	}
 	return s.Define(ex.Ident, str)
-}
-
-func (s *Shell) executeBuiltin(str []string) error {
-	return nil
-}
-
-func (s *Shell) isBuiltin(ident string) bool {
-	_, ok := s.builtins[ident]
-	return ok
 }
 
 func (s *Shell) expand(ex Expander) ([]string, error) {
