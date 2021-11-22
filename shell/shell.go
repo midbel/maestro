@@ -57,11 +57,7 @@ func WithCwd(dir string) ShellOption {
 
 func WithEnv(e Environment) ShellOption {
 	return func(s *Shell) error {
-		if s.locals == nil {
-			s.locals = e
-		} else {
-			s.locals = EnclosedEnv(e)
-		}
+		s.locals = EnclosedEnv(e)
 		return nil
 	}
 }
@@ -104,15 +100,41 @@ func New(options ...ShellOption) (*Shell, error) {
 }
 
 func (s *Shell) Alias(ident, script string) error {
-	return nil
+	p := NewParser(strings.NewReader(script))
+	ex, err := p.Parse()
+	if err != nil {
+		return err
+	}
+	s.alias[ident], err = s.expandExecuter(ex)
+	if err != nil {
+		return err
+	}
+	if _, err := p.Parse(); err == nil || errors.Is(err, io.EOF) {
+		return nil
+	}
+	return fmt.Errorf("invalid alias definition (%s)", script)
 }
 
 func (s *Shell) Unalias(ident string) {
-
+	delete(s.alias, ident)
 }
 
-func (s *Shell) Subshell() *Shell {
-	return nil
+func (s *Shell) Subshell() (*Shell, error) {
+	options := []ShellOption{
+		WithEnv(s.locals),
+		WithCwd(s.cwd),
+	}
+	if s.echo {
+		options = append(options, WithEcho())
+	}
+	sub, err := New(options...)
+	if err != nil {
+		return nil, err
+	}
+	for n, str := range s.alias {
+		sub.alias[n] = str
+	}
+	return sub, nil
 }
 
 func (s *Shell) Resolve(ident string) ([]string, error) {
@@ -165,7 +187,7 @@ func (s *Shell) Delete(ident string) error {
 
 func (s *Shell) Execute(str string) error {
 	var (
-		p = NewParser(strings.NewReader(str))
+		p   = NewParser(strings.NewReader(str))
 		ret error
 	)
 	for {
@@ -296,4 +318,12 @@ func (s *Shell) expand(ex Expander) ([]string, error) {
 		str = append(as, str[1:]...)
 	}
 	return str, nil
+}
+
+func (s *Shell) expandExecuter(ex Executer) ([]string, error) {
+	cmd, ok := ex.(ExecSimple)
+	if !ok {
+		return nil, fmt.Errorf("%T can not be expanded", ex)
+	}
+	return cmd.Expand(s.locals)
 }

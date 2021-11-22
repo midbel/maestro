@@ -71,24 +71,29 @@ type Single struct {
 	Scripts      []Line
 	Env          map[string]string
 	Options      []Option
-	Locals       *Env
 
 	shell *shell.Shell
 }
 
-func NewSingle(name string) *Single {
-	return NewSingleWithLocals(name, nil)
+func NewSingle(name string) (*Single, error) {
+	return NewSingleWithLocals(name, EmptyEnv())
 }
 
-func NewSingleWithLocals(name string, locals *Env) *Single {
+func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 	if locals == nil {
 		locals = EmptyEnv()
+	} else {
+		locals = locals.Copy()
+	}
+	sh, err := shell.New(shell.WithEnv(locals))
+	if err != nil {
+		return nil, err
 	}
 	cmd := Single{
-		Name:   name,
-		Locals: locals,
+		Name:  name,
+		shell: sh,
 	}
-	return &cmd
+	return &cmd, nil
 }
 
 func (s *Single) Command() string {

@@ -305,7 +305,10 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	cmd := NewSingleWithLocals(d.curr().Literal, d.locals)
+	cmd, err := NewSingleWithLocals(d.curr().Literal, d.locals)
+	if err != nil {
+		return err
+	}
 	d.next()
 	if d.curr().Type == BegList {
 		if err := d.decodeCommandProperties(cmd); err != nil {

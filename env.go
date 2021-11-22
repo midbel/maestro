@@ -20,12 +20,14 @@ func EnclosedEnv(parent *Env) *Env {
 	}
 }
 
-func (e *Env) Define(key string, vs []string) {
+func (e *Env) Define(key string, vs []string) error {
 	e.locals[key] = append(e.locals[key], vs...)
+	return nil
 }
 
-func (e *Env) Delete(key string) {
+func (e *Env) Delete(key string) error {
 	delete(e.locals, key)
+	return nil
 }
 
 func (e *Env) Resolve(key string) ([]string, error) {

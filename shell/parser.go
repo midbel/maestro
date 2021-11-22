@@ -121,7 +121,7 @@ func (p *Parser) parseAssignment() (Executer, error) {
 func (p *Parser) parsePipe(left Executer) (Executer, error) {
 	pi := pipeitem{
 		Executer: left,
-		Both: p.curr.Type == PipeBoth,
+		Both:     p.curr.Type == PipeBoth,
 	}
 	ex := ExecPipe{
 		List: []pipeitem{pi},
@@ -131,7 +131,7 @@ func (p *Parser) parsePipe(left Executer) (Executer, error) {
 			break
 		}
 		var (
-			pi pipeitem
+			pi  pipeitem
 			err error
 		)
 		pi.Both = p.curr.Type == PipeBoth

@@ -66,7 +66,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 	return cmd.Execute(args)
 }
 
-func (m *Maestro) ExecuteHelp(name string) error {
+func (m *Maestro) ExecuteHelp(name string, verbose bool) error {
 	var (
 		help string
 		err  error
@@ -158,9 +158,12 @@ func (m *Maestro) Name() string {
 }
 
 func (m *Maestro) lookup(name string) (Command, error) {
+	if name == "" {
+		name = m.MetaExec.Default
+	}
 	cmd, ok := m.Commands[name]
 	if !ok {
-		return nil, fmt.Errorf("%s: command not defined")
+		return nil, fmt.Errorf("%s: command not defined", name)
 	}
 	return cmd, nil
 }
