@@ -1,36 +1,30 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"os"
+	"strings"
 
-	"github.com/midbel/maestro"
+	"github.com/midbel/maestro/shell"
 )
 
 func main() {
-	flag.Parse()
-
-	r, err := os.Open(flag.Arg(0))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	lines := []string{
+		"echo {}",
+		"echo {foo,bar}",
+		"echo {1..5}",
+		`echo "--build ${maestro,,} in ${bindir,,}/${maestro,,}"`,
 	}
-	defer r.Close()
-
-	_, err = maestro.Decode(r)
-	fmt.Println(err)
-	// s, err := maestro.Scan(r)
-	// if err != nil {
-	// 	fmt.Fprintln(os.Stderr, err)
-	// 	os.Exit(2)
-	// }
-	//
-	// for {
-	// 	tok := s.Scan()
-	// 	fmt.Println(tok)
-	// 	if tok.IsEOF() || tok.IsInvalid() {
-	// 		break
-	// 	}
-	// }
+	for i, str := range lines {
+		if i > 0 {
+			fmt.Println("---")
+		}
+		s := shell.Scan(strings.NewReader(str))
+		for {
+			tok := s.Scan()
+			fmt.Println(tok)
+			if tok.Type == shell.EOF || tok.Type == shell.Invalid {
+				break
+			}
+		}
+	}
 }

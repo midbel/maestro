@@ -217,13 +217,12 @@ func (s *Shell) Execute(str string) error {
 		ex, err := p.Parse()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				err = nil
+				return ret
 			}
 			return err
 		}
 		ret = s.execute(ex)
 	}
-	return ret
 }
 
 func (s *Shell) execute(ex Executer) error {

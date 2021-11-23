@@ -13,6 +13,10 @@ const (
 	Variable
 	BegExp
 	EndExp
+	BegBrace
+	EndBrace
+	Comma
+	Seq
 	List
 	Pipe
 	PipeBoth
@@ -85,6 +89,14 @@ func (t Token) String() string {
 		return "<beg-expansion>"
 	case EndExp:
 		return "<end-expansion>"
+	case BegBrace:
+		return "<beg-brace>"
+	case EndBrace:
+		return "<end-brace>"
+	case Comma:
+		return "<comma>"
+	case Seq:
+		return "<sequence>"
 	case Length:
 		return "<length>"
 	case Slice:

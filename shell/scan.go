@@ -47,6 +47,31 @@ var slashOps = map[rune]rune{
 	pound:   ReplacePrefix,
 }
 
+type Mode int8
+
+const (
+	ModeDefault Mode = iota
+	ModeQuoted
+	ModeExpanded
+	ModeBraced
+)
+
+func (m Mode) IsDefault() bool {
+	return m == ModeDefault
+}
+
+func (m Mode) IsQuoted() bool {
+	return m == ModeQuoted
+}
+
+func (m Mode) IsExpanded() bool {
+	return m == ModeExpanded
+}
+
+func (m Mode) IsBraced() bool {
+	return m == ModeBraced
+}
+
 type Scanner struct {
 	input []byte
 	char  rune
@@ -91,7 +116,7 @@ func (s *Scanner) Scan() Token {
 		s.read()
 		s.toggleQuote()
 	case isSingle(s.char):
-		s.scanQuote(&tok)
+		s.scanString(&tok)
 	case isComment(s.char):
 		s.scanComment(&tok)
 	case isVariable(s.char):
@@ -100,6 +125,19 @@ func (s *Scanner) Scan() Token {
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanBraces(tok *Token) {
+	switch k := s.peek(); {
+	case s.char == rcurly:
+		tok.Type = EndBrace
+	case s.char == lcurly && k != rcurly:
+		tok.Type = BegBrace
+	default:
+		s.scanLiteral(tok)
+		return
+	}
+	s.read()
 }
 
 func (s *Scanner) scanAssignment(tok *Token) {
@@ -229,7 +267,7 @@ func (s *Scanner) scanComment(tok *Token) {
 	tok.Literal = s.string()
 }
 
-func (s *Scanner) scanQuote(tok *Token) {
+func (s *Scanner) scanString(tok *Token) {
 	s.read()
 	for !isSingle(s.char) && !s.done() {
 		s.write()
@@ -245,16 +283,12 @@ func (s *Scanner) scanQuote(tok *Token) {
 
 func (s *Scanner) scanLiteral(tok *Token) {
 	if s.quoted {
-		s.scanQuoted(tok)
+		s.scanQuotedLiteral(tok)
 		return
 	}
 	for !s.done() && !s.stopLiteral(s.char) {
-		if s.char == backslash {
-			switch k := s.peek(); k {
-			case semicolon, backslash, dquote:
-				s.read()
-			default:
-			}
+		if s.char == backslash && canEscape(s.peek()) {
+			s.read()
 		}
 		s.write()
 		s.read()
@@ -266,9 +300,12 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	})
 }
 
-func (s *Scanner) scanQuoted(tok *Token) {
+func (s *Scanner) scanQuotedLiteral(tok *Token) {
 	for !s.done() {
 		if isDouble(s.char) || isVariable(s.char) {
+			break
+		}
+		if s.expanded && isOperator(s.char) {
 			break
 		}
 		s.write()
@@ -352,6 +389,10 @@ func (s *Scanner) stopLiteral(r rune) bool {
 	return ok
 }
 
+func canEscape(r rune) bool {
+	return r == backslash || r == semicolon || r == dquote || r == dollar
+}
+
 func isBlank(r rune) bool {
 	return r == space || r == tab
 }
@@ -398,4 +439,8 @@ func isAssign(r rune) bool {
 
 func isRedirect(r rune) bool {
 	return r == langle || r == rangle
+}
+
+func isBraces(r rune) bool {
+	return r == lcurly || r == rcurly
 }
