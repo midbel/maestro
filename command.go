@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -71,6 +72,7 @@ type Single struct {
 	Scripts      []Line
 	Env          map[string]string
 	Options      []Option
+	Args         int64
 
 	shell *shell.Shell
 }
@@ -120,11 +122,21 @@ func (_ *Single) Combined() bool {
 }
 
 func (s *Single) Execute(args []string) error {
+	set := flag.NewFlagSet(s.Name, flag.ExitOnError)
+	if len(s.Options) > 0 {
+
+	}
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	if s.Args > 0 && set.NArg() != int(s.Args) {
+		return fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, s.Args, set.NArg())
+	}
 	for _, cmd := range s.Scripts {
 		if cmd.Echo {
 			fmt.Fprintln(os.Stdout, cmd.Line)
 		}
-		err := s.shell.Execute(cmd.Line)
+		err := s.shell.Execute(cmd.Line, s.Name, set.Args())
 		if cmd.Reverse {
 			if err == nil {
 				err = fmt.Errorf("command succeed")

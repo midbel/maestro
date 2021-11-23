@@ -42,7 +42,8 @@ const (
 	propTimeout = "timeout"
 	propHosts   = "host"
 	propError   = "error"
-	propArgs    = "options"
+	propOpts    = "options"
+	propArg     = "arg"
 )
 
 const (
@@ -370,7 +371,9 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			cmd.Timeout, err = d.parseDuration()
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
-		case propArgs:
+		case propArg:
+			cmd.Args, err = d.parseInt()
+		case propOpts:
 			err = d.decodeCommandOptions(cmd)
 		}
 		if err != nil {
