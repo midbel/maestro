@@ -49,6 +49,11 @@ type Line struct {
 	Ignore  bool
 	Echo    bool
 	Empty   bool
+	Env     *Env
+}
+
+func (i Line) Subshell() bool {
+	return i.Env != nil
 }
 
 type Single struct {

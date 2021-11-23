@@ -513,12 +513,30 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 
 func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 	d.next()
-Script:
 	for !d.done() {
 		if d.curr().Type == EndScript {
 			break
 		}
 		if d.curr().Type == Comment {
+			d.next()
+			continue
+		}
+		if d.curr().Type == Call {
+			// TODO: revise how Call is handled: the full "called" command should be copied
+			// currently only its scripts is copied
+			d.next()
+			other, err := mst.lookup(d.curr().Literal)
+			if err != nil {
+				return err
+			}
+			called, ok := other.(*Single)
+			if !ok {
+				return fmt.Errorf("call can only be made for single command")
+			}
+			for _, s := range called.Scripts {
+				// TODO: clone/copy shell env of called called to s
+				cmd.Scripts = append(cmd.Scripts, s)
+			}
 			d.next()
 			continue
 		}
@@ -540,21 +558,6 @@ Script:
 				i.Ignore = !i.Ignore
 			case Isolated:
 				i.Empty = !i.Empty
-			case Call:
-				// TODO: revise own Call is handled + give option to pass arguments to call
-				// NOTE: when Call is encountered, other line operator are discarded!
-				d.next()
-				other, err := mst.lookup(d.curr().Literal)
-				if err != nil {
-					return err
-				}
-				single, ok := other.(*Single)
-				if !ok {
-					return fmt.Errorf("call can only be made for single command")
-				}
-				cmd.Scripts = append(cmd.Scripts, single.Scripts...)
-				d.next()
-				continue Script
 			default:
 				return d.unexpected()
 			}
