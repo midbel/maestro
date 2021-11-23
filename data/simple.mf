@@ -44,15 +44,32 @@ commit(
 	tag   = build,
 ): {
 	gofmt -w -s .
-	git commit -am "updates"
+	git commit -am $1
 	git push
 }
 
-count(
+loc(
 	short = "count number of LoC",
 	tag   = "info" "verify",
 ): {
-	@find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l
+	find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l
+}
+
+todo(
+	short = "count number of remaining todos in code",
+	tag   = "info" "verify",
+): {
+	find -type f -name "*go" -exec cat {} \; | grep 'TODO' | wc -l
+}
+
+count(
+	short = "count LOC and todos",
+	tag   = "info" "verify",
+): {
+	echo "line of codes:"
+	<loc
+	echo "remaining todos:"
+	<todo
 }
 
 combine(
