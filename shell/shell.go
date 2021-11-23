@@ -267,7 +267,17 @@ func (s *Shell) executeSingle(ex Expander) error {
 }
 
 func (s *Shell) executePipe(ex ExecPipe) error {
-	var cs []*exec.Cmd
+	var (
+		cs          []*exec.Cmd
+		ctx, cancel = context.WithCancel(context.Background())
+	)
+	go func() {
+		defer cancel()
+
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+		<-sig
+	}()
 	for i := range ex.List {
 		sex, ok := ex.List[i].Executer.(ExecSimple)
 		if !ok {
@@ -280,7 +290,7 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		if _, err = exec.LookPath(str[0]); err != nil {
 			return err
 		}
-		cmd := exec.Command(str[0], str[1:]...)
+		cmd := exec.CommandContext(ctx, str[0], str[1:]...)
 		if !ex.List[i].Both {
 			cmd.Stderr = os.Stderr
 		}
