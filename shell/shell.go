@@ -219,7 +219,7 @@ func (s *Shell) Execute(str string) error {
 			if errors.Is(err, io.EOF) {
 				err = nil
 			}
-			break
+			return err
 		}
 		ret = s.execute(ex)
 	}

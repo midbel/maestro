@@ -240,6 +240,7 @@ func (s *Scanner) scanQuote(tok *Token) {
 	if !isSingle(s.char) {
 		tok.Type = Invalid
 	}
+	s.read()
 }
 
 func (s *Scanner) scanLiteral(tok *Token) {

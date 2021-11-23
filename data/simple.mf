@@ -52,7 +52,7 @@ count(
 	short = "count number of LoC",
 	tag   = "info" "verify",
 ): {
-	@find -type f -name "*go" -exec cat {} \; | wc -l
+	@find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l
 }
 
 combine(
