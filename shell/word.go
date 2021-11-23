@@ -102,12 +102,107 @@ func (e ExpandList) Expand(env Environment) ([]string, error) {
 	return str, nil
 }
 
+func (e *ExpandList) Pop() Expander {
+	n := len(e.List)
+	if n == 0 {
+		return nil
+	}
+	n--
+	x := e.List[n]
+	e.List = e.List[:n]
+	return x
+}
+
 type ExpandWord struct {
 	Literal string
 }
 
 func (w ExpandWord) Expand(_ Environment) ([]string, error) {
 	return []string{w.Literal}, nil
+}
+
+type ExpandListBrace struct {
+	Prefix Expander
+	Suffix Expander
+	Words  []Expander
+}
+
+func (b ExpandListBrace) Expand(env Environment) ([]string, error) {
+	var (
+		prefix []string
+		suffix []string
+		words  []string
+		err    error
+	)
+	if b.Prefix != nil {
+		if prefix, err = b.Prefix.Expand(env); err != nil {
+			return nil, err
+		}
+	}
+	if b.Suffix != nil {
+		if suffix, err = b.Suffix.Expand(env); err != nil {
+			return nil, err
+		}
+	}
+	for i := range b.Words {
+		str, err := b.Words[i].Expand(env)
+		if err != nil {
+			return nil, err
+		}
+		words = append(words, str...)
+	}
+	return combineStrings(words, prefix, suffix), nil
+}
+
+type ExpandRangeBrace struct {
+	Prefix Expander
+	Suffix Expander
+	Pad    int
+	From   int
+	To     int
+	Step   int
+}
+
+func (b ExpandRangeBrace) Expand(env Environment) ([]string, error) {
+	var (
+		prefix []string
+		suffix []string
+		words  []string
+		err    error
+	)
+	if b.Prefix != nil {
+		if prefix, err = b.Prefix.Expand(env); err != nil {
+			return nil, err
+		}
+	}
+	if b.Suffix != nil {
+		if suffix, err = b.Suffix.Expand(env); err != nil {
+			return nil, err
+		}
+	}
+	if b.Step == 0 {
+		b.Step = 1
+	}
+	cmp := func(from, to int) bool {
+		return from <= to
+	}
+	if b.From > b.To {
+		cmp = func(from, to int) bool {
+			return from >= to
+		}
+		if b.Step > 0 {
+			b.Step = -b.Step
+		}
+	}
+	for cmp(b.From, b.To) {
+		str := strconv.Itoa(b.From)
+		if z := len(str); b.Pad > 0 && z < b.Pad {
+			str = fmt.Sprintf("%s%s", strings.Repeat("0", b.Pad-z), str)
+		}
+		words = append(words, str)
+		b.From += b.Step
+	}
+	return combineStrings(words, prefix, suffix), nil
 }
 
 type ExpandMulti struct {
@@ -125,6 +220,17 @@ func (m ExpandMulti) Expand(env Environment) ([]string, error) {
 	}
 	str := strings.Join(words, "")
 	return []string{str}, nil
+}
+
+func (m *ExpandMulti) Pop() Expander {
+	n := len(m.List)
+	if n == 0 {
+		return nil
+	}
+	n--
+	x := m.List[n]
+	m.List = m.List[:n]
+	return x
 }
 
 type ExpandVariable struct {
@@ -409,4 +515,34 @@ type ExpandExitIfUnset struct {
 
 func (v ExpandExitIfUnset) Expand(env Environment) ([]string, error) {
 	return nil, nil
+}
+
+func combineStrings(words, prefix, suffix []string) []string {
+	if len(prefix) == 0 && len(suffix) == 0 {
+		return words
+	}
+	var (
+		tmp strings.Builder
+		str = combineStringsWith(&tmp, words, prefix)
+	)
+	return combineStringsWith(&tmp, suffix, str)
+}
+
+func combineStringsWith(ws *strings.Builder, all, with []string) []string {
+	if len(with) == 0 {
+		return all
+	}
+	if len(all) == 0 {
+		return with
+	}
+	var str []string
+	for i := range with {
+		for j := range all {
+			ws.WriteString(with[i])
+			ws.WriteString(all[j])
+			str = append(str, ws.String())
+			ws.Reset()
+		}
+	}
+	return str
 }

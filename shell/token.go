@@ -15,7 +15,7 @@ const (
 	EndExp
 	BegBrace
 	EndBrace
-	Comma
+	Range
 	Seq
 	List
 	Pipe
@@ -62,8 +62,12 @@ func (t Token) IsSequence() bool {
 	}
 }
 
+func (t Token) IsList() bool {
+	return t.Type == Range || t.Type == Seq
+}
+
 func (t Token) Eow() bool {
-	return t.Type == Comment || t.Type == EOF || t.Type == Blank || t.IsSequence()
+	return t.Type == Comment || t.Type == EOF || t.Type == Blank || t.IsSequence() //|| t.IsList()
 }
 
 func (t Token) String() string {
@@ -93,8 +97,8 @@ func (t Token) String() string {
 		return "<beg-brace>"
 	case EndBrace:
 		return "<end-brace>"
-	case Comma:
-		return "<comma>"
+	case Range:
+		return "<range>"
 	case Seq:
 		return "<sequence>"
 	case Length:

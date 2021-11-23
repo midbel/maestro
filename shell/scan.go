@@ -32,6 +32,10 @@ const (
 	langle     = '<'
 	rangle     = '>'
 	backslash  = '\\'
+	dot        = '.'
+	star       = '*'
+	arobase    = '@'
+	bang       = '!'
 )
 
 var colonOps = map[rune]rune{
@@ -81,6 +85,7 @@ type Scanner struct {
 	str      bytes.Buffer
 	quoted   bool
 	expanded bool
+	braced   bool
 }
 
 func Scan(r io.Reader) *Scanner {
@@ -100,6 +105,10 @@ func (s *Scanner) Scan() Token {
 		return tok
 	}
 	switch {
+	case isBraces(s.char) && (!s.quoted && !s.expanded):
+		s.scanBraces(&tok)
+	case isList(s.char) && s.braced:
+		s.scanList(&tok)
 	case isOperator(s.char) && s.expanded:
 		s.scanOperator(&tok)
 	case isBlank(s.char) && !s.quoted:
@@ -131,13 +140,32 @@ func (s *Scanner) scanBraces(tok *Token) {
 	switch k := s.peek(); {
 	case s.char == rcurly:
 		tok.Type = EndBrace
+		s.braced = false
 	case s.char == lcurly && k != rcurly:
 		tok.Type = BegBrace
+		s.braced = true
 	default:
 		s.scanLiteral(tok)
 		return
 	}
 	s.read()
+	s.skipBlank()
+}
+
+func (s *Scanner) scanList(tok *Token) {
+	switch k := s.peek(); {
+	case s.char == comma:
+		tok.Type = Seq
+	case s.char == dot && k == s.char:
+		tok.Type = Range
+		s.read()
+	default:
+	}
+	if tok.Type == Invalid {
+		return
+	}
+	s.read()
+	s.skipBlank()
 }
 
 func (s *Scanner) scanAssignment(tok *Token) {
@@ -244,16 +272,43 @@ func (s *Scanner) scanVariable(tok *Token) {
 		s.read()
 		return
 	}
-	if !isLetter(s.char) {
-		tok.Type = Invalid
-		return
-	}
-	for isIdent(s.char) {
-		s.write()
-		s.read()
-	}
 	tok.Type = Variable
-	tok.Literal = s.string()
+	switch {
+	case s.char == dollar:
+		tok.Literal = "$"
+		s.read()
+	case s.char == pound:
+		tok.Literal = "#"
+		s.read()
+	case s.char == question:
+		tok.Literal = "?"
+		s.read()
+	case s.char == star:
+		tok.Literal = "*"
+		s.read()
+	case s.char == arobase:
+		tok.Literal = "@"
+		s.read()
+	case s.char == bang:
+		tok.Literal = "!"
+		s.read()
+	case isDigit(s.char):
+		for isDigit(s.char) {
+			s.write()
+			s.read()
+		}
+		tok.Literal = s.string()
+	default:
+		if !isLetter(s.char) {
+			tok.Type = Invalid
+			return
+		}
+		for isIdent(s.char) {
+			s.write()
+			s.read()
+		}
+		tok.Literal = s.string()
+	}
 }
 
 func (s *Scanner) scanComment(tok *Token) {
@@ -382,10 +437,18 @@ func (s *Scanner) skipBlankUntil(fn func(rune) bool) {
 }
 
 func (s *Scanner) stopLiteral(r rune) bool {
+	if s.braced && (s.char == dot || s.char == comma || s.char == rcurly) {
+		return true
+	}
 	if s.expanded && isOperator(r) {
 		return true
 	}
-	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) || isVariable(s.char) || isAssign(s.char)
+	// fmt.Printf("braced: %t -> %c => %t\n", s.braced, s.char, isList(s.char))
+	if s.char == lcurly {
+		return s.peek() != rcurly
+	}
+	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) ||
+		isVariable(s.char) || isAssign(s.char)
 	return ok
 }
 
@@ -443,4 +506,8 @@ func isRedirect(r rune) bool {
 
 func isBraces(r rune) bool {
 	return r == lcurly || r == rcurly
+}
+
+func isList(r rune) bool {
+	return r == comma || r == dot
 }

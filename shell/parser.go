@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 type Parser struct {
@@ -71,7 +72,7 @@ func (p *Parser) parseSimple() (Executer, error) {
 			err  error
 		)
 		switch p.curr.Type {
-		case BegExp, Variable, Quote, Literal:
+		case BegExp, Variable, Quote, Literal, BegBrace:
 			next, err = p.parseWords()
 		default:
 			err = p.unexpected()
@@ -190,6 +191,8 @@ func (p *Parser) parseWords() (Expander, error) {
 			next, err = p.parseQuote()
 		case BegExp:
 			next, err = p.parseExpansion()
+		case BegBrace:
+			next, err = p.parseBraces(list.Pop())
 		default:
 			err = p.unexpected()
 		}
@@ -244,6 +247,93 @@ func (p *Parser) parseQuote() (ExpandMulti, error) {
 func (p *Parser) parseLiteral() (ExpandWord, error) {
 	ex := ExpandWord{
 		Literal: p.curr.Literal,
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseBraces(prefix Expander) (Expander, error) {
+	p.next()
+	if p.peek.Type == Range {
+		return p.parseRangeBraces(prefix)
+	}
+	return p.parseListBraces(prefix)
+}
+
+func (p *Parser) parseListBraces(prefix Expander) (Expander, error) {
+	ex := ExpandListBrace{
+		Prefix: prefix,
+	}
+	for !p.done() {
+		if p.curr.Type == EndBrace {
+			break
+		}
+		ex.Words = append(ex.Words, x)
+		if p.curr.Type != Literal {
+			return nil, p.unexpected()
+		}
+		ex.Words = append(ex.Words, ExpandWord{Literal: p.curr.Literal})
+		p.next()
+		switch p.curr.Type {
+		case Seq:
+			p.next()
+		case EndBrace:
+		default:
+			return nil, p.unexpected()
+		}
+	}
+	if p.curr.Type != EndBrace {
+		return nil, p.unexpected()
+	}
+	p.next()
+	suffix, err := p.parseWords()
+	if err != nil {
+		return nil, err
+	}
+	ex.Suffix = suffix
+	return ex, nil
+}
+
+func (p *Parser) parseRangeBraces(prefix Expander) (Expander, error) {
+	parseInt := func() (int, error) {
+		if p.curr.Type != Literal {
+			return 0, p.unexpected()
+		}
+		i, err := strconv.Atoi(p.curr.Literal)
+		if err == nil {
+			p.next()
+		}
+		return i, err
+	}
+	ex := ExpandRangeBrace{
+		Prefix: prefix,
+		Step:   1,
+	}
+	if p.curr.Type == Literal {
+		if n := len(p.curr.Literal); strings.HasPrefix(p.curr.Literal, "0") && n > 1 {
+			str := strings.TrimLeft(p.curr.Literal, "0")
+			ex.Pad = (n - len(str)) + 1
+		}
+	}
+	var err error
+	if ex.From, err = parseInt(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != Range {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if ex.To, err = parseInt(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type == Range {
+		p.next()
+		if ex.Step, err = parseInt(); err != nil {
+			return nil, err
+		}
+	}
+	if p.curr.Type != EndBrace {
+		return nil, p.unexpected()
 	}
 	p.next()
 	return ex, nil
