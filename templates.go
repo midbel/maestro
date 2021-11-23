@@ -7,7 +7,7 @@ import (
 
 const helptext = `
 {{if .Help -}}
-{{.Help}}
+{{wrap .Help}}
 {{- end}}
 
 Available commands:
@@ -18,7 +18,9 @@ Available commands:
   - {{printf "%-20s %s" .Name .Short -}}
 {{end}}
 {{end}}
-{{.File}} ({{.Version}})
+
+use "maestro -f {{.File}} help <command>" for more information
+on one of the available command(s)
 `
 
 const cmdhelp = `
@@ -45,6 +47,7 @@ func renderTemplate(name string, ctx interface{}) (string, error) {
 
 var funcmap = template.FuncMap{
 	"repeat": repeat,
+	"wrap":   wrap,
 	"join":   strings.Join,
 }
 
@@ -59,4 +62,8 @@ func repeat(char string, value interface{}) string {
 		return ""
 	}
 	return strings.Repeat(char, n)
+}
+
+func wrap(str string) string {
+	return str
 }
