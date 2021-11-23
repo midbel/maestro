@@ -260,6 +260,32 @@ func (p *Parser) parseBraces(prefix Expander) (Expander, error) {
 	return p.parseListBraces(prefix)
 }
 
+func (p *Parser) parseWordsInBraces() (Expander, error) {
+	var list ExpandList
+	for !p.done() {
+		if p.curr.Type == Seq || p.curr.Type == EndBrace {
+			break
+		}
+		var (
+			next Expander
+			err  error
+		)
+		switch p.curr.Type {
+		case Literal:
+			next, err = p.parseLiteral()
+		case BegBrace:
+			next, err = p.parseBraces(list.Pop())
+		default:
+			err = p.unexpected()
+		}
+		if err != nil {
+			return nil, err
+		}
+		list.List = append(list.List, next)
+	}
+	return list, nil
+}
+
 func (p *Parser) parseListBraces(prefix Expander) (Expander, error) {
 	ex := ExpandListBrace{
 		Prefix: prefix,
@@ -268,12 +294,11 @@ func (p *Parser) parseListBraces(prefix Expander) (Expander, error) {
 		if p.curr.Type == EndBrace {
 			break
 		}
-		ex.Words = append(ex.Words, x)
-		if p.curr.Type != Literal {
-			return nil, p.unexpected()
+		x, err := p.parseWordsInBraces()
+		if err != nil {
+			return nil, err
 		}
-		ex.Words = append(ex.Words, ExpandWord{Literal: p.curr.Literal})
-		p.next()
+		ex.Words = append(ex.Words, x)
 		switch p.curr.Type {
 		case Seq:
 			p.next()
@@ -286,7 +311,7 @@ func (p *Parser) parseListBraces(prefix Expander) (Expander, error) {
 		return nil, p.unexpected()
 	}
 	p.next()
-	suffix, err := p.parseWords()
+	suffix, err := p.parseWordsInBraces()
 	if err != nil {
 		return nil, err
 	}

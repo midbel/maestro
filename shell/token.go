@@ -67,7 +67,7 @@ func (t Token) IsList() bool {
 }
 
 func (t Token) Eow() bool {
-	return t.Type == Comment || t.Type == EOF || t.Type == Blank || t.IsSequence() //|| t.IsList()
+	return t.Type == Comment || t.Type == EOF || t.Type == Blank || t.IsSequence()
 }
 
 func (t Token) String() string {

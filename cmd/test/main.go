@@ -21,7 +21,7 @@ func main() {
 		"echo {01..5..2}",
 		"echo {5..-1..-2}",
 		"echo {A,B,C,D,E}{0..9}",
-		"echo prefix-{pre1-{A,B,C,D,E}-suff1,pre2-{a,b,c,d, e}-suff2}-suffix",
+		"echo pre-{{A,B,C,D,E},_{a,b,c,d,e}_}-suff",
 	}
 	for i, str := range lines {
 		if i > 0 {
@@ -43,6 +43,7 @@ func main() {
 		if i > 0 {
 			fmt.Println("---")
 		}
+		fmt.Println("input:", str)
 		p := shell.NewParser(strings.NewReader(str))
 		for {
 			e, err := p.Parse()
@@ -52,12 +53,11 @@ func main() {
 				}
 				break
 			}
-			fmt.Printf("%#v\n", e)
+			// fmt.Printf("%#v\n", e)
 			s, ok := e.(shell.ExecSimple)
 			if !ok {
 				continue
 			}
-			fmt.Println("input:", str)
 			fmt.Println(s.Expand(env))
 		}
 	}

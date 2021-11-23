@@ -85,7 +85,7 @@ type Scanner struct {
 	str      bytes.Buffer
 	quoted   bool
 	expanded bool
-	braced   bool
+	braced   int
 }
 
 func Scan(r io.Reader) *Scanner {
@@ -107,7 +107,7 @@ func (s *Scanner) Scan() Token {
 	switch {
 	case isBraces(s.char) && (!s.quoted && !s.expanded):
 		s.scanBraces(&tok)
-	case isList(s.char) && s.braced:
+	case isList(s.char) && s.isBrace():
 		s.scanList(&tok)
 	case isOperator(s.char) && s.expanded:
 		s.scanOperator(&tok)
@@ -140,10 +140,10 @@ func (s *Scanner) scanBraces(tok *Token) {
 	switch k := s.peek(); {
 	case s.char == rcurly:
 		tok.Type = EndBrace
-		s.braced = false
+		s.leaveBrace()
 	case s.char == lcurly && k != rcurly:
 		tok.Type = BegBrace
-		s.braced = true
+		s.enterBrace()
 	default:
 		s.scanLiteral(tok)
 		return
@@ -437,19 +437,30 @@ func (s *Scanner) skipBlankUntil(fn func(rune) bool) {
 }
 
 func (s *Scanner) stopLiteral(r rune) bool {
-	if s.braced && (s.char == dot || s.char == comma || s.char == rcurly) {
+	if s.isBrace() && (s.char == dot || s.char == comma || s.char == rcurly) {
 		return true
 	}
 	if s.expanded && isOperator(r) {
 		return true
 	}
-	// fmt.Printf("braced: %t -> %c => %t\n", s.braced, s.char, isList(s.char))
 	if s.char == lcurly {
 		return s.peek() != rcurly
 	}
 	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) ||
 		isVariable(s.char) || isAssign(s.char)
 	return ok
+}
+
+func (s *Scanner) isBrace() bool {
+	return s.braced > 0
+}
+
+func (s *Scanner) enterBrace() {
+	s.braced++
+}
+
+func (s *Scanner) leaveBrace() {
+	s.braced++
 }
 
 func canEscape(r rune) bool {
