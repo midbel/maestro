@@ -41,16 +41,11 @@ type Option struct {
 
 type Line struct {
 	Line    string
-	Dry     bool
 	Reverse bool
 	Ignore  bool
 	Echo    bool
 	Empty   bool
 	Env     *Env
-}
-
-func (i Line) Subshell() bool {
-	return i.Env != nil
 }
 
 type Single struct {
@@ -89,6 +84,7 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 	}
 	cmd := Single{
 		Name:  name,
+		Error: errSilent,
 		shell: sh,
 	}
 	return &cmd, nil
@@ -123,7 +119,7 @@ func (s *Single) Dry(args []string) error {
 		return err
 	}
 	for _, cmd := range s.Scripts {
-		if err := s.shell.Dry(cmd.Line, s.Name, args); err != nil {
+		if err := s.shell.Dry(cmd.Line, s.Name, args); err != nil && s.Error == errRaise {
 			return err
 		}
 	}
@@ -150,7 +146,7 @@ func (s *Single) Execute(args []string) error {
 				err = nil
 			}
 		}
-		if !cmd.Ignore && err != nil {
+		if !cmd.Ignore && err != nil && s.Error == errRaise {
 			return err
 		}
 	}
@@ -165,7 +161,7 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 	if err := set.Parse(args); err != nil {
 		return nil, err
 	}
-	if s.Args > 0 && set.NArg() != int(s.Args) {
+	if s.Args > 0 && set.NArg() < int(s.Args) {
 		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, s.Args, set.NArg())
 	}
 	return set.Args(), nil
