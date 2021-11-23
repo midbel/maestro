@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	file := flag.String("f", "maestro.mf", "maestro file to use")
+	var (
+		dry  = flag.Bool("d", false, "run dry")
+		file = flag.String("f", "maestro.mf", "maestro file to use")
+	)
 	flag.Parse()
 
 	mst, err := maestro.Load(*file)
@@ -27,7 +30,11 @@ func main() {
 	case "default":
 		err = mst.ExecuteDefault(args)
 	default:
-		err = mst.Execute(cmd, args)
+		if *dry {
+			err = mst.Dry(cmd, args)
+		} else {
+			err = mst.Execute(cmd, args)
+		}
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

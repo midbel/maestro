@@ -14,18 +14,14 @@ const (
 	errRaise  = "raise"
 )
 
-type Action interface {
-	Execute([]string) error
-}
-
 type Command interface {
-	Action
-
 	About() string
 	Help() (string, error)
 	Tags() []string
 	Command() string
 	Combined() bool
+	Execute([]string) error
+	Dry([]string) error
 }
 
 type Dep struct {
@@ -63,7 +59,7 @@ type Single struct {
 	Desc         string
 	Usage        string
 	Error        string
-	Cats         []string
+	Categories   []string
 	Retry        int64
 	WorkDir      string
 	Timeout      time.Duration
@@ -111,32 +107,42 @@ func (s *Single) Help() (string, error) {
 }
 
 func (s *Single) Tags() []string {
-	if len(s.Cats) == 0 {
+	if len(s.Categories) == 0 {
 		return []string{"default"}
 	}
-	return s.Cats
+	return s.Categories
 }
 
 func (_ *Single) Combined() bool {
 	return false
 }
 
-func (s *Single) Execute(args []string) error {
-	set := flag.NewFlagSet(s.Name, flag.ExitOnError)
-	if len(s.Options) > 0 {
-
-	}
-	if err := set.Parse(args); err != nil {
+func (s *Single) Dry(args []string) error {
+	args, err := s.parseArgs(args)
+	if err != nil {
 		return err
 	}
-	if s.Args > 0 && set.NArg() != int(s.Args) {
-		return fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, s.Args, set.NArg())
+	for _, cmd := range s.Scripts {
+		if err := s.shell.Dry(cmd.Line, s.Name, args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Single) Execute(args []string) error {
+	if err := s.shell.Chdir(s.WorkDir); err != nil {
+		return err
+	}
+	args, err := s.parseArgs(args)
+	if err != nil {
+		return err
 	}
 	for _, cmd := range s.Scripts {
 		if cmd.Echo {
 			fmt.Fprintln(os.Stdout, cmd.Line)
 		}
-		err := s.shell.Execute(cmd.Line, s.Name, set.Args())
+		err := s.shell.Execute(cmd.Line, s.Name, args)
 		if cmd.Reverse {
 			if err == nil {
 				err = fmt.Errorf("command succeed")
@@ -149,6 +155,20 @@ func (s *Single) Execute(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (s *Single) parseArgs(args []string) ([]string, error) {
+	set := flag.NewFlagSet(s.Name, flag.ExitOnError)
+	if len(s.Options) > 0 {
+
+	}
+	if err := set.Parse(args); err != nil {
+		return nil, err
+	}
+	if s.Args > 0 && set.NArg() != int(s.Args) {
+		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, s.Args, set.NArg())
+	}
+	return set.Args(), nil
 }
 
 type Combined []Command
@@ -189,6 +209,15 @@ func (_ Combined) Combined() bool {
 func (c Combined) Execute(args []string) error {
 	for i := range c {
 		if err := c[i].Execute(args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c Combined) Dry(args []string) error {
+	for i := range c {
+		if err := c[i].Dry(args); err != nil {
 			return err
 		}
 	}

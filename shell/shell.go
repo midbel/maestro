@@ -66,14 +66,7 @@ func WithAlias(ident, script string) ShellOption {
 
 func WithCwd(dir string) ShellOption {
 	return func(s *Shell) error {
-		if dir == "" {
-			return nil
-		}
-		err := os.Chdir(dir)
-		if err == nil {
-			s.cwd = dir
-		}
-		return err
+		return s.Chdir(dir)
 	}
 }
 
@@ -136,16 +129,31 @@ func New(options ...ShellOption) (*Shell, error) {
 	return &s, nil
 }
 
+func (s *Shell) Chdir(dir string) error {
+	if dir == "" {
+		return nil
+	}
+	err := os.Chdir(dir)
+	if err == nil {
+		s.cwd = dir
+	}
+	return err
+}
+
 func (s *Shell) Alias(ident, script string) error {
 	p := NewParser(strings.NewReader(script))
 	ex, err := p.Parse()
 	if err != nil {
 		return err
 	}
-	s.alias[ident], err = s.expandExecuter(ex)
+	alias, err := s.expandExecuter(ex)
 	if err != nil {
 		return err
 	}
+	if len(alias) > 1 {
+		return fmt.Errorf("invalid alias definition %s", script)
+	}
+	s.alias[ident] = alias[0]
 	if _, err := p.Parse(); err == nil || errors.Is(err, io.EOF) {
 		return nil
 	}
@@ -194,6 +202,31 @@ func (s *Shell) Delete(ident string) error {
 		return ErrReadOnly
 	}
 	return s.locals.Delete(ident)
+}
+
+func (s *Shell) Dry(str, cmd string, args []string) error {
+	s.setContext(cmd, args)
+	defer s.clearContext()
+
+	p := NewParser(strings.NewReader(str))
+	for {
+		ex, err := p.Parse()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+		str, err := s.expandExecuter(ex)
+		if err != nil {
+			continue
+		}
+		for i := range str {
+			io.WriteString(s.stdout, strings.Join(str[i], " "))
+			io.WriteString(s.stdout, "\n")
+		}
+	}
+	return nil
 }
 
 func (s *Shell) Execute(str, cmd string, args []string) error {
@@ -346,12 +379,58 @@ func (s *Shell) expand(ex Expander) ([]string, error) {
 	return str, nil
 }
 
-func (s *Shell) expandExecuter(ex Executer) ([]string, error) {
-	cmd, ok := ex.(ExecSimple)
-	if !ok {
-		return nil, fmt.Errorf("%T can not be expanded", ex)
+func (s *Shell) expandExecuter(ex Executer) ([][]string, error) {
+	var (
+		str [][]string
+		err error
+	)
+	switch x := ex.(type) {
+	case ExecSimple:
+		xs, err1 := x.Expand(s)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		str = append(str, xs)
+	case ExecAnd:
+		left, err1 := s.expandExecuter(x.Left)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		right, err1 := s.expandExecuter(x.Right)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		str = append(str, left...)
+		str = append(str, right...)
+	case ExecOr:
+		left, err1 := s.expandExecuter(x.Left)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		right, err1 := s.expandExecuter(x.Right)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		str = append(str, left...)
+		str = append(str, right...)
+	case ExecPipe:
+		for i := range x.List {
+			xs, err1 := s.expandExecuter(x.List[i].Executer)
+			if err1 != nil {
+				err = err1
+				break
+			}
+			str = append(str, xs...)
+		}
+	default:
+		err = fmt.Errorf("unknown/unsupported executer type %T", ex)
 	}
-	return cmd.Expand(s.locals)
+	return str, err
 }
 
 func (s *Shell) setContext(name string, args []string) {

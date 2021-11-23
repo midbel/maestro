@@ -364,7 +364,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propUsage:
 			cmd.Usage, err = d.parseString()
 		case propTags:
-			cmd.Cats, err = d.parseStringList()
+			cmd.Categories, err = d.parseStringList()
 		case propRetry:
 			cmd.Retry, err = d.parseInt()
 		case propTimeout:

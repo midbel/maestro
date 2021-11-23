@@ -58,6 +58,14 @@ func Load(file string) (*Maestro, error) {
 	return m, nil
 }
 
+func (m *Maestro) Dry(name string, args []string) error {
+	cmd, err := m.lookup(name)
+	if err != nil {
+		return err
+	}
+	return cmd.Dry(args)
+}
+
 func (m *Maestro) Execute(name string, args []string) error {
 	cmd, err := m.lookup(name)
 	if err != nil {
