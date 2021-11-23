@@ -64,6 +64,6 @@ func repeat(char string, value interface{}) string {
 	return strings.Repeat(char, n)
 }
 
-func wrap(str string) string {
-	return str
+func wrap(in string) (string, error) {
+	return in, nil
 }
