@@ -35,7 +35,6 @@ const (
 const (
 	propHelp    = "help"
 	propShort   = "short"
-	propUsage   = "usage"
 	propTags    = "tag"
 	propRetry   = "retry"
 	propWorkDir = "workdir"
@@ -43,7 +42,7 @@ const (
 	propHosts   = "host"
 	propError   = "error"
 	propOpts    = "options"
-	propArg     = "arg"
+	propArg     = "args"
 )
 
 const (
@@ -361,8 +360,6 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			cmd.Short, err = d.parseString()
 		case propHelp:
 			cmd.Desc, err = d.parseString()
-		case propUsage:
-			cmd.Usage, err = d.parseString()
 		case propTags:
 			cmd.Categories, err = d.parseStringList()
 		case propRetry:
@@ -372,7 +369,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
 		case propArg:
-			cmd.Args, err = d.parseInt()
+			cmd.Args, err = d.parseStringList()
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
 		}

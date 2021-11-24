@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/midbel/maestro/shell"
@@ -17,6 +18,7 @@ const (
 type Command interface {
 	About() string
 	Help() (string, error)
+	Usage() string
 	Tags() []string
 	Command() string
 	Combined() bool
@@ -56,7 +58,6 @@ type Single struct {
 	Name         string
 	Short        string
 	Desc         string
-	Usage        string
 	Error        string
 	Categories   []string
 	Retry        int64
@@ -67,7 +68,7 @@ type Single struct {
 	Scripts      []Line
 	Env          map[string]string
 	Options      []Option
-	Args         int64
+	Args         []string
 
 	shell *shell.Shell
 }
@@ -111,6 +112,34 @@ func (s *Single) Tags() []string {
 		return []string{"default"}
 	}
 	return s.Categories
+}
+
+func (s *Single) Usage() string {
+	var str strings.Builder
+	str.WriteString(s.Name)
+	for _, o := range s.Options {
+		str.WriteString(" ")
+		str.WriteString("[")
+		if o.Short != "" {
+			str.WriteString("-")
+			str.WriteString(o.Short)
+		}
+		if o.Short != "" && o.Long != "" {
+			str.WriteString("/")
+		}
+		if o.Long != "" {
+			str.WriteString("--")
+			str.WriteString(o.Long)
+		}
+		str.WriteString("]")
+	}
+	for _, a := range s.Args {
+		str.WriteString(" ")
+		str.WriteString("<")
+		str.WriteString(a)
+		str.WriteString(">")
+	}
+	return str.String()
 }
 
 func (_ *Single) Combined() bool {
@@ -199,8 +228,8 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 			return nil, err
 		}
 	}
-	if s.Args > 0 && set.NArg() < int(s.Args) {
-		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, s.Args, set.NArg())
+	if z := len(s.Args); z > 0 && set.NArg() < z {
+		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, z, set.NArg())
 	}
 	return set.Args(), nil
 }
@@ -313,4 +342,8 @@ func (c Combined) Dry(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (c Combined) Usage() string {
+	return ""
 }

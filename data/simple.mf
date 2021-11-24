@@ -94,14 +94,17 @@ combine(
 parseargs(
 	short = "demo command with custom option",
 	tag   = "demo",
+	args  = foo bar,
 	options = (
 		short   = a,
 		long    = all,
 		flag    = true,
+		help    = "do all the thing that need to be done",
 	), (
 		short   = b,
 		long    = "bind",
 		required = true,
+		help     = "bind to given address before performing task",
 	)
 ): {
 	echo $0

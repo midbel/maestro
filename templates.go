@@ -24,13 +24,22 @@ on one of the available command(s)
 `
 
 const cmdhelp = `
-{{.Command}}: {{.About}}
+{{.Command}}
 
+{{if .About -}}
+{{.About}}
+{{end}}
+{{if .Desc -}}
 {{.Desc}}
+{{end}}
+Options:
+{{- range .Options}}
+  {{if .Short}}-{{.Short}}{{end}}{{if and .Long .Short}}, {{end}}{{if .Long}}--{{.Long}}{{end}}  {{.Help}}
+{{- end}}
 
-{{.Usage}}
+usage: {{.Usage}}
 
-tag(s): {{join .Tags ", "}}
+tags: {{join .Tags ", "}}
 `
 
 func renderTemplate(name string, ctx interface{}) (string, error) {
