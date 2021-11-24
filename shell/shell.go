@@ -63,21 +63,33 @@ type Shell struct {
 
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
-		now:    time.Now(),
-		cwd:    ".",
-		alias:  make(map[string][]string),
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		now:   time.Now(),
+		cwd:   ".",
+		alias: make(map[string][]string),
 	}
 	for i := range options {
 		if err := options[i](&s); err != nil {
 			return nil, err
 		}
 	}
+	if s.stdout == nil {
+		s.stdout = os.Stdout
+	}
+	if s.stderr == nil {
+		s.stderr = os.Stderr
+	}
 	if s.locals == nil {
 		s.locals = EmptyEnv()
 	}
 	return &s, nil
+}
+
+func (s *Shell) SetStdout(w io.Writer) {
+	s.stdout = w
+}
+
+func (s *Shell) SetStderr(w io.Writer) {
+	s.stderr = w
 }
 
 func (s *Shell) Chdir(dir string) error {

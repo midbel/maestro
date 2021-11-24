@@ -8,12 +8,14 @@ type ShellOption func(*Shell) error
 
 func WithStdout(w ...io.Writer) ShellOption {
 	return func(s *Shell) error {
+		s.SetStdout(io.MultiWriter(w...))
 		return nil
 	}
 }
 
 func WithStderr(w ...io.Writer) ShellOption {
 	return func(s *Shell) error {
+		s.SetStderr(io.MultiWriter(w...))
 		return nil
 	}
 }
