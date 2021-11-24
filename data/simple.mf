@@ -6,9 +6,8 @@ simple is a sample maestro file that can be used for any Go project.
 It provides commands to automatize building, checking and testing
 your Go project.
 
-It has also some commands to give some statistics on the status
-of the project such as number of remaining todos, line of codes
-and others.
+It has also some commands to give statistics on the status of the
+project such as number of remaining todos, line of codes and others.
 HELP
 
 maestro = maestro
@@ -90,4 +89,23 @@ combine(
 	<test
 	@echo ">> run build"
 	<build
+}
+
+parseargs(
+	short = "demo command with custom option",
+	tag   = "demo",
+	options = (
+		short   = a,
+		long    = all,
+		default = "yes",
+	), (
+		short   = b,
+		long    = "bind",
+		default = "localhost:1312",
+	)
+): {
+	echo $0
+	echo "arguments: $@"
+	echo "bind(short): $b, bind(long): $bind"
+	echo "all(short): $a, all(long): $all"
 }

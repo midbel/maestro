@@ -37,6 +37,7 @@ type Option struct {
 	Help     string
 	Required bool
 	Flag     bool
+	Target   string
 }
 
 type Line struct {
@@ -154,17 +155,61 @@ func (s *Single) Execute(args []string) error {
 }
 
 func (s *Single) parseArgs(args []string) ([]string, error) {
-	set := flag.NewFlagSet(s.Name, flag.ExitOnError)
-	if len(s.Options) > 0 {
-
-	}
-	if err := set.Parse(args); err != nil {
+	set, err := createFlagSet(s.Name, args, s.Options)
+	if err != nil {
 		return nil, err
+	}
+	define := func(name, value string) error {
+		if name == "" {
+			return nil
+		}
+		return s.shell.Define(name, []string{value})
+	}
+	for _, o := range s.Options {
+		if o.Required && o.Target == "" {
+			return nil, fmt.Errorf("%s/%s: missing value", o.Short, o.Long)
+		}
+		if err := define(o.Short, o.Target); err != nil {
+			return nil, err
+		}
+		if err := define(o.Long, o.Target); err != nil {
+			return nil, err
+		}
 	}
 	if s.Args > 0 && set.NArg() < int(s.Args) {
 		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, s.Args, set.NArg())
 	}
 	return set.Args(), nil
+}
+
+func createFlagSet(name string, args []string, options []Option) (*flag.FlagSet, error) {
+	var (
+		set  = flag.NewFlagSet(name, flag.ExitOnError)
+		seen = make(map[string]struct{})
+	)
+	attach := func(name, value, help string, target *string) error {
+		if name == "" {
+			return nil
+		}
+		if _, ok := seen[name]; ok {
+			return fmt.Errorf("%s: option already defined", name)
+		}
+		seen[name] = struct{}{}
+		set.StringVar(target, name, value, help)
+		return nil
+	}
+	for i, o := range options {
+		if err := attach(o.Short, o.Default, o.Help, &options[i].Target); err != nil {
+			return nil, err
+		}
+		if err := attach(o.Long, o.Default, o.Help, &options[i].Target); err != nil {
+			return nil, err
+		}
+	}
+	if err := set.Parse(args); err != nil {
+		return nil, err
+	}
+	return set, nil
 }
 
 type Combined []Command
