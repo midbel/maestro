@@ -1,9 +1,5 @@
 package maestro
 
-import (
-	"fmt"
-)
-
 type Env struct {
 	parent *Env
 	locals map[string][]string
@@ -31,15 +27,11 @@ func (e *Env) Delete(key string) error {
 }
 
 func (e *Env) Resolve(key string) ([]string, error) {
-	var err error
 	vs, ok := e.locals[key]
-	if !ok {
-		if e.parent == nil {
-			return nil, fmt.Errorf("%s: %w", key, errUndefined)
-		}
-		vs, err = e.parent.Resolve(key)
+	if !ok && e.parent != nil {
+		return e.parent.Resolve(key)
 	}
-	return vs, err
+	return vs, nil
 }
 
 func (e *Env) Unwrap() *Env {

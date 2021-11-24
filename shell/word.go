@@ -243,7 +243,7 @@ func (v ExpandVariable) Expand(env Environment) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if v.Quoted {
+	if v.Quoted && len(str) > 0 {
 		str[0] = strings.Join(str, " ")
 		str = str[:1]
 	}
