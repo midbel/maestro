@@ -22,6 +22,7 @@ func main() {
 		"echo {5..-1..-2}",
 		"echo {A,B,C,D,E}{0..9}",
 		"echo pre-{{A,B,C,D,E},_{a,b,c,d,e}_}-suff",
+		"echo $(wc -l data/simple.mf)",
 	}
 	for i, str := range lines {
 		if i > 0 {
@@ -39,6 +40,10 @@ func main() {
 	fmt.Println("========")
 	fmt.Println("========")
 	env := shell.EmptyEnv()
+	env.Define("foobar", []string{"foobar"})
+	env.Define("file", []string{"file.txt.gz"})
+
+	sh, _ := shell.New(shell.WithEnv(env))
 	for i, str := range lines {
 		if i > 0 {
 			fmt.Println("---")
@@ -58,7 +63,7 @@ func main() {
 			if !ok {
 				continue
 			}
-			fmt.Println(s.Expand(env))
+			fmt.Println(s.Expand(sh))
 		}
 	}
 }

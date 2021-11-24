@@ -24,6 +24,8 @@ const (
 	underscore = '_'
 	lcurly     = '{'
 	rcurly     = '}'
+	lparen     = '('
+	rparen     = ')'
 	equal      = '='
 	caret      = '^'
 	ampersand  = '&'
@@ -49,31 +51,6 @@ var slashOps = map[rune]rune{
 	slash:   ReplaceAll,
 	percent: ReplaceSuffix,
 	pound:   ReplacePrefix,
-}
-
-type Mode int8
-
-const (
-	ModeDefault Mode = iota
-	ModeQuoted
-	ModeExpanded
-	ModeBraced
-)
-
-func (m Mode) IsDefault() bool {
-	return m == ModeDefault
-}
-
-func (m Mode) IsQuoted() bool {
-	return m == ModeQuoted
-}
-
-func (m Mode) IsExpanded() bool {
-	return m == ModeExpanded
-}
-
-func (m Mode) IsBraced() bool {
-	return m == ModeBraced
 }
 
 type Scanner struct {
@@ -205,6 +182,8 @@ func (s *Scanner) scanSequence(tok *Token) {
 		s.read()
 	case s.char == pipe:
 		tok.Type = Pipe
+	case s.char == rparen:
+		tok.Type = EndSub
 	default:
 		tok.Type = Invalid
 	}
@@ -269,6 +248,11 @@ func (s *Scanner) scanVariable(tok *Token) {
 	if s.char == lcurly {
 		tok.Type = BegExp
 		s.expanded = true
+		s.read()
+		return
+	}
+	if s.char == lparen {
+		tok.Type = BegSub
 		s.read()
 		return
 	}
@@ -504,7 +488,7 @@ func isOperator(r rune) bool {
 }
 
 func isSequence(r rune) bool {
-	return r == ampersand || r == pipe || r == semicolon
+	return r == ampersand || r == pipe || r == semicolon || r == rparen
 }
 
 func isAssign(r rune) bool {

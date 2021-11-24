@@ -20,6 +20,8 @@ const (
 	List
 	Pipe
 	PipeBoth
+	BegSub
+	EndSub
 	And
 	Or
 	Assign
@@ -87,6 +89,10 @@ func (t Token) String() string {
 		return "<pipe>"
 	case PipeBoth:
 		return "<pipe-both>"
+	case BegSub:
+		return "<beg-sub>"
+	case EndSub:
+		return "<end-sub>"
 	case List:
 		return "<list>"
 	case BegExp:

@@ -72,7 +72,7 @@ func (p *Parser) parseSimple() (Executer, error) {
 			err  error
 		)
 		switch p.curr.Type {
-		case BegExp, Variable, Quote, Literal, BegBrace:
+		case BegExp, Variable, Quote, Literal, BegBrace, BegSub:
 			next, err = p.parseWords()
 		default:
 			err = p.unexpected()
@@ -82,25 +82,22 @@ func (p *Parser) parseSimple() (Executer, error) {
 		}
 		ex.List = append(ex.List, next)
 	}
-	e := ExecSimple{
-		Expander: ex,
-	}
-	return e, nil
+	return createSimple(ex), nil
 }
 
 func (p *Parser) parseAssignment() (Executer, error) {
 	if p.curr.Type != Literal {
 		return nil, p.unexpected()
 	}
-	ex := ExecAssign{
-		Ident: p.curr.Literal,
-	}
+	var (
+		ident = p.curr.Literal
+		list  ExpandList
+	)
 	p.next()
 	if p.curr.Type != Assign {
 		return nil, p.unexpected()
 	}
 	p.next()
-	var list ExpandList
 	for !p.done() {
 		if p.curr.IsSequence() {
 			break
@@ -111,38 +108,32 @@ func (p *Parser) parseAssignment() (Executer, error) {
 		}
 		list.List = append(list.List, w)
 	}
-	ex.Expander = list
 
 	if p.curr.Type == List || p.curr.Type == Comment {
 		p.next()
 	}
-	return ex, nil
+	return createAssign(ident, list), nil
 }
 
 func (p *Parser) parsePipe(left Executer) (Executer, error) {
-	pi := pipeitem{
-		Executer: left,
-		Both:     p.curr.Type == PipeBoth,
-	}
-	ex := ExecPipe{
-		List: []pipeitem{pi},
-	}
+	var list []pipeitem
+	list = append(list, createPipeItem(left, p.curr.Type == PipeBoth))
 	for !p.done() {
 		if p.curr.Type != Pipe && p.curr.Type != PipeBoth {
 			break
 		}
 		var (
-			pi  pipeitem
-			err error
+			both = p.curr.Type == PipeBoth
+			ex   Executer
+			err  error
 		)
-		pi.Both = p.curr.Type == PipeBoth
 		p.next()
-		if pi.Executer, err = p.parseSimple(); err != nil {
+		if ex, err = p.parseSimple(); err != nil {
 			return nil, err
 		}
-		ex.List = append(ex.List, pi)
+		list = append(list, createPipeItem(ex, both))
 	}
-	return ex, nil
+	return createPipe(list), nil
 }
 
 func (p *Parser) parseAnd(left Executer) (Executer, error) {
@@ -151,10 +142,7 @@ func (p *Parser) parseAnd(left Executer) (Executer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ExecAnd{
-		Left:  left,
-		Right: right,
-	}, nil
+	return createAnd(left, right), nil
 }
 
 func (p *Parser) parseOr(left Executer) (Executer, error) {
@@ -163,10 +151,7 @@ func (p *Parser) parseOr(left Executer) (Executer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ExecOr{
-		Left:  left,
-		Right: right,
-	}, nil
+	return createOr(left, right), nil
 }
 
 func (p *Parser) parseWords() (Expander, error) {
@@ -191,6 +176,8 @@ func (p *Parser) parseWords() (Expander, error) {
 			next, err = p.parseQuote()
 		case BegExp:
 			next, err = p.parseExpansion()
+		case BegSub:
+			next, err = p.parseSubstitution()
 		case BegBrace:
 			next, err = p.parseBraces(list.Pop())
 		default:
@@ -205,6 +192,50 @@ func (p *Parser) parseWords() (Expander, error) {
 	if len(list.List) == 1 {
 		ex = list.List[0]
 	}
+	return ex, nil
+}
+
+func (p *Parser) parseSubstitution() (Expander, error) {
+	ex := ExpandList{
+		Sub: true,
+	}
+	p.next()
+	for !p.done() {
+		if p.curr.Type == EndSub {
+			break
+		}
+		var (
+			next Expander
+			err  error
+		)
+		switch p.curr.Type {
+		case Blank:
+			p.next()
+			continue
+		case Literal:
+			next, err = p.parseLiteral()
+		case Variable:
+			next, err = p.parseVariable()
+		case Quote:
+			next, err = p.parseQuote()
+		case BegExp:
+			next, err = p.parseExpansion()
+		case BegSub:
+			next, err = p.parseSubstitution()
+		case BegBrace:
+			next, err = p.parseBraces(ex.Pop())
+		default:
+			err = p.unexpected()
+		}
+		if err != nil {
+			return nil, err
+		}
+		ex.List = append(ex.List, next)
+	}
+	if p.curr.Type != EndSub {
+		return nil, p.unexpected()
+	}
+	p.next()
 	return ex, nil
 }
 
@@ -228,6 +259,8 @@ func (p *Parser) parseQuote() (ExpandMulti, error) {
 			next, err = p.parseVariable()
 		case BegExp:
 			next, err = p.parseExpansion()
+		case BegSub:
+			next, err = p.parseSubstitution()
 		default:
 			err = p.unexpected()
 		}

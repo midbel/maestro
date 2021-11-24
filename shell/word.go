@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -60,9 +62,23 @@ type ExecAssign struct {
 	Expander
 }
 
+func createAssign(ident string, ex Expander) ExecAssign {
+	return ExecAssign{
+		Ident:    ident,
+		Expander: ex,
+	}
+}
+
 type ExecAnd struct {
 	Left  Executer
 	Right Executer
+}
+
+func createAnd(left, right Executer) ExecAnd {
+	return ExecAnd{
+		Left:  left,
+		Right: right,
+	}
 }
 
 type ExecOr struct {
@@ -70,13 +86,33 @@ type ExecOr struct {
 	Right Executer
 }
 
+func createOr(left, right Executer) ExecOr {
+	return ExecOr{
+		Left:  left,
+		Right: right,
+	}
+}
+
 type ExecPipe struct {
 	List []pipeitem
+}
+
+func createPipe(list []pipeitem) ExecPipe {
+	return ExecPipe{
+		List: list,
+	}
 }
 
 type pipeitem struct {
 	Executer
 	Both bool
+}
+
+func createPipeItem(ex Executer, both bool) pipeitem {
+	return pipeitem{
+		Executer: ex,
+		Both:     both,
+	}
 }
 
 type ExecSimple struct {
@@ -86,11 +122,21 @@ type ExecSimple struct {
 	// Err   Expander
 }
 
+func createSimple(ex Expander) ExecSimple {
+	return ExecSimple{
+		Expander: ex,
+	}
+}
+
 type ExpandList struct {
 	List []Expander
+	Sub  bool
 }
 
 func (e ExpandList) Expand(env Environment) ([]string, error) {
+	if e.Sub {
+		return e.execute(env)
+	}
 	var str []string
 	for i := range e.List {
 		ws, err := e.List[i].Expand(env)
@@ -100,6 +146,37 @@ func (e ExpandList) Expand(env Environment) ([]string, error) {
 		str = append(str, ws...)
 	}
 	return str, nil
+}
+
+func (e ExpandList) execute(env Environment) ([]string, error) {
+	sh, ok := env.(*Shell)
+	if !ok {
+		return nil, fmt.Errorf("substitution can not expanded")
+	}
+	var (
+		err error
+		buf bytes.Buffer
+	)
+	sh, _ = sh.Subshell()
+	sh.SetStdout(&buf)
+
+	e.Sub = false
+	if err = sh.execute(createSimple(e)); err != nil {
+		return nil, err
+	}
+	var (
+		str  []string
+		scan = bufio.NewScanner(&buf)
+	)
+	scan.Split(bufio.ScanWords)
+	for scan.Scan() {
+		word := scan.Text()
+		if word == "" {
+			continue
+		}
+		str = append(str, word)
+	}
+	return str, scan.Err()
 }
 
 func (e *ExpandList) Pop() Expander {
