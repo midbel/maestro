@@ -1,12 +1,15 @@
 package maestro
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/midbel/maestro/shell"
 )
 
 const (
@@ -68,6 +71,7 @@ func Decode(r io.Reader) (*Maestro, error) {
 	if err := d.push(r); err != nil {
 		return nil, err
 	}
+
 	return d.Decode()
 }
 
@@ -289,19 +293,41 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 
 	var vs []string
 	for d.curr().IsValue() && !d.done() {
-		if d.curr().IsVariable() {
+		switch {
+		case d.curr().IsVariable():
 			xs, err := d.locals.Resolve(d.curr().Literal)
 			if err != nil {
 				return err
 			}
 			vs = append(vs, xs...)
-		} else {
+		case d.curr().IsScript():
+			xs, err := d.decodeScript(d.curr().Literal)
+			if err != nil {
+				return err
+			}
+			vs = append(vs, xs...)
+		default:
 			vs = append(vs, d.curr().Literal)
 		}
 		d.next()
 	}
 	d.locals.Define(ident.Literal, vs)
 	return d.ensureEOL()
+}
+
+func (d *Decoder) decodeScript(line string) ([]string, error) {
+	var (
+		buf   bytes.Buffer
+		opts = []shell.ShellOption{
+			shell.WithEnv(d.locals),
+			shell.WithStdout(&buf),
+		}
+		sh, _ = shell.New(opts...)
+	)
+	if err := sh.Execute(line, "", nil); err != nil {
+		return nil, err
+	}
+	return shell.Shlex(&buf)
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
@@ -481,6 +507,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 
 func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	d.next()
+	seen := make(map[string]struct{})
 	for !d.done() {
 		if d.curr().Type == BegScript {
 			break
@@ -491,7 +518,12 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 		dep := Dep{
 			Name: d.curr().Literal,
 		}
-		cmd.Dependencies = append(cmd.Dependencies, dep)
+		if _, ok := seen[dep.Name]; ok {
+			return fmt.Errorf("%s: duplicate dependency", dep.Name)
+		}
+		seen[dep.Name] = struct{}{}
+
+		cmd.Deps = append(cmd.Deps, dep)
 		d.next()
 		if d.curr().Type == Background {
 			d.next()

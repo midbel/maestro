@@ -259,8 +259,8 @@ func (s *Shell) executeSingle(ex Expander) error {
 	}()
 
 	cmd := exec.CommandContext(ctx, str[0], str[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = s.stdout
+	cmd.Stderr = s.stderr
 	err = cmd.Run()
 	s.updateContext(cmd)
 	return err
@@ -292,7 +292,7 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		}
 		cmd := exec.CommandContext(ctx, str[0], str[1:]...)
 		if !ex.List[i].Both {
-			cmd.Stderr = os.Stderr
+			cmd.Stderr = s.stderr
 		}
 		cs = append(cs, cmd)
 	}
@@ -312,7 +312,7 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		defer curr.Wait()
 	}
 	cmd := cs[len(cs)-1]
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = s.stdout
 	grp.Go(func() error {
 		err := cmd.Run()
 		s.updateContext(cmd)

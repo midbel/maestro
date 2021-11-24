@@ -116,7 +116,15 @@ func (t Token) IsVariable() bool {
 }
 
 func (t Token) IsValue() bool {
-	return t.Type == Ident || t.Type == String || t.Type == Boolean || t.Type == Integer || t.Type == Variable
+	return t.IsVariable() || t.IsPrimitive() || t.IsScript()
+}
+
+func (t Token) IsScript() bool {
+	return t.Type == Script
+}
+
+func (t Token) IsPrimitive() bool {
+	return t.Type == Ident || t.Type == String || t.Type == Boolean || t.Type == Integer
 }
 
 func (t Token) IsEOF() bool {

@@ -252,6 +252,21 @@ func (s *Scanner) scanInteger(tok *Token) {
 
 func (s *Scanner) scanVariable(tok *Token) {
 	s.read()
+	if s.char == lparen {
+		s.read()
+		for !s.done() && s.char != rparen {
+			s.str.WriteRune(s.char)
+			s.read()
+		}
+		tok.Literal = s.str.String()
+		tok.Type = Script
+		if s.char != rparen {
+			tok.Type = Invalid
+		} else {
+			s.read()
+		}
+		return
+	}
 	for isIdent(s.char) {
 		s.str.WriteRune(s.char)
 		s.read()

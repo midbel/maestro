@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"strconv"
@@ -164,19 +163,7 @@ func (e ExpandList) execute(env Environment) ([]string, error) {
 	if err = sh.execute(createSimple(e)); err != nil {
 		return nil, err
 	}
-	var (
-		str  []string
-		scan = bufio.NewScanner(&buf)
-	)
-	scan.Split(bufio.ScanWords)
-	for scan.Scan() {
-		word := scan.Text()
-		if word == "" {
-			continue
-		}
-		str = append(str, word)
-	}
-	return str, scan.Err()
+	return Shlex(&buf)
 }
 
 func (e *ExpandList) Pop() Expander {

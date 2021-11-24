@@ -71,8 +71,13 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if err != nil {
 		return err
 	}
+	// deps, err := m.resolveDependencies(cmd.Deps)
+	// if err != nil {
+	// 	return err
+	// }
+	// _ = deps
 	err = cmd.Run(args)
-	
+
 	next := m.MetaExec.Success
 	if err != nil {
 		next = m.MetaExec.Error
@@ -175,6 +180,10 @@ func (m *Maestro) help() (string, error) {
 
 func (m *Maestro) Name() string {
 	return strings.TrimSuffix(filepath.Base(m.File), filepath.Ext(m.File))
+}
+
+func (m *Maestro) resolveDependencies(deps []Dep) ([]Command, error) {
+	return nil, nil
 }
 
 func (m *Maestro) lookup(name string) (Command, error) {

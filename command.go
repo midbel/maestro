@@ -55,20 +55,20 @@ type Line struct {
 }
 
 type Single struct {
-	Name         string
-	Short        string
-	Desc         string
-	Error        string
-	Categories   []string
-	Retry        int64
-	WorkDir      string
-	Timeout      time.Duration
-	Hosts        []string
-	Dependencies []Dep
-	Scripts      []Line
-	Env          map[string]string
-	Options      []Option
-	Args         []string
+	Name       string
+	Short      string
+	Desc       string
+	Error      string
+	Categories []string
+	Retry      int64
+	WorkDir    string
+	Timeout    time.Duration
+	Hosts      []string
+	Deps       []Dep
+	Scripts    []Line
+	Env        map[string]string
+	Options    []Option
+	Args       []string
 
 	shell *shell.Shell
 }
