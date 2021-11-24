@@ -11,18 +11,11 @@ import (
 
 func main() {
 	lines := []string{
-		"echo {}",
-		"echo {foo,bar,foobar}",
-		"echo prefix-{foo,bar,foobar}",
-		"echo {foo,bar,foobar}-suffix",
-		"echo prefix-{foo,bar,foobar}-suffix",
-		"echo {1..5}",
-		"echo {1..5..2}",
-		"echo {01..5..2}",
-		"echo {5..-1..-2}",
-		"echo {A,B,C,D,E}{0..9}",
-		"echo pre-{{A,B,C,D,E},_{a,b,c,d,e}_}-suff",
-		"echo $(wc -l data/simple.mf)",
+		"echo foobar",
+		"echo foo | pipe && echo bar | pipe",
+		"foo=bar",
+		"foo=bar; echo foobar # a comment",
+		"echo $(cat | grep | cut)",
 	}
 	for i, str := range lines {
 		if i > 0 {
@@ -39,11 +32,11 @@ func main() {
 	}
 	fmt.Println("========")
 	fmt.Println("========")
-	env := shell.EmptyEnv()
-	env.Define("foobar", []string{"foobar"})
-	env.Define("file", []string{"file.txt.gz"})
+	// env := shell.EmptyEnv()
+	// env.Define("foobar", []string{"foobar"})
+	// env.Define("file", []string{"file.txt.gz"})
+	// sh, _ := shell.New(shell.WithEnv(env))
 
-	sh, _ := shell.New(shell.WithEnv(env))
 	for i, str := range lines {
 		if i > 0 {
 			fmt.Println("---")
@@ -58,12 +51,12 @@ func main() {
 				}
 				break
 			}
-			// fmt.Printf("%#v\n", e)
-			s, ok := e.(shell.ExecSimple)
-			if !ok {
-				continue
-			}
-			fmt.Println(s.Expand(sh))
+			fmt.Printf("%#v\n", e)
+			// s, ok := e.(shell.ExecSimple)
+			// if !ok {
+			// 	continue
+			// }
+			// fmt.Println(s.Expand(sh))
 		}
 	}
 }

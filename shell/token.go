@@ -57,7 +57,7 @@ type Token struct {
 
 func (t Token) IsSequence() bool {
 	switch t.Type {
-	case And, Or, List, Pipe, PipeBoth, Comment:
+	case And, Or, List, Pipe, PipeBoth, Comment, EndSub:
 		return true
 	default:
 		return false
@@ -69,7 +69,7 @@ func (t Token) IsList() bool {
 }
 
 func (t Token) Eow() bool {
-	return t.Type == Comment || t.Type == EOF || t.Type == Blank || t.IsSequence()
+	return t.Type == Comment || t.Type == EOF || t.Type == EndSub || t.Type == Blank || t.IsSequence()
 }
 
 func (t Token) String() string {

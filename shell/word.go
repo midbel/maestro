@@ -127,6 +127,15 @@ func createSimple(ex Expander) ExecSimple {
 	}
 }
 
+type ExpandSub struct {
+	List []Executer
+	Quoted bool
+}
+
+func (e ExpandSub) Expand(env Environment) ([]string, error) {
+	return nil, nil
+}
+
 type ExpandList struct {
 	List   []Expander
 	Sub    bool
@@ -181,6 +190,13 @@ func (e *ExpandList) Pop() Expander {
 type ExpandWord struct {
 	Literal string
 	Quoted  bool
+}
+
+func createWord(str string, quoted bool) ExpandWord {
+	return ExpandWord{
+		Literal: str,
+		Quoted: quoted,
+	}
 }
 
 func (w ExpandWord) Expand(_ Environment) ([]string, error) {
@@ -300,12 +316,19 @@ func (m *ExpandMulti) Pop() Expander {
 	return x
 }
 
-type ExpandVariable struct {
+type ExpandVar struct {
 	Ident  string
 	Quoted bool
 }
 
-func (v ExpandVariable) Expand(env Environment) ([]string, error) {
+func createVariable(ident string, quoted bool) ExpandVar {
+	return ExpandVar{
+		Ident: ident,
+		Quoted: quoted,
+	}
+}
+
+func (v ExpandVar) Expand(env Environment) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		return nil, err
@@ -542,8 +565,16 @@ func (v ExpandUpper) upperAll(str []string) []string {
 
 type ExpandValIfUnset struct {
 	Ident  string
-	Str    string
+	Value    string
 	Quoted bool
+}
+
+func createValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
+	return ExpandValIfUnset{
+		Ident: ident,
+		Value: value,
+		Quoted: quoted,
+	}
 }
 
 func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
@@ -551,19 +582,27 @@ func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
 	if err == nil {
 		return str, nil
 	}
-	return []string{v.Str}, nil
+	return []string{v.Value}, nil
 }
 
 type ExpandSetValIfUnset struct {
 	Ident  string
-	Str    string
+	Value  string
 	Quoted bool
+}
+
+func createSetValIfUnset(ident, value string, quoted bool) ExpandSetValIfUnset {
+	return ExpandSetValIfUnset{
+		Ident: ident,
+		Value: value,
+		Quoted: quoted,
+	}
 }
 
 func (v ExpandSetValIfUnset) Expand(env Environment) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
-		str = []string{v.Str}
+		str = []string{v.Value}
 		env.Define(v.Ident, str)
 	}
 	return str, nil
@@ -571,22 +610,38 @@ func (v ExpandSetValIfUnset) Expand(env Environment) ([]string, error) {
 
 type ExpandValIfSet struct {
 	Ident  string
-	Str    string
+	Value  string
 	Quoted bool
+}
+
+func createExpandValIfSet(ident, value string, quoted bool) ExpandValIfSet {
+	return ExpandValIfSet{
+		Ident: ident,
+		Value: value,
+		Quoted: quoted,
+	}
 }
 
 func (v ExpandValIfSet) Expand(env Environment) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err == nil {
-		str = []string{v.Str}
+		str = []string{v.Value}
 	}
 	return str, nil
 }
 
 type ExpandExitIfUnset struct {
 	Ident  string
-	Str    string
+	Value    string
 	Quoted bool
+}
+
+func createExpandExitIfUnset(ident, value string, quoted bool) ExpandExitIfUnset {
+	return ExpandExitIfUnset{
+		Ident: ident,
+		Value: value,
+		Quoted: quoted,
+	}
 }
 
 func (v ExpandExitIfUnset) Expand(env Environment) ([]string, error) {

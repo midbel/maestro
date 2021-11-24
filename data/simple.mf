@@ -44,8 +44,10 @@ verify(
 	short = "verify code",
 	tag   = "build" "verify",
 ): {
-	@-go vet github.com/midbel/maestro
-	@-go vet github.com/midbel/maestro/shell
+	echo "run vet on maestro package"
+	@go vet github.com/midbel/maestro
+	echo "run vet on maestro/shell package"
+	@go vet github.com/midbel/maestro/shell
 }
 
 commit(

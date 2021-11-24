@@ -29,7 +29,17 @@ func (p *Parser) Parse() (Executer, error) {
 	if p.done() {
 		return nil, io.EOF
 	}
-	return p.parse()
+	ex, err := p.parse()
+	if err != nil {
+		return nil, err
+	}
+	switch p.curr.Type {
+	case List, Comment, EOF:
+		p.next()
+	default:
+		return nil, p.unexpected()
+	}
+	return ex, nil
 }
 
 func (p *Parser) parse() (Executer, error) {
@@ -40,49 +50,37 @@ func (p *Parser) parse() (Executer, error) {
 	if err != nil {
 		return nil, err
 	}
-	for !p.done() {
+	for {
 		switch p.curr.Type {
-		case List, Comment:
-			p.next()
-			return ex, nil
 		case And:
 			return p.parseAnd(ex)
 		case Or:
 			return p.parseOr(ex)
 		case Pipe, PipeBoth:
 			ex, err = p.parsePipe(ex)
+			if err != nil {
+				return nil, err
+			}
 		default:
-			err = p.unexpected()
-		}
-		if err != nil {
-			return nil, err
+			return ex, nil
 		}
 	}
-	return ex, nil
 }
 
 func (p *Parser) parseSimple() (Executer, error) {
 	var ex ExpandList
-	for !p.done() {
-		if p.curr.IsSequence() {
-			break
-		}
-		var (
-			next Expander
-			err  error
-		)
+	for {
 		switch p.curr.Type {
-		case BegExp, Variable, Quote, Literal, BegBrace, BegSub:
-			next, err = p.parseWords()
+		case Literal, Quote, Variable, BegExp, BegBrace, BegSub:
+			next, err := p.parseWords()
+			if err != nil {
+				return nil, err
+			}
+			ex.List = append(ex.List, next)
 		default:
-			err = p.unexpected()
+			return createSimple(ex), nil
 		}
-		if err != nil {
-			return nil, err
-		}
-		ex.List = append(ex.List, next)
 	}
-	return createSimple(ex), nil
 }
 
 func (p *Parser) parseAssignment() (Executer, error) {
@@ -107,10 +105,6 @@ func (p *Parser) parseAssignment() (Executer, error) {
 			return nil, err
 		}
 		list.List = append(list.List, w)
-	}
-
-	if p.curr.Type == List || p.curr.Type == Comment {
-		p.next()
 	}
 	return createAssign(ident, list), nil
 }
@@ -196,37 +190,14 @@ func (p *Parser) parseWords() (Expander, error) {
 }
 
 func (p *Parser) parseSubstitution() (Expander, error) {
-	ex := ExpandList{
-		Sub: true,
-	}
+	var ex ExpandSub
+	ex.Quoted = p.quoted
 	p.next()
 	for !p.done() {
 		if p.curr.Type == EndSub {
 			break
 		}
-		var (
-			next Expander
-			err  error
-		)
-		switch p.curr.Type {
-		case Blank:
-			p.next()
-			continue
-		case Literal:
-			next, err = p.parseLiteral()
-		case Variable:
-			next, err = p.parseVariable()
-		case Quote:
-			next, err = p.parseQuote()
-		case BegExp:
-			next, err = p.parseExpansion()
-		case BegSub:
-			next, err = p.parseSubstitution()
-		case BegBrace:
-			next, err = p.parseBraces(ex.Pop())
-		default:
-			err = p.unexpected()
-		}
+		next, err := p.parse()
 		if err != nil {
 			return nil, err
 		}
@@ -278,9 +249,7 @@ func (p *Parser) parseQuote() (ExpandMulti, error) {
 }
 
 func (p *Parser) parseLiteral() (ExpandWord, error) {
-	ex := ExpandWord{
-		Literal: p.curr.Literal,
-	}
+	ex := createWord(p.curr.Literal, p.quoted)
 	p.next()
 	return ex, nil
 }
@@ -400,6 +369,7 @@ func (p *Parser) parseRangeBraces(prefix Expander) (Expander, error) {
 func (p *Parser) parseSlice(ident Token) (Expander, error) {
 	e := ExpandSlice{
 		Ident: ident.Literal,
+		Quoted: p.quoted,
 	}
 	p.next()
 	if p.curr.Type == Literal {
@@ -429,6 +399,7 @@ func (p *Parser) parseReplace(ident Token) (Expander, error) {
 	e := ExpandReplace{
 		Ident: ident.Literal,
 		What:  p.curr.Type,
+		Quoted: p.quoted,
 	}
 	p.next()
 	if p.curr.Type != Literal {
@@ -455,6 +426,7 @@ func (p *Parser) parseTrim(ident Token) (Expander, error) {
 	e := ExpandTrim{
 		Ident: ident.Literal,
 		What:  p.curr.Type,
+		Quoted: p.quoted,
 	}
 	p.next()
 	if p.curr.Type != Literal {
@@ -469,6 +441,7 @@ func (p *Parser) parseLower(ident Token) (Expander, error) {
 	e := ExpandLower{
 		Ident: ident.Literal,
 		All:   p.curr.Type == LowerAll,
+		Quoted: p.quoted,
 	}
 	p.next()
 	return e, nil
@@ -478,6 +451,7 @@ func (p *Parser) parseUpper(ident Token) (Expander, error) {
 	e := ExpandUpper{
 		Ident: ident.Literal,
 		All:   p.curr.Type == UpperAll,
+		Quoted: p.quoted,
 	}
 	p.next()
 	return e, nil
@@ -511,9 +485,7 @@ func (p *Parser) parseExpansion() (Expander, error) {
 	)
 	switch p.curr.Type {
 	case EndExp:
-		ex = ExpandVariable{
-			Ident: ident.Literal,
-		}
+		ex = createVariable(ident.Literal, p.quoted)
 	case Slice:
 		ex, err = p.parseSlice(ident)
 	case TrimSuffix, TrimSuffixLong, TrimPrefix, TrimPrefixLong:
@@ -525,37 +497,21 @@ func (p *Parser) parseExpansion() (Expander, error) {
 	case Upper, UpperAll:
 		ex, err = p.parseUpper(ident)
 	case ValIfUnset:
-		e := ExpandValIfUnset{
-			Ident: ident.Literal,
-		}
 		p.next()
-		e.Str = p.curr.Literal
+		ex = createValIfUnset(ident.Literal, p.curr.Literal, p.quoted)
 		p.next()
-		ex = e
 	case SetValIfUnset:
-		e := ExpandSetValIfUnset{
-			Ident: ident.Literal,
-		}
 		p.next()
-		e.Str = p.curr.Literal
+		ex = createSetValIfUnset(ident.Literal, p.curr.Literal, p.quoted)
 		p.next()
-		ex = e
 	case ValIfSet:
-		e := ExpandValIfSet{
-			Ident: ident.Literal,
-		}
 		p.next()
-		e.Str = p.curr.Literal
+		ex = createExpandValIfSet(ident.Literal, p.curr.Literal, p.quoted)
 		p.next()
-		ex = e
 	case ExitIfUnset:
-		e := ExpandExitIfUnset{
-			Ident: ident.Literal,
-		}
 		p.next()
-		e.Str = p.curr.Literal
+		ex = createExpandExitIfUnset(ident.Literal, p.curr.Literal, p.quoted)
 		p.next()
-		ex = e
 	default:
 		err = p.unexpected()
 	}
@@ -569,11 +525,8 @@ func (p *Parser) parseExpansion() (Expander, error) {
 	return ex, nil
 }
 
-func (p *Parser) parseVariable() (ExpandVariable, error) {
-	ex := ExpandVariable{
-		Ident:  p.curr.Literal,
-		Quoted: p.quoted,
-	}
+func (p *Parser) parseVariable() (ExpandVar, error) {
+	ex := createVariable(p.curr.Literal, p.quoted)
 	p.next()
 	return ex, nil
 }
