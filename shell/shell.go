@@ -28,55 +28,6 @@ type Command interface {
 	StderrPipe() (io.ReadCloser, error)
 }
 
-type ShellOption func(*Shell) error
-
-func WithStdout(w ...io.Writer) ShellOption {
-	return func(s *Shell) error {
-		return nil
-	}
-}
-
-func WithStderr(w ...io.Writer) ShellOption {
-	return func(s *Shell) error {
-		return nil
-	}
-}
-
-func WithEcho() ShellOption {
-	return func(s *Shell) error {
-		s.echo = true
-		return nil
-	}
-}
-
-func WithVar(ident string, values ...string) ShellOption {
-	return func(s *Shell) error {
-		if s.locals == nil {
-			s.locals = EmptyEnv()
-		}
-		return s.locals.Define(ident, values)
-	}
-}
-
-func WithAlias(ident, script string) ShellOption {
-	return func(s *Shell) error {
-		return s.Alias(ident, script)
-	}
-}
-
-func WithCwd(dir string) ShellOption {
-	return func(s *Shell) error {
-		return s.Chdir(dir)
-	}
-}
-
-func WithEnv(e Environment) ShellOption {
-	return func(s *Shell) error {
-		s.locals = EnclosedEnv(e)
-		return nil
-	}
-}
-
 var specials = map[string]struct{}{
 	"SECONDS": {},
 	"PWD":     {},
@@ -140,6 +91,10 @@ func (s *Shell) Chdir(dir string) error {
 	return err
 }
 
+func (s *Shell) SetEcho(echo bool) {
+	s.echo = echo
+}
+
 func (s *Shell) Alias(ident, script string) error {
 	p := NewParser(strings.NewReader(script))
 	ex, err := p.Parse()
@@ -150,7 +105,7 @@ func (s *Shell) Alias(ident, script string) error {
 	if err != nil {
 		return err
 	}
-	if len(alias) > 1 {
+	if len(alias) == 0 || len(alias) > 1 {
 		return fmt.Errorf("invalid alias definition %s", script)
 	}
 	s.alias[ident] = alias[0]

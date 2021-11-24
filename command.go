@@ -3,7 +3,7 @@ package maestro
 import (
 	"flag"
 	"fmt"
-	"os"
+	"strconv"
 	"time"
 
 	"github.com/midbel/maestro/shell"
@@ -33,11 +33,14 @@ type Dep struct {
 type Option struct {
 	Short    string
 	Long     string
-	Default  string
 	Help     string
 	Required bool
 	Flag     bool
-	Target   string
+
+	Default     string
+	DefaultFlag bool
+	Target      string
+	TargetFlag  bool
 }
 
 type Line struct {
@@ -135,10 +138,22 @@ func (s *Single) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, cmd := range s.Scripts {
-		if cmd.Echo {
-			fmt.Fprintln(os.Stdout, cmd.Line)
+	retry := s.Retry
+	if retry <= 0 {
+		retry = 1
+	}
+	for i := int64(0); i < retry; i++ {
+		err = s.execute(args)
+		if err == nil {
+			break
 		}
+	}
+	return err
+}
+
+func (s *Single) execute(args []string) error {
+	for _, cmd := range s.Scripts {
+		s.shell.SetEcho(cmd.Echo)
 		err := s.shell.Execute(cmd.Line, s.Name, args)
 		if cmd.Reverse {
 			if err == nil {
@@ -165,14 +180,22 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 		}
 		return s.shell.Define(name, []string{value})
 	}
+	defineFlag := func(name string, value bool) error {
+		return define(name, strconv.FormatBool(value))
+	}
 	for _, o := range s.Options {
 		if o.Required && o.Target == "" {
 			return nil, fmt.Errorf("%s/%s: missing value", o.Short, o.Long)
 		}
-		if err := define(o.Short, o.Target); err != nil {
-			return nil, err
+		var e1, e2 error
+		if o.Flag {
+			e1 = defineFlag(o.Short, o.TargetFlag)
+			e2 = defineFlag(o.Long, o.TargetFlag)
+		} else {
+			e1 = define(o.Short, o.Target)
+			e2 = define(o.Long, o.Target)
 		}
-		if err := define(o.Long, o.Target); err != nil {
+		if err := hasError(e1, e2); err != nil {
 			return nil, err
 		}
 	}
@@ -187,7 +210,7 @@ func createFlagSet(name string, args []string, options []Option) (*flag.FlagSet,
 		set  = flag.NewFlagSet(name, flag.ExitOnError)
 		seen = make(map[string]struct{})
 	)
-	attach := func(name, value, help string, target *string) error {
+	check := func(name string) error {
 		if name == "" {
 			return nil
 		}
@@ -195,14 +218,32 @@ func createFlagSet(name string, args []string, options []Option) (*flag.FlagSet,
 			return fmt.Errorf("%s: option already defined", name)
 		}
 		seen[name] = struct{}{}
-		set.StringVar(target, name, value, help)
 		return nil
 	}
-	for i, o := range options {
-		if err := attach(o.Short, o.Default, o.Help, &options[i].Target); err != nil {
-			return nil, err
+	attach := func(name, help, value string, target *string) error {
+		err := check(name)
+		if err == nil {
+			set.StringVar(target, name, value, help)
 		}
-		if err := attach(o.Long, o.Default, o.Help, &options[i].Target); err != nil {
+		return err
+	}
+	attachFlag := func(name, help string, value bool, target *bool) error {
+		err := check(name)
+		if err == nil {
+			set.BoolVar(target, name, value, help)
+		}
+		return err
+	}
+	for i, o := range options {
+		var e1, e2 error
+		if o.Flag {
+			e1 = attachFlag(o.Short, o.Help, o.DefaultFlag, &options[i].TargetFlag)
+			e2 = attachFlag(o.Long, o.Help, o.DefaultFlag, &options[i].TargetFlag)
+		} else {
+			e1 = attach(o.Short, o.Help, o.Default, &options[i].Target)
+			e2 = attach(o.Long, o.Help, o.Default, &options[i].Target)
+		}
+		if err := hasError(e1, e2); err != nil {
 			return nil, err
 		}
 	}
@@ -210,6 +251,15 @@ func createFlagSet(name string, args []string, options []Option) (*flag.FlagSet,
 		return nil, err
 	}
 	return set, nil
+}
+
+func hasError(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 type Combined []Command

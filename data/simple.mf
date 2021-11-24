@@ -97,11 +97,11 @@ parseargs(
 	options = (
 		short   = a,
 		long    = all,
-		default = "yes",
+		flag    = true,
 	), (
 		short   = b,
 		long    = "bind",
-		default = "localhost:1312",
+		required = true,
 	)
 ): {
 	echo $0
