@@ -1,5 +1,7 @@
 test = variable
 
+foobar = $(echo foo bar)
+
 # trailing comma between parenthesis when using multi line definition can be optional
 action(
 	short   = "sample action", # inline comment
@@ -10,8 +12,7 @@ action(
 	options = (
 		short    = "a",
 		long     = "all",
-		required = true,
-		default  = $test,
+		flag     = true,
 	), (
 		short   = "b",
 		long    = "bind",

@@ -317,7 +317,7 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 
 func (d *Decoder) decodeScript(line string) ([]string, error) {
 	var (
-		buf   bytes.Buffer
+		buf  bytes.Buffer
 		opts = []shell.ShellOption{
 			shell.WithEnv(d.locals),
 			shell.WithStdout(&buf),

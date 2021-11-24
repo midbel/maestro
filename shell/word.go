@@ -128,8 +128,9 @@ func createSimple(ex Expander) ExecSimple {
 }
 
 type ExpandList struct {
-	List []Expander
-	Sub  bool
+	List   []Expander
+	Sub    bool
+	Quoted bool
 }
 
 func (e ExpandList) Expand(env Environment) ([]string, error) {
@@ -179,6 +180,7 @@ func (e *ExpandList) Pop() Expander {
 
 type ExpandWord struct {
 	Literal string
+	Quoted  bool
 }
 
 func (w ExpandWord) Expand(_ Environment) ([]string, error) {
@@ -270,7 +272,8 @@ func (b ExpandRangeBrace) Expand(env Environment) ([]string, error) {
 }
 
 type ExpandMulti struct {
-	List []Expander
+	List   []Expander
+	Quoted bool
 }
 
 func (m ExpandMulti) Expand(env Environment) ([]string, error) {
@@ -334,10 +337,11 @@ func (v ExpandLength) Expand(env Environment) ([]string, error) {
 }
 
 type ExpandReplace struct {
-	Ident string
-	From  string
-	To    string
-	What  rune
+	Ident  string
+	From   string
+	To     string
+	What   rune
+	Quoted bool
 }
 
 func (v ExpandReplace) Expand(env Environment) ([]string, error) {
@@ -381,9 +385,10 @@ func (v ExpandReplace) replaceSuffix(str []string) []string {
 }
 
 type ExpandTrim struct {
-	Ident string
-	Trim  string
-	What  rune
+	Ident  string
+	Trim   string
+	What   rune
+	Quoted bool
 }
 
 func (v ExpandTrim) Expand(env Environment) ([]string, error) {
@@ -437,9 +442,10 @@ func (v ExpandTrim) trimPrefixLong(str []string) []string {
 }
 
 type ExpandSlice struct {
-	Ident string
-	From  int
-	To    int
+	Ident  string
+	From   int
+	To     int
+	Quoted bool
 }
 
 func (v ExpandSlice) Expand(env Environment) ([]string, error) {
@@ -455,8 +461,9 @@ var (
 )
 
 type ExpandLower struct {
-	Ident string
-	All   bool
+	Ident  string
+	All    bool
+	Quoted bool
 }
 
 func (v ExpandLower) Expand(env Environment) ([]string, error) {
@@ -494,8 +501,9 @@ func (v ExpandLower) lowerAll(str []string) []string {
 }
 
 type ExpandUpper struct {
-	Ident string
-	All   bool
+	Ident  string
+	All    bool
+	Quoted bool
 }
 
 func (v ExpandUpper) Expand(env Environment) ([]string, error) {
@@ -533,8 +541,9 @@ func (v ExpandUpper) upperAll(str []string) []string {
 }
 
 type ExpandValIfUnset struct {
-	Ident string
-	Str   string
+	Ident  string
+	Str    string
+	Quoted bool
 }
 
 func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
@@ -546,8 +555,9 @@ func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
 }
 
 type ExpandSetValIfUnset struct {
-	Ident string
-	Str   string
+	Ident  string
+	Str    string
+	Quoted bool
 }
 
 func (v ExpandSetValIfUnset) Expand(env Environment) ([]string, error) {
@@ -560,8 +570,9 @@ func (v ExpandSetValIfUnset) Expand(env Environment) ([]string, error) {
 }
 
 type ExpandValIfSet struct {
-	Ident string
-	Str   string
+	Ident  string
+	Str    string
+	Quoted bool
 }
 
 func (v ExpandValIfSet) Expand(env Environment) ([]string, error) {
@@ -573,8 +584,9 @@ func (v ExpandValIfSet) Expand(env Environment) ([]string, error) {
 }
 
 type ExpandExitIfUnset struct {
-	Ident string
-	Str   string
+	Ident  string
+	Str    string
+	Quoted bool
 }
 
 func (v ExpandExitIfUnset) Expand(env Environment) ([]string, error) {
