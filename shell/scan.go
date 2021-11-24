@@ -38,6 +38,8 @@ const (
 	star       = '*'
 	arobase    = '@'
 	bang       = '!'
+	nl         = '\n'
+	cr         = '\r'
 )
 
 var colonOps = map[rune]rune{
@@ -465,6 +467,10 @@ func isSingle(r rune) bool {
 	return r == squote
 }
 
+func isQuote(r rune) bool {
+	return isDouble(r) || isSingle(r)
+}
+
 func isVariable(r rune) bool {
 	return r == dollar
 }
@@ -507,4 +513,8 @@ func isBraces(r rune) bool {
 
 func isList(r rune) bool {
 	return r == comma || r == dot
+}
+
+func isNL(r rune) bool {
+	return r == cr || r == nl
 }
