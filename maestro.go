@@ -71,10 +71,22 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	return cmd.Execute(args)
+	err = cmd.Run(args)
+	
+	next := m.MetaExec.Success
+	if err != nil {
+		next = m.MetaExec.Error
+	}
+	for _, cmd := range next {
+		c, err := m.lookup(cmd)
+		if err == nil {
+			c.Run(nil)
+		}
+	}
+	return err
 }
 
-func (m *Maestro) ExecuteHelp(name string, verbose bool) error {
+func (m *Maestro) ExecuteHelp(name string) error {
 	var (
 		help string
 		err  error
@@ -107,12 +119,12 @@ func (m *Maestro) ExecuteDefault(args []string) error {
 	return m.Execute(m.MetaExec.Default, args)
 }
 
-func (m *Maestro) ExecuteAll(_ []string) error {
+func (m *Maestro) ExecuteAll(args []string) error {
 	if len(m.MetaExec.All) == 0 {
 		return fmt.Errorf("no all command defined")
 	}
 	for _, n := range m.MetaExec.All {
-		if err := m.Execute(n, nil); err != nil {
+		if err := m.Execute(n, args); err != nil {
 			return err
 		}
 	}

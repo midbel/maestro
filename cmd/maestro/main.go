@@ -13,7 +13,6 @@ func main() {
 
 	}
 	var (
-		verb = flag.Bool("v", false, "use verbose help")
 		dry  = flag.Bool("d", false, "run dry")
 		file = flag.String("f", "maestro.mf", "maestro file to use")
 	)
@@ -26,7 +25,7 @@ func main() {
 	}
 	switch cmd, args := arguments(); cmd {
 	case "help":
-		err = mst.ExecuteHelp(flag.Arg(1), *verb)
+		err = mst.ExecuteHelp(flag.Arg(1))
 	case "version":
 		err = mst.ExecuteVersion()
 	case "all":

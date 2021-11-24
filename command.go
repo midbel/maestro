@@ -22,7 +22,7 @@ type Command interface {
 	Tags() []string
 	Command() string
 	Combined() bool
-	Execute([]string) error
+	Run([]string) error
 	Dry([]string) error
 }
 
@@ -159,7 +159,7 @@ func (s *Single) Dry(args []string) error {
 	return nil
 }
 
-func (s *Single) Execute(args []string) error {
+func (s *Single) Run(args []string) error {
 	if err := s.shell.Chdir(s.WorkDir); err != nil {
 		return err
 	}
@@ -326,9 +326,9 @@ func (_ Combined) Combined() bool {
 	return true
 }
 
-func (c Combined) Execute(args []string) error {
+func (c Combined) Run(args []string) error {
 	for i := range c {
-		if err := c[i].Execute(args); err != nil {
+		if err := c[i].Run(args); err != nil {
 			return err
 		}
 	}
