@@ -63,23 +63,23 @@ loc(
 	short = "count number of LoC",
 	tag   = "info" "verify",
 ): {
-	find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l
+	total = $(find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l)
+	echo "${total:>:5} lines of code"
 }
 
 todo(
 	short = "count number of remaining todos in code",
 	tag   = "info" "verify",
 ): {
-	find -type f -name "*go" -exec cat {} \; | grep 'TODO' | wc -l
+	total = $(find -type f -name "*go" -exec cat {} \; | grep 'TODO' | wc -l)
+	echo "${total:>:5} remaining todos"
 }
 
 count(
 	short = "count LOC and todos",
 	tag   = "info" "verify",
 ): {
-	echo "line of codes:"
 	<loc
-	echo "remaining todos:"
 	<todo
 }
 

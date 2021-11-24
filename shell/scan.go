@@ -45,6 +45,8 @@ var colonOps = map[rune]rune{
 	plus:     ValIfSet,
 	equal:    SetValIfUnset,
 	question: ExitIfUnset,
+	langle:   PadLeft,
+	rangle:   PadRight,
 }
 
 var slashOps = map[rune]rune{

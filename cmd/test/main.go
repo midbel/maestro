@@ -16,6 +16,7 @@ func main() {
 		"foo=bar",
 		"foo=bar; echo foobar # a comment",
 		"echo $(cat | grep | cut)",
+		"total = $(find -type f -name \"*go\" -exec cat {} \\; | egrep -v '^$' | wc -l)",
 	}
 	for i, str := range lines {
 		if i > 0 {

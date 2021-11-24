@@ -43,6 +43,8 @@ const (
 	LowerAll       // ${var,,}
 	Upper          // ${var^}
 	UpperAll       // ${var^^}
+	PadLeft        // ${var:<10:0}
+	PadRight       // ${var:>10:0}
 	ValIfUnset     // ${var:-val}
 	SetValIfUnset  // ${var:=val}
 	ValIfSet       // ${var:+val}
@@ -135,6 +137,10 @@ func (t Token) String() string {
 		return "<upper>"
 	case UpperAll:
 		return "<upper-all>"
+	case PadLeft:
+		return "<padding-left>"
+	case PadRight:
+		return "<padding-right>"
 	case ValIfUnset:
 		return "<val-if-unset>"
 	case SetValIfUnset:

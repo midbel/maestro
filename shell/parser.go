@@ -368,7 +368,7 @@ func (p *Parser) parseRangeBraces(prefix Expander) (Expander, error) {
 
 func (p *Parser) parseSlice(ident Token) (Expander, error) {
 	e := ExpandSlice{
-		Ident: ident.Literal,
+		Ident:  ident.Literal,
 		Quoted: p.quoted,
 	}
 	p.next()
@@ -395,10 +395,39 @@ func (p *Parser) parseSlice(ident Token) (Expander, error) {
 	return e, nil
 }
 
-func (p *Parser) parseReplace(ident Token) (Expander, error) {
-	e := ExpandReplace{
+func (p *Parser) parsePadding(ident Token) (Expander, error) {
+	e := ExpandPad{
 		Ident: ident.Literal,
 		What:  p.curr.Type,
+		With:  " ",
+	}
+	p.next()
+	switch p.curr.Type {
+	case Literal:
+		e.With = p.curr.Literal
+		p.next()
+	case Slice:
+	default:
+		return nil, p.unexpected()
+	}
+	if p.curr.Type != Slice {
+		return nil, p.unexpected()
+	}
+	p.next()
+
+	size, err := strconv.Atoi(p.curr.Literal)
+	if err != nil {
+		return nil, err
+	}
+	e.Len = size
+	p.next()
+	return e, nil
+}
+
+func (p *Parser) parseReplace(ident Token) (Expander, error) {
+	e := ExpandReplace{
+		Ident:  ident.Literal,
+		What:   p.curr.Type,
 		Quoted: p.quoted,
 	}
 	p.next()
@@ -424,8 +453,8 @@ func (p *Parser) parseReplace(ident Token) (Expander, error) {
 
 func (p *Parser) parseTrim(ident Token) (Expander, error) {
 	e := ExpandTrim{
-		Ident: ident.Literal,
-		What:  p.curr.Type,
+		Ident:  ident.Literal,
+		What:   p.curr.Type,
 		Quoted: p.quoted,
 	}
 	p.next()
@@ -439,8 +468,8 @@ func (p *Parser) parseTrim(ident Token) (Expander, error) {
 
 func (p *Parser) parseLower(ident Token) (Expander, error) {
 	e := ExpandLower{
-		Ident: ident.Literal,
-		All:   p.curr.Type == LowerAll,
+		Ident:  ident.Literal,
+		All:    p.curr.Type == LowerAll,
 		Quoted: p.quoted,
 	}
 	p.next()
@@ -449,8 +478,8 @@ func (p *Parser) parseLower(ident Token) (Expander, error) {
 
 func (p *Parser) parseUpper(ident Token) (Expander, error) {
 	e := ExpandUpper{
-		Ident: ident.Literal,
-		All:   p.curr.Type == UpperAll,
+		Ident:  ident.Literal,
+		All:    p.curr.Type == UpperAll,
 		Quoted: p.quoted,
 	}
 	p.next()
@@ -496,6 +525,8 @@ func (p *Parser) parseExpansion() (Expander, error) {
 		ex, err = p.parseLower(ident)
 	case Upper, UpperAll:
 		ex, err = p.parseUpper(ident)
+	case PadLeft, PadRight:
+		ex, err = p.parsePadding(ident)
 	case ValIfUnset:
 		p.next()
 		ex = createValIfUnset(ident.Literal, p.curr.Literal, p.quoted)

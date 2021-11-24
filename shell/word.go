@@ -128,36 +128,11 @@ func createSimple(ex Expander) ExecSimple {
 }
 
 type ExpandSub struct {
-	List []Executer
+	List   []Executer
 	Quoted bool
 }
 
 func (e ExpandSub) Expand(env Environment) ([]string, error) {
-	return nil, nil
-}
-
-type ExpandList struct {
-	List   []Expander
-	Sub    bool
-	Quoted bool
-}
-
-func (e ExpandList) Expand(env Environment) ([]string, error) {
-	if e.Sub {
-		return e.execute(env)
-	}
-	var str []string
-	for i := range e.List {
-		ws, err := e.List[i].Expand(env)
-		if err != nil {
-			return nil, err
-		}
-		str = append(str, ws...)
-	}
-	return str, nil
-}
-
-func (e ExpandList) execute(env Environment) ([]string, error) {
 	sh, ok := env.(*Shell)
 	if !ok {
 		return nil, fmt.Errorf("substitution can not expanded")
@@ -169,11 +144,29 @@ func (e ExpandList) execute(env Environment) ([]string, error) {
 	sh, _ = sh.Subshell()
 	sh.SetStdout(&buf)
 
-	e.Sub = false
-	if err = sh.execute(createSimple(e)); err != nil {
-		return nil, err
+	for i := range e.List {
+		if err = sh.execute(e.List[i]); err != nil {
+			return nil, err
+		}
 	}
 	return Shlex(&buf)
+}
+
+type ExpandList struct {
+	List   []Expander
+	Quoted bool
+}
+
+func (e ExpandList) Expand(env Environment) ([]string, error) {
+	var str []string
+	for i := range e.List {
+		ws, err := e.List[i].Expand(env)
+		if err != nil {
+			return nil, err
+		}
+		str = append(str, ws...)
+	}
+	return str, nil
 }
 
 func (e *ExpandList) Pop() Expander {
@@ -195,7 +188,7 @@ type ExpandWord struct {
 func createWord(str string, quoted bool) ExpandWord {
 	return ExpandWord{
 		Literal: str,
-		Quoted: quoted,
+		Quoted:  quoted,
 	}
 }
 
@@ -323,7 +316,7 @@ type ExpandVar struct {
 
 func createVariable(ident string, quoted bool) ExpandVar {
 	return ExpandVar{
-		Ident: ident,
+		Ident:  ident,
 		Quoted: quoted,
 	}
 }
@@ -475,6 +468,32 @@ func (v ExpandSlice) Expand(env Environment) ([]string, error) {
 	return env.Resolve(v.Ident)
 }
 
+type ExpandPad struct {
+	Ident string
+	With  string
+	Len   int
+	What  rune
+}
+
+func (v ExpandPad) Expand(env Environment) ([]string, error) {
+	str, err := env.Resolve(v.Ident)
+	if err != nil || len(str) >= v.Len {
+		return str, err
+	}
+	for i := range str {
+		var (
+			diff = v.Len - len(str[i])
+			fill = strings.Repeat(v.With, diff)
+			ori  = str[i]
+		)
+		if v.What == PadRight {
+			fill, ori = ori, fill
+		}
+		str[i] = fmt.Sprintf("%s%s", fill, ori)
+	}
+	return str, nil
+}
+
 var (
 	lowerA  byte = 'a'
 	lowerZ  byte = 'z'
@@ -565,14 +584,14 @@ func (v ExpandUpper) upperAll(str []string) []string {
 
 type ExpandValIfUnset struct {
 	Ident  string
-	Value    string
+	Value  string
 	Quoted bool
 }
 
 func createValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
 	return ExpandValIfUnset{
-		Ident: ident,
-		Value: value,
+		Ident:  ident,
+		Value:  value,
 		Quoted: quoted,
 	}
 }
@@ -593,8 +612,8 @@ type ExpandSetValIfUnset struct {
 
 func createSetValIfUnset(ident, value string, quoted bool) ExpandSetValIfUnset {
 	return ExpandSetValIfUnset{
-		Ident: ident,
-		Value: value,
+		Ident:  ident,
+		Value:  value,
 		Quoted: quoted,
 	}
 }
@@ -616,8 +635,8 @@ type ExpandValIfSet struct {
 
 func createExpandValIfSet(ident, value string, quoted bool) ExpandValIfSet {
 	return ExpandValIfSet{
-		Ident: ident,
-		Value: value,
+		Ident:  ident,
+		Value:  value,
 		Quoted: quoted,
 	}
 }
@@ -632,14 +651,14 @@ func (v ExpandValIfSet) Expand(env Environment) ([]string, error) {
 
 type ExpandExitIfUnset struct {
 	Ident  string
-	Value    string
+	Value  string
 	Quoted bool
 }
 
 func createExpandExitIfUnset(ident, value string, quoted bool) ExpandExitIfUnset {
 	return ExpandExitIfUnset{
-		Ident: ident,
-		Value: value,
+		Ident:  ident,
+		Value:  value,
 		Quoted: quoted,
 	}
 }
