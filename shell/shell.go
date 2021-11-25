@@ -269,6 +269,9 @@ func (s *Shell) executeSingle(ex Expander) error {
 	if err != nil {
 		return err
 	}
+	if cmd, ok := builtins[str[0]]; ok && cmd.IsEnabled() {
+		return cmd.Execute(str[1:])
+	}
 	if cmd, ok := s.commands[str[0]]; ok {
 		err := cmd.Execute(str[1:])
 		s.context.pid, s.context.code = cmd.Status()
