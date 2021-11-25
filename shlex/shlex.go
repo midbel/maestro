@@ -1,4 +1,4 @@
-package shell
+package shlex
 
 import (
 	"bufio"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func Shlex(r io.Reader) ([]string, error) {
+func Split(r io.Reader) ([]string, error) {
 	var (
 		rs  = bufio.NewReader(r)
 		str []string
@@ -27,6 +27,8 @@ func Shlex(r io.Reader) ([]string, error) {
 			continue
 		case isQuote(r):
 			word = readQuote(rs, r)
+		case isDelimiter(r):
+			word = readDelimiter(rs, r)
 		default:
 			word = readWord(rs, r)
 		}
@@ -40,7 +42,21 @@ func readWord(rs io.RuneScanner, r rune) string {
 	str.WriteRune(r)
 	for {
 		r, _, err := rs.ReadRune()
-		if isBlank(r) || isNL(r) || isQuote(r) || err != nil {
+		if eow(r) || err != nil {
+			break
+		}
+		str.WriteRune(r)
+	}
+	rs.UnreadRune()
+	return str.String()
+}
+
+func readDelimiter(rs io.RuneScanner, r rune) string {
+	var str strings.Builder
+	str.WriteRune(r)
+	for {
+		r, _, err := rs.ReadRune()
+		if !isDelimiter(r) || err != nil {
 			break
 		}
 		str.WriteRune(r)
@@ -73,4 +89,45 @@ func readBlank(rs io.RuneScanner) {
 		}
 	}
 	rs.UnreadRune()
+}
+
+const (
+	ampersand = '&'
+	pipe      = '|'
+	semicolon = ';'
+	space     = ' '
+	tab       = '\t'
+	squote    = '\''
+	dquote    = '"'
+	backslash = '\\'
+	nl        = '\n'
+	cr        = '\r'
+)
+
+func eow(r rune) bool {
+	return isDelimiter(r) || isQuote(r) || isBlank(r) || isNL(r)
+}
+
+func isDelimiter(r rune) bool {
+	return r == ampersand || r == pipe || r == semicolon
+}
+
+func isBlank(r rune) bool {
+	return r == space || r == tab
+}
+
+func isDouble(r rune) bool {
+	return r == dquote
+}
+
+func isSingle(r rune) bool {
+	return r == squote
+}
+
+func isQuote(r rune) bool {
+	return isDouble(r) || isSingle(r)
+}
+
+func isNL(r rune) bool {
+	return r == cr || r == nl
 }
