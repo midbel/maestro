@@ -22,8 +22,10 @@ type Command interface {
 	Tags() []string
 	Command() string
 	Combined() bool
-	Run([]string) error
 	Dry([]string) error
+	Remote() bool
+
+	shell.Command
 }
 
 type Dep struct {
@@ -50,8 +52,6 @@ type Line struct {
 	Reverse bool
 	Ignore  bool
 	Echo    bool
-	Empty   bool
-	Env     *Env
 }
 
 type Single struct {
@@ -70,7 +70,8 @@ type Single struct {
 	Options    []Option
 	Args       []string
 
-	shell *shell.Shell
+	locals *Env
+	shell  *shell.Shell
 }
 
 func NewSingle(name string) (*Single, error) {
@@ -88,9 +89,10 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 		return nil, err
 	}
 	cmd := Single{
-		Name:  name,
-		Error: errSilent,
-		shell: sh,
+		Name:   name,
+		Error:  errSilent,
+		shell:  sh,
+		locals: locals,
 	}
 	return &cmd, nil
 }
@@ -146,6 +148,22 @@ func (_ *Single) Combined() bool {
 	return false
 }
 
+func (s *Single) Remote() bool {
+	return len(s.Hosts) > 0
+}
+
+func (s *Single) Register(list []shell.Command) {
+	s.shell.Register(list...)
+}
+
+func (s *Single) Status() (int, int) {
+	return s.shell.ExitStatus()
+}
+
+func (_ *Single) Type() shell.CommandType {
+	return shell.TypeScript
+}
+
 func (s *Single) Dry(args []string) error {
 	args, err := s.parseArgs(args)
 	if err != nil {
@@ -159,7 +177,7 @@ func (s *Single) Dry(args []string) error {
 	return nil
 }
 
-func (s *Single) Run(args []string) error {
+func (s *Single) Execute(args []string) error {
 	if err := s.shell.Chdir(s.WorkDir); err != nil {
 		return err
 	}
@@ -297,6 +315,36 @@ func (c Combined) Command() string {
 	return c[0].Command()
 }
 
+func (c Combined) About() string {
+	return c[0].About()
+}
+
+func (c Combined) Help() (string, error) {
+	return c[0].Help()
+}
+
+func (_ Combined) Combined() bool {
+	return true
+}
+
+func (c Combined) Type() shell.CommandType {
+	return c[0].Type()
+}
+
+func (c Combined) Status() (int, int) {
+	z := len(c) - 1
+	return c[z].Status()
+}
+
+func (c Combined) Remote() bool {
+	for i := range c {
+		if !c[i].Remote() {
+			return false
+		}
+	}
+	return true
+}
+
 func (c Combined) Tags() []string {
 	var (
 		tags []string
@@ -314,21 +362,9 @@ func (c Combined) Tags() []string {
 	return tags
 }
 
-func (c Combined) About() string {
-	return c[0].About()
-}
-
-func (c Combined) Help() (string, error) {
-	return c[0].Help()
-}
-
-func (_ Combined) Combined() bool {
-	return true
-}
-
-func (c Combined) Run(args []string) error {
+func (c Combined) Execute(args []string) error {
 	for i := range c {
-		if err := c[i].Run(args); err != nil {
+		if err := c[i].Execute(args); err != nil {
 			return err
 		}
 	}

@@ -20,12 +20,24 @@ var (
 	ErrEmpty    = errors.New("empty command")
 )
 
+type CommandType int8
+
+const (
+	TypeBuiltin CommandType = iota
+	TypeScript
+	TypeRegular
+)
+
 type Command interface {
-	Run() error
-	Start() error
-	Wait() error
-	StdoutPipe() (io.ReadCloser, error)
-	StderrPipe() (io.ReadCloser, error)
+	// Run() error
+	// Start() error
+	// Wait() error
+	// StdoutPipe() (io.ReadCloser, error)
+	// StderrPipe() (io.ReadCloser, error)
+	Command() string
+	Execute([]string) error
+	Type() CommandType
+	Status() (int, int)
 }
 
 var specials = map[string]struct{}{
@@ -44,11 +56,12 @@ var specials = map[string]struct{}{
 }
 
 type Shell struct {
-	locals Environment
-	alias  map[string][]string
-	echo   bool
-	cwd    string
-	now    time.Time
+	locals   Environment
+	alias    map[string][]string
+	commands map[string]Command
+	echo     bool
+	cwd      string
+	now      time.Time
 
 	stdout io.Writer
 	stderr io.Writer
@@ -63,9 +76,10 @@ type Shell struct {
 
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
-		now:   time.Now(),
-		cwd:   ".",
-		alias: make(map[string][]string),
+		now:      time.Now(),
+		cwd:      ".",
+		alias:    make(map[string][]string),
+		commands: make(map[string]Command),
 	}
 	for i := range options {
 		if err := options[i](&s); err != nil {
@@ -196,6 +210,16 @@ func (s *Shell) Dry(str, cmd string, args []string) error {
 	return nil
 }
 
+func (s *Shell) Register(list ...Command) {
+	for i := range list {
+		s.commands[list[i].Command()] = list[i]
+	}
+}
+
+func (s *Shell) ExitStatus() (int, int) {
+	return s.context.pid, s.context.code
+}
+
 func (s *Shell) Execute(str, cmd string, args []string) error {
 	s.setContext(cmd, args)
 	defer s.clearContext()
@@ -243,6 +267,11 @@ func (s *Shell) execute(ex Executer) error {
 func (s *Shell) executeSingle(ex Expander) error {
 	str, err := s.expand(ex)
 	if err != nil {
+		return err
+	}
+	if cmd, ok := s.commands[str[0]]; ok {
+		err := cmd.Execute(str[1:])
+		s.context.pid, s.context.code = cmd.Status()
 		return err
 	}
 	if _, err := exec.LookPath(str[0]); err != nil {

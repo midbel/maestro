@@ -8,13 +8,17 @@ import (
 	"github.com/midbel/maestro"
 )
 
+const help = "maestro command help"
+
 func main() {
 	flag.Usage = func() {
-
+		fmt.Fprintln(os.Stderr, help)
+		os.Exit(2)
 	}
 	var (
-		dry  = flag.Bool("d", false, "run dry")
-		file = flag.String("f", "maestro.mf", "maestro file to use")
+		remote = flag.Bool("r", false, "remote")
+		dry    = flag.Bool("d", false, "run dry")
+		file   = flag.String("f", "maestro.mf", "maestro file to use")
 	)
 	flag.Parse()
 
@@ -25,18 +29,21 @@ func main() {
 	}
 	switch cmd, args := arguments(); cmd {
 	case "help":
-		err = mst.ExecuteHelp(flag.Arg(1))
+		if cmd = ""; len(args) > 0 {
+			cmd = args[0]
+		}
+		err = mst.ExecuteHelp(cmd)
 	case "version":
 		err = mst.ExecuteVersion()
 	case "all":
-		err = mst.ExecuteAll(args)
+		err = mst.ExecuteAll(args, *remote)
 	case "default":
-		err = mst.ExecuteDefault(args)
+		err = mst.ExecuteDefault(args, *remote)
 	default:
 		if *dry {
 			err = mst.Dry(cmd, args)
 		} else {
-			err = mst.Execute(cmd, args)
+			err = mst.Execute(cmd, args, *remote)
 		}
 	}
 	if err != nil {

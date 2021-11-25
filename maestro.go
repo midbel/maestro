@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+
+	"github.com/midbel/maestro/shell"
 )
 
 var ErrDuplicate = errors.New("command already registered")
@@ -66,17 +69,20 @@ func (m *Maestro) Dry(name string, args []string) error {
 	return cmd.Dry(args)
 }
 
-func (m *Maestro) Execute(name string, args []string) error {
-	cmd, err := m.lookup(name)
+func (m *Maestro) Execute(name string, args []string, remote bool) error {
+	cmd, err := m.prepare(name)
 	if err != nil {
 		return err
+	}
+	if remote && !cmd.Remote() {
+		return fmt.Errorf("%s can not be executly on remote system", name)
 	}
 	// deps, err := m.resolveDependencies(cmd.Deps)
 	// if err != nil {
 	// 	return err
 	// }
 	// _ = deps
-	err = cmd.Run(args)
+	err = cmd.Execute(args)
 
 	next := m.MetaExec.Success
 	if err != nil {
@@ -85,10 +91,29 @@ func (m *Maestro) Execute(name string, args []string) error {
 	for _, cmd := range next {
 		c, err := m.lookup(cmd)
 		if err == nil {
-			c.Run(nil)
+			c.Execute(nil)
 		}
 	}
 	return err
+}
+
+func (m *Maestro) ExecuteDefault(args []string, remote bool) error {
+	if m.MetaExec.Default == "" {
+		return fmt.Errorf("no default command defined")
+	}
+	return m.Execute(m.MetaExec.Default, args, remote)
+}
+
+func (m *Maestro) ExecuteAll(args []string, remote bool) error {
+	if len(m.MetaExec.All) == 0 {
+		return fmt.Errorf("no all command defined")
+	}
+	for _, n := range m.MetaExec.All {
+		if err := m.Execute(n, args, remote); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *Maestro) ExecuteHelp(name string) error {
@@ -114,25 +139,6 @@ func (m *Maestro) ExecuteHelp(name string) error {
 func (m *Maestro) ExecuteVersion() error {
 	fmt.Fprintf(os.Stdout, "%s %s", m.Name(), m.Version)
 	fmt.Fprintln(os.Stdout)
-	return nil
-}
-
-func (m *Maestro) ExecuteDefault(args []string) error {
-	if m.MetaExec.Default == "" {
-		return fmt.Errorf("no default command defined")
-	}
-	return m.Execute(m.MetaExec.Default, args)
-}
-
-func (m *Maestro) ExecuteAll(args []string) error {
-	if len(m.MetaExec.All) == 0 {
-		return fmt.Errorf("no all command defined")
-	}
-	for _, n := range m.MetaExec.All {
-		if err := m.Execute(n, args); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -175,6 +181,11 @@ func (m *Maestro) help() (string, error) {
 			h.Commands[t] = append(h.Commands[t], c)
 		}
 	}
+	for _, cs := range h.Commands {
+		sort.Slice(cs, func(i, j int) bool {
+			return cs[i].Command() < cs[j].Command()
+		})
+	}
 	return renderTemplate(helptext, h)
 }
 
@@ -184,6 +195,28 @@ func (m *Maestro) Name() string {
 
 func (m *Maestro) resolveDependencies(deps []Dep) ([]Command, error) {
 	return nil, nil
+}
+
+func (m *Maestro) prepare(name string) (Command, error) {
+	cmd, err := m.lookup(name)
+	if err != nil {
+		return nil, err
+	}
+	sg, ok := cmd.(*Single)
+	if !ok {
+		return cmd, nil
+	}
+	var list []shell.Command
+	for _, c := range m.Commands {
+		if c.Command() == name {
+			// avoid recursive call but can be disabled if needed one day
+			continue
+		}
+		list = append(list, c)
+	}
+	// TODO: improve
+	sg.Register(list)
+	return sg, nil
 }
 
 func (m *Maestro) lookup(name string) (Command, error) {
