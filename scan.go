@@ -30,7 +30,6 @@ const (
 	semicolon  = ';'
 	ampersand  = '&'
 	langle     = '<'
-	tilde      = '~'
 	minus      = '-'
 	bang       = '!'
 	arobase    = '@'
@@ -132,8 +131,6 @@ func (s *Scanner) scanOperator(tok *Token) {
 		tok.Type = Reverse
 	case arobase:
 		tok.Type = Echo
-	case tilde:
-		tok.Type = Isolated
 	case langle:
 		tok.Type = Call
 	default:
@@ -445,5 +442,5 @@ func isDelimiter(b rune) bool {
 }
 
 func isOperator(b rune) bool {
-	return b == bang || b == minus || b == arobase || b == tilde || b == langle
+	return b == bang || b == minus || b == arobase || b == langle
 }

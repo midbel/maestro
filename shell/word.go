@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/midbel/maestro/shlex"
 )
 
 type Environment interface {
@@ -149,7 +151,7 @@ func (e ExpandSub) Expand(env Environment) ([]string, error) {
 			return nil, err
 		}
 	}
-	return Shlex(&buf)
+	return shlex.Split(&buf)
 }
 
 type ExpandList struct {

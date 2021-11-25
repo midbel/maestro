@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/shell"
+	"github.com/midbel/maestro/shlex"
 )
 
 const (
@@ -327,7 +328,7 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 	if err := sh.Execute(line, "", nil); err != nil {
 		return nil, err
 	}
-	return shell.Shlex(&buf)
+	return shlex.Split(&buf)
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
@@ -588,8 +589,6 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 				i.Reverse = !i.Reverse
 			case Ignore:
 				i.Ignore = !i.Ignore
-			case Isolated:
-				i.Empty = !i.Empty
 			default:
 				return d.unexpected()
 			}
