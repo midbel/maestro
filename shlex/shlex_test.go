@@ -35,6 +35,30 @@ var list = []struct {
 		Input: `echo; echo | cat |& cut; echo && cut;`,
 		Want:  []string{"echo", ";", "echo", "|", "cat", "|&", "cut", ";", "echo", "&&", "cut", ";"},
 	},
+	{
+		Input: `echo ${var}`,
+		Want:  []string{"echo", "${var}"},
+	},
+	{
+		Input: `echo $var`,
+		Want:  []string{"echo", "$var"},
+	},
+	{
+		Input: `echo $(echo | cat | cut)`,
+		Want:  []string{"echo", "$(echo | cat | cut)"},
+	},
+	{
+		Input: `echo $(echo; echo $(cut))`,
+		Want:  []string{"echo", "$(echo; echo $(cut))"},
+	},
+	{
+		Input: `echo $((1+1))`,
+		Want:  []string{"echo", "$((1+1))"},
+	},
+	{
+		Input: `echo $((1+1*(2-1)))`,
+		Want:  []string{"echo", "$((1+1*(2-1)))"},
+	},
 }
 
 func TestSplit(t *testing.T) {
@@ -46,8 +70,8 @@ func TestSplit(t *testing.T) {
 		}
 		if len(str) != len(in.Want) {
 			t.Errorf("%s: length mismatched! got %d, want %d", in.Input, len(str), len(in.Want))
-			t.Logf("got:  %s", str)
-			t.Logf("want: %s", in.Want)
+			t.Logf("got:  %q", str)
+			t.Logf("want: %q", in.Want)
 			continue
 		}
 		for i := range str {
