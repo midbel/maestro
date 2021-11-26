@@ -33,6 +33,7 @@ const (
 	minus      = '-'
 	bang       = '!'
 	arobase    = '@'
+	tilde = '~'
 )
 
 func IsValue(r rune) bool {
@@ -132,7 +133,9 @@ func (s *Scanner) scanOperator(tok *Token) {
 	case arobase:
 		tok.Type = Echo
 	case langle:
-		tok.Type = Call
+		tok.Type = Copy
+	case tilde:
+		tok.Type = Subshell
 	default:
 		tok.Type = Invalid
 		return
@@ -442,5 +445,5 @@ func isDelimiter(b rune) bool {
 }
 
 func isOperator(b rune) bool {
-	return b == bang || b == minus || b == arobase || b == langle
+	return b == bang || b == minus || b == arobase || b == langle || b == tilde
 }

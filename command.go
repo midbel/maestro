@@ -52,6 +52,7 @@ type Line struct {
 	Reverse bool
 	Ignore  bool
 	Echo    bool
+	Subshell bool
 }
 
 type Single struct {
@@ -201,8 +202,12 @@ func (s *Single) Execute(args []string) error {
 
 func (s *Single) execute(args []string) error {
 	for _, cmd := range s.Scripts {
-		s.shell.SetEcho(cmd.Echo)
-		err := s.shell.Execute(cmd.Line, s.Name, args)
+		sh := s.shell
+		if cmd.Subshell {
+			sh, _ = sh.Subshell()
+		}
+		sh.SetEcho(cmd.Echo)
+		err := sh.Execute(cmd.Line, s.Name, args)
 		if cmd.Reverse {
 			if err == nil {
 				err = fmt.Errorf("command succeed")

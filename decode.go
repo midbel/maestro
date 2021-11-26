@@ -560,7 +560,7 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			d.next()
 			continue
 		}
-		if d.curr().Type == Call {
+		if d.curr().Type == Copy {
 			// TODO: revise how Call is handled: the full "called" command should be copied
 			// currently only its scripts is copied
 			d.next()
@@ -595,6 +595,8 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 				i.Reverse = !i.Reverse
 			case Ignore:
 				i.Ignore = !i.Ignore
+			case Subshell:
+				i.Subshell = !i.Subshell
 			default:
 				return d.unexpected()
 			}

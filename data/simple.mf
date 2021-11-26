@@ -29,6 +29,7 @@ test(
 build(
 	short = "build binaries",
 	tag   = build,
+	alias = compile,
 ): {
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}

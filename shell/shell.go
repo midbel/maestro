@@ -175,7 +175,7 @@ func (s *Shell) Unalias(ident string) {
 
 func (s *Shell) Subshell() (*Shell, error) {
 	options := []ShellOption{
-		WithEnv(s.locals),
+		WithEnv(s),
 		WithCwd(s.cwd),
 	}
 	if s.echo {

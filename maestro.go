@@ -192,7 +192,7 @@ func (m *Maestro) Name() string {
 }
 
 func (m *Maestro) executeDependencies(cmd Command) error {
-	dep, err := m.resolveDependencies(cmd)
+	deps, err := m.resolveDependencies(cmd)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
 			continue
 		}
 		seen[d.Name] = struct{}{}
-		cmd, err := m.lookup(d.Name)
+		_, err := m.lookup(d.Name)
 		if err != nil {
 			return nil, fmt.Errorf("%s: dependency not found", d.Name)
 		}

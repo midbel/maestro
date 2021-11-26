@@ -36,7 +36,8 @@ const (
 	Reverse
 	Ignore
 	Echo
-	Call
+	Copy
+	Subshell
 	Invalid
 )
 
@@ -62,8 +63,10 @@ func (t Token) String() string {
 		return "<reverse>"
 	case Ignore:
 		return "<ignore>"
-	case Call:
-		return "<call>"
+	case Copy:
+		return "<copy>"
+	case Subshell:
+		return "<subshell>"
 	case Eof:
 		return "<eof>"
 	case Eol:
@@ -133,5 +136,10 @@ func (t Token) IsInvalid() bool {
 }
 
 func (t Token) IsOperator() bool {
-	return t.Type == Echo || t.Type == Reverse || t.Type == Ignore || t.Type == Call
+	switch t.Type {
+	case Echo, Reverse, Ignore, Copy, Subshell:
+		return true
+	default:
+		return false
+	}
 }
