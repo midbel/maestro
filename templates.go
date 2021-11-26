@@ -32,9 +32,11 @@ const cmdhelp = `
 {{if .Desc -}}
 {{.Desc}}
 {{end}}
+{{- if .Options -}}
 Options:
 {{- range .Options}}
   {{if .Short}}-{{.Short}}{{end}}{{if and .Long .Short}}, {{end}}{{if .Long}}--{{.Long}}{{end}}  {{.Help}}
+{{- end}}
 {{- end}}
 
 usage: {{.Usage}}

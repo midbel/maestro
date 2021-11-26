@@ -72,6 +72,8 @@ type Single struct {
 	Options    []Option
 	Args       []string
 
+	executed bool
+
 	locals *Env
 	shell  *shell.Shell
 }
@@ -180,6 +182,9 @@ func (s *Single) Dry(args []string) error {
 }
 
 func (s *Single) Execute(args []string) error {
+	if s.executed {
+		return nil
+	}
 	if err := s.shell.Chdir(s.WorkDir); err != nil {
 		return err
 	}
@@ -197,6 +202,7 @@ func (s *Single) Execute(args []string) error {
 			break
 		}
 	}
+	s.executed = true
 	return err
 }
 
