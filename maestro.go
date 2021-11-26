@@ -76,20 +76,6 @@ func (m *Maestro) Load(file string) error {
 	return nil
 }
 
-func Load(file string) (*Maestro, error) {
-	r, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-	m, err := Decode(r)
-	if err != nil {
-		return nil, err
-	}
-	m.MetaAbout.File = file
-	return m, nil
-}
-
 func (m *Maestro) Dry(name string, args []string) error {
 	cmd, err := m.lookup(name)
 	if err != nil {

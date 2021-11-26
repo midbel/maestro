@@ -3,6 +3,7 @@ package maestro
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -229,7 +230,7 @@ func (s *Single) execute(args []string) error {
 }
 
 func (s *Single) parseArgs(args []string) ([]string, error) {
-	set, err := createFlagSet(s.Name, args, s.Options)
+	set, err := s.prepareArgs(s.Name, args, s.Options)
 	if err != nil {
 		return nil, err
 	}
@@ -264,11 +265,16 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 	return set.Args(), nil
 }
 
-func createFlagSet(name string, args []string, options []Option) (*flag.FlagSet, error) {
+func (s *Single) prepareArgs(name string, args []string, options []Option) (*flag.FlagSet, error) {
 	var (
 		set  = flag.NewFlagSet(name, flag.ExitOnError)
 		seen = make(map[string]struct{})
 	)
+	set.Usage = func() {
+		help, _ := s.Help()
+		fmt.Fprintln(os.Stdout, strings.TrimSpace(help))
+		os.Exit(1)
+	}
 	check := func(name string) error {
 		if name == "" {
 			return nil
