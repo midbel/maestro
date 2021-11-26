@@ -62,7 +62,7 @@ type Command interface {
 }
 
 var specials = map[string]struct{}{
-	"HOME": {},
+	"HOME":    {},
 	"SECONDS": {},
 	"PWD":     {},
 	"OLDPWD":  {},
@@ -350,6 +350,7 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		signal.Notify(sig, os.Kill, os.Interrupt)
 		<-sig
 	}()
+	// TODO: plug Command and Builtin with exec.Cmd
 	for i := range ex.List {
 		sex, ok := ex.List[i].Executer.(ExecSimple)
 		if !ok {

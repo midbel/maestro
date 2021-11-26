@@ -581,8 +581,6 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			continue
 		}
 		if d.curr().Type == Copy {
-			// TODO: revise how Call is handled: the full "called" command should be copied
-			// currently only its scripts is copied
 			d.next()
 			other, err := mst.lookup(d.curr().Literal)
 			if err != nil {
