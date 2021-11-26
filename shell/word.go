@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -194,8 +195,33 @@ func createWord(str string, quoted bool) ExpandWord {
 	}
 }
 
-func (w ExpandWord) Expand(_ Environment) ([]string, error) {
+func (w ExpandWord) Expand(env Environment) ([]string, error) {
+	if w.Quoted {
+		return []string{w.Literal}, nil
+	}
+	return w.expand(env)
+}
+
+func (w ExpandWord) expand(env Environment) ([]string, error) {
+	if strings.HasPrefix(w.Literal, "~") {
+		return w.expandTilde(env)
+	}
+	if strings.ContainsAny(w.Literal, "[?*") {
+		return w.expandPattern()
+	}
 	return []string{w.Literal}, nil
+}
+
+func (w ExpandWord) expandTilde(env Environment) ([]string, error) {
+	return []string{w.Literal}, nil
+}
+
+func (w ExpandWord) expandPattern() ([]string, error) {
+	list, err := filepath.Glob(w.Literal)
+	if err != nil {
+		list = append(list, w.Literal)
+	}
+	return list, nil
 }
 
 type ExpandListBrace struct {

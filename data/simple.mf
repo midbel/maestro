@@ -1,6 +1,6 @@
 .VERSION = "0.1.1"
 .DEFAULT = build
-.ALL     = test verify build loc todo
+.ALL     = test verify build
 .HELP    = <<HELP
 simple is a sample maestro file that can be used for any Go project.
 It provides commands to automatize building, checking and testing
@@ -33,7 +33,7 @@ build(
 	short = "build binaries",
 	tag   = build,
 	alias = compile,
-): {
+): test, verify {
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
 
