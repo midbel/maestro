@@ -16,6 +16,7 @@ func main() {
 		os.Exit(2)
 	}
 	var (
+		skip   = flag.Bool("k", false, "skip dependencies")
 		remote = flag.Bool("r", false, "remote")
 		dry    = flag.Bool("d", false, "run dry")
 		file   = flag.String("f", "maestro.mf", "maestro file to use")
@@ -36,14 +37,14 @@ func main() {
 	case "version":
 		err = mst.ExecuteVersion()
 	case "all":
-		err = mst.ExecuteAll(args, *remote)
+		err = mst.ExecuteAll(args, *remote, *skip)
 	case "default":
-		err = mst.ExecuteDefault(args, *remote)
+		err = mst.ExecuteDefault(args, *remote, *skip)
 	default:
 		if *dry {
 			err = mst.Dry(cmd, args)
 		} else {
-			err = mst.Execute(cmd, args, *remote)
+			err = mst.Execute(cmd, args, *remote, *skip)
 		}
 	}
 	if err != nil {

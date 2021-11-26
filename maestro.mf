@@ -15,8 +15,6 @@ tish    = tish
 bindir  = bin
 cover   = "cover.out"
 
-buildoptions = "-v" "-trimpath"
-
 package = "github.com/midbel/maestro"
 
 test(
@@ -36,6 +34,8 @@ build(
 ): test, verify {
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
+
+	buildoptions = "-v" "-trimpath"
 
 	echo "build ${maestro,,} in ${bindir,,}/${maestro,,}"
 	go build ${buildoptions} -o ${bindir,,}/${maestro,,} cmd/${maestro,,}/main.go

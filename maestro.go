@@ -70,7 +70,7 @@ func (m *Maestro) Dry(name string, args []string) error {
 	return cmd.Dry(args)
 }
 
-func (m *Maestro) Execute(name string, args []string, remote bool) error {
+func (m *Maestro) Execute(name string, args []string, remote, nodeps bool) error {
 	cmd, err := m.prepare(name)
 	if err != nil {
 		return err
@@ -79,7 +79,11 @@ func (m *Maestro) Execute(name string, args []string, remote bool) error {
 		return fmt.Errorf("%s can not be executly on remote system", name)
 	}
 
-	m.executeDependencies(cmd)
+	if !nodeps {
+		if err := m.executeDependencies(cmd); err != nil {
+			return err
+		}
+	}
 	err = cmd.Execute(args)
 
 	next := m.MetaExec.Success
@@ -95,19 +99,19 @@ func (m *Maestro) Execute(name string, args []string, remote bool) error {
 	return err
 }
 
-func (m *Maestro) ExecuteDefault(args []string, remote bool) error {
+func (m *Maestro) ExecuteDefault(args []string, remote, nodeps bool) error {
 	if m.MetaExec.Default == "" {
 		return fmt.Errorf("no default command defined")
 	}
-	return m.Execute(m.MetaExec.Default, args, remote)
+	return m.Execute(m.MetaExec.Default, args, remote, nodeps)
 }
 
-func (m *Maestro) ExecuteAll(args []string, remote bool) error {
+func (m *Maestro) ExecuteAll(args []string, remote, nodeps bool) error {
 	if len(m.MetaExec.All) == 0 {
 		return fmt.Errorf("no all command defined")
 	}
 	for _, n := range m.MetaExec.All {
-		if err := m.Execute(n, args, remote); err != nil {
+		if err := m.Execute(n, args, remote, nodeps); err != nil {
 			return err
 		}
 	}
