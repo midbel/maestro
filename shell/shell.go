@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -61,6 +62,7 @@ type Command interface {
 }
 
 var specials = map[string]struct{}{
+	"HOME": {},
 	"SECONDS": {},
 	"PWD":     {},
 	"OLDPWD":  {},
@@ -488,6 +490,11 @@ func (s *Shell) clearContext() {
 func (s *Shell) resolveSpecials(ident string) []string {
 	var ret []string
 	switch ident {
+	case "HOME":
+		u, err := user.Current()
+		if err == nil {
+			ret = append(ret, u.HomeDir)
+		}
 	case "SECONDS":
 		sec := time.Since(s.now).Seconds()
 		ret = append(ret, strconv.FormatInt(int64(sec), 10))
