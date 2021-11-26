@@ -44,7 +44,7 @@ const (
 	propRetry   = "retry"
 	propWorkDir = "workdir"
 	propTimeout = "timeout"
-	propHosts   = "host"
+	propHosts   = "hosts"
 	propError   = "error"
 	propOpts    = "options"
 	propArg     = "args"
