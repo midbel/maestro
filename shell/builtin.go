@@ -2,21 +2,39 @@ package shell
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"os"
+	"plugin"
+	"strconv"
 	"strings"
 )
 
 var builtins = map[string]Builtin{
-	"help": {},
+	"help": {
+		Usage:   "help",
+		Short:   "display information about a builtin command",
+		Help:    "",
+		Execute: runHelp,
+	},
 	"builtins": {
 		Usage:   "builtins",
 		Short:   "display a list of supported builtins",
 		Help:    "",
 		Execute: runBuiltins,
 	},
-	"true":  {},
-	"false": {},
+	"true":  {
+		Usage: "true",
+		Short: "always return a successfull result",
+		Help: "",
+		Execute: runTrue,
+	},
+	"false":  {
+		Usage: "false",
+		Short: "always return an unsuccessfull result",
+		Help: "",
+		Execute: runFalse,
+	},
 	"builtin": {
 		Usage:   "builtin",
 		Short:   "execute a simple builtin or display information about builtins",
@@ -59,14 +77,48 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runEnable,
 	},
-	"alias":   {},
-	"unalias": {},
-	"pwd":     {},
-	"cd":      {},
-	"popd":    {},
-	"pushd":   {},
-	"dirs":    {},
-	"chroot":  {},
+	"alias":   {
+		Usage: "alias",
+		Short: "",
+		Help: "",
+	},
+	"unalias": {
+		Usage: "unalias",
+		Short: "",
+		Help: "",
+	},
+	"cd":      {
+		Usage: "cd",
+		Short: "change the shell working directory",
+		Help: "",
+		Execute: runChdir,
+	},
+	"pwd": {
+		Usage: "pwd",
+		Short: "print the name of the current shell working directory",
+		Help: "",
+		Execute: runPwd,
+	},
+	"popd":    {
+		Usage: "popd",
+		Short: "",
+		Help: "",
+	},
+	"pushd":   {
+		Usage: "pushd",
+		Short: "",
+		Help: "",
+	},
+	"dirs":    {
+		Usage: "dirs",
+		Short: "",
+		Help: "",
+	},
+	"chroot":  {
+		Usage: "chroot",
+		Short: "",
+		Help: "",
+	},
 	"readonly": {
 		Usage:   "readonly",
 		Short:   "mark and unmark shell variables as readonly",
@@ -81,27 +133,23 @@ var builtins = map[string]Builtin{
 	},
 	"exit": {
 		Usage:   "exit",
-		Short:   "",
+		Short:   "exit the shell",
 		Help:    "",
 		Execute: runExit,
-	},
-	"return": {
-		Usage:   "return",
-		Short:   "",
-		Help:    "",
-		Execute: runReturn,
 	},
 }
 
 type Builtin struct {
-	Usage   string
-	Enabled bool
-	Help    string
-	Execute func(Builtin) error
+	Usage    string
+	Short    string
+	Help     string
+	Disabled bool
+	Execute  func(Builtin) error
 
-	args  []string
-	shell *Shell
-	done bool
+	args     []string
+	shell    *Shell
+	finished bool
+	done     chan error
 
 	stdout io.Writer
 	stderr io.Writer
@@ -111,11 +159,44 @@ type Builtin struct {
 }
 
 func (b *Builtin) Start() error {
+	if !b.IsEnabled() {
+		return fmt.Errorf("builtin is disabled")
+	}
+	if b.finished {
+		return fmt.Errorf("builtin already executed")
+	}
+	setupfd := []func() error{
+		b.setStdin,
+		b.setStdout,
+		b.setStderr,
+	}
+	for _, set := range setupfd {
+		err := set()
+		if err != nil {
+			b.closeDescriptors()
+			return err
+		}
+	}
+	b.done = make(chan error, 1)
+	go func() {
+		b.done <- b.Execute(*b)
+	}()
 	return nil
 }
 
 func (b *Builtin) Wait() error {
-	return nil
+	if !b.IsEnabled() {
+		return fmt.Errorf("builtin is disabled")
+	}
+	if b.finished {
+		return fmt.Errorf("builtin already finished")
+	}
+	defer func() {
+		close(b.done)
+		b.closeDescriptors()
+	}()
+	b.finished = true
+	return <-b.done
 }
 
 func (b *Builtin) Run() error {
@@ -126,6 +207,12 @@ func (b *Builtin) Run() error {
 }
 
 func (b *Builtin) StdoutPipe() (io.ReadCloser, error) {
+	if b.stdout != nil {
+		return nil, fmt.Errorf("stdout already set")
+	}
+	if b.shell != nil {
+		return nil, fmt.Errorf("stdout after builtin started")
+	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -136,6 +223,12 @@ func (b *Builtin) StdoutPipe() (io.ReadCloser, error) {
 }
 
 func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
+	if b.stderr != nil {
+		return nil, fmt.Errorf("stderr already set")
+	}
+	if b.shell != nil {
+		return nil, fmt.Errorf("stderr after builtin started")
+	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -146,6 +239,12 @@ func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
 }
 
 func (b *Builtin) StdinPipe() (io.WriteCloser, error) {
+	if b.stdin != nil {
+		return nil, fmt.Errorf("stdin already set")
+	}
+	if b.shell != nil {
+		return nil, fmt.Errorf("stdin after builtin started")
+	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -164,27 +263,66 @@ func (b Builtin) Name() string {
 }
 
 func (b Builtin) IsEnabled() bool {
-	return b.Enabled && b.Execute != nil
+	return !b.Disabled && b.Execute != nil
 }
 
-func (b *Builtin) Start() error {
+func (b *Builtin) setStdin() error {
+	if b.stdin != nil {
+		return nil
+	}
+	f, err := os.Open(os.DevNull)
+	if err != nil {
+		return err
+	}
+	b.stdin = f
+	b.closes = append(b.closes, f)
 	return nil
 }
 
-func (b *Builtin) Wait() error {
+func (b *Builtin) setStdout() error {
+	if b.stdout != nil {
+		return nil
+	}
+	out, err := b.openFile()
+	if err == nil {
+		b.stdout = out
+	}
+	return err
+}
+
+func (b *Builtin) setStderr() error {
+	if b.stderr != nil {
+		return nil
+	}
+	out, err := b.openFile()
+	if err == nil {
+		b.stderr = out
+	}
+	return err
+}
+
+func (b *Builtin) openFile() (*os.File, error) {
+	f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	b.closes = append(b.closes, f)
+	return f, nil
+}
+
+func (b *Builtin) closeDescriptors() {
+	for _, c := range b.closes {
+		c.Close()
+	}
+	b.closes = b.closes[:0]
+}
+
+func runTrue(_ Builtin) error {
 	return nil
 }
 
-func (b *Builtin) Run() error {
-	return nil
-}
-
-func (b *Builtin) StdoutPipe() (io.ReadCloser, error) {
-	return nil, nil
-}
-
-func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
-	return nil, nil
+func runFalse(_ Builtin) error {
+	return Failure
 }
 
 func runBuiltins(b Builtin) error {
@@ -192,6 +330,34 @@ func runBuiltins(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	for n, i := range b.shell.builtins {
+		if i.Name() != "" {
+			n = i.Name()
+		}
+		fmt.Fprintf(b.stdout, "%-12s: %s", n, i.Short)
+		fmt.Fprintln(b.stdout)
+	}
+	return nil
+}
+
+func runHelp(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	other, ok := b.shell.builtins[set.Arg(0)]
+	if !ok {
+		fmt.Fprintf(b.stderr, "no help match %s! try builtins to get the list of available builtins", set.Arg(0))
+		fmt.Fprintln(b.stderr)
+		return nil
+	}
+	fmt.Fprintln(b.stdout, other.Name())
+	fmt.Fprintln(b.stdout, other.Short)
+	fmt.Fprintln(b.stdout)
+	if len(other.Help) > 0 {
+		fmt.Fprintln(b.stdout, other.Help)
+	}
+	fmt.Fprintln(b.stdout)
 	return nil
 }
 
@@ -224,23 +390,158 @@ func runType(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	for _, a := range set.Args() {
+		var kind string
+		if _, ok := b.shell.builtins[a]; ok {
+			kind = "builtin"
+		} else if _, ok := b.shell.commands[a]; ok {
+			kind = "user command"
+		} else if _, ok := b.shell.alias[a]; ok {
+			kind = "alias"
+		} else if vs, err := b.shell.Resolve(a); err == nil && len(vs) > 0 {
+			kind = "shell variable"
+		} else {
+			kind = "command"
+		}
+		fmt.Fprintf(b.stdout, "%s: %s", a, kind)
+		fmt.Fprintln(b.stdout)
+	}
 	return nil
 }
 
 func runSeq(b Builtin) error {
-	var set flag.FlagSet
+	var (
+		set flag.FlagSet
+		sep = set.String("s", " ", "print separator between each number")
+		fst = 1
+		lst = 1
+		inc = 1
+		err error
+	)
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	switch set.NArg() {
+	case 1:
+		if lst, err = strconv.Atoi(set.Arg(0)); err != nil {
+			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(0))
+			fmt.Fprintln(b.stderr)
+		}
+	case 2:
+		if fst, err = strconv.Atoi(set.Arg(0)); err != nil {
+			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(0))
+			fmt.Fprintln(b.stderr)
+			break
+		}
+		if lst, err = strconv.Atoi(set.Arg(1)); err != nil {
+			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(1))
+			fmt.Fprintln(b.stderr)
+			break
+		}
+	case 3:
+		if fst, err = strconv.Atoi(set.Arg(0)); err != nil {
+			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(0))
+			fmt.Fprintln(b.stderr)
+			break
+		}
+		if inc, err = strconv.Atoi(set.Arg(1)); err != nil {
+			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(1))
+			fmt.Fprintln(b.stderr)
+			break
+		}
+		if lst, err = strconv.Atoi(set.Arg(2)); err != nil {
+			fmt.Fprintf(b.stderr, "%s: invalid number", flag.Arg(2))
+			fmt.Fprintln(b.stderr)
+			break
+		}
+	default:
+		fmt.Fprintf(b.stderr, "seq: missing operand")
+		fmt.Fprintln(b.stderr)
+		return nil
+	}
+	if err != nil {
+		return nil
+	}
+	if inc == 0 {
+		inc++
+	}
+	cmp := func(f, t int) bool { return f <= t }
+	if fst > lst {
+		cmp = func(f, t int) bool { return f >= t }
+		if inc > 0 {
+			inc = -inc
+		}
+	}
+	for i := 0; cmp(fst, lst); i++ {
+		if i > 0 {
+			fmt.Fprint(b.stdout, *sep)
+		}
+		fmt.Fprintf(b.stdout, strconv.Itoa(fst))
+		fst += inc
+	}
+	fmt.Fprintln(b.stdout)
 	return nil
 }
 
 func runEnable(b Builtin) error {
 	var set flag.FlagSet
+	var (
+		print   = set.Bool("p", false, "print the list of builtins with their status")
+		load    = set.Bool("f", false, "load new builtin(s) from list of given object file(s)")
+		disable = set.Bool("d", false, "disable builtin(s) given in the list")
+	)
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	if *load {
+		return loadExternalBuiltins(b, set.Args())
+	}
+	if *print {
+		printEnableBuiltins(b)
+		return nil
+	}
+	for _, n := range set.Args() {
+		other, ok := b.shell.builtins[n]
+		if !ok {
+			fmt.Fprintf(b.stderr, "builtin %s not found", n)
+			fmt.Fprintln(b.stderr)
+			continue
+		}
+		other.Disabled = *disable
+		b.shell.builtins[n] = other
+	}
 	return nil
+}
+
+func loadExternalBuiltins(b Builtin, files []string) error {
+	for _, f := range files {
+		plug, err := plugin.Open(f)
+		if err != nil {
+			return err
+		}
+		sym, err := plug.Lookup("Load")
+		if err != nil {
+			return err
+		}
+		load, ok := sym.(func() Builtin)
+		if !ok {
+			return fmt.Errorf("invalid signature")
+		}
+		e := load()
+		b.shell.builtins[b.Name()] = e
+	}
+	return nil
+}
+
+func printEnableBuiltins(b Builtin) {
+	for _, x := range b.shell.builtins {
+		state := "enabled"
+		if x.Disabled {
+			state = "disabled"
+		}
+		fmt.Fprintf(b.stdout, "%-12s: %s", x.Name(), state)
+		fmt.Fprintln(b.stdout)
+	}
 }
 
 func runReadOnly(b Builtin) error {
@@ -272,13 +573,33 @@ func runExit(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	code := ExitCode(b.shell.context.code)
+	if c, err := strconv.Atoi(set.Arg(0)); err == nil {
+		code = ExitCode(c)
+	}
+	if code.Failure() {
+		return fmt.Errorf("%w: %s", ErrExit, code)
+	}
 	return nil
 }
 
-func runReturn(b Builtin) error {
+func runChdir(b Builtin) error {
 	var set flag.FlagSet
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	if err := b.shell.Chdir(set.Arg(0)); err != nil {
+		fmt.Fprintf(b.stderr, err.Error())
+		fmt.Fprintln(b.stderr)
+	}
+	return nil
+}
+
+func runPwd(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	fmt.Fprintln(b.stdout, b.shell.cwd)
 	return nil
 }

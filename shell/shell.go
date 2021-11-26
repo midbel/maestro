@@ -16,9 +16,29 @@ import (
 )
 
 var (
+	ErrExit     = errors.New("exit")
 	ErrReadOnly = errors.New("read only")
 	ErrEmpty    = errors.New("empty command")
 )
+
+type ExitCode int8
+
+const (
+	Success ExitCode = iota
+	Failure
+)
+
+func (e ExitCode) Success() bool {
+	return e == Success
+}
+
+func (e ExitCode) Failure() bool {
+	return !e.Success()
+}
+
+func (e ExitCode) Error() string {
+	return fmt.Sprintf("%d", e)
+}
 
 type CommandType int8
 
@@ -63,6 +83,7 @@ type Shell struct {
 	cwd      string
 	now      time.Time
 
+	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
 
@@ -72,6 +93,8 @@ type Shell struct {
 		name string
 		args []string
 	}
+
+	builtins map[string]Builtin
 }
 
 func New(options ...ShellOption) (*Shell, error) {
@@ -80,7 +103,9 @@ func New(options ...ShellOption) (*Shell, error) {
 		cwd:      ".",
 		alias:    make(map[string][]string),
 		commands: make(map[string]Command),
+		builtins: builtins,
 	}
+	s.cwd, _ = os.Getwd()
 	for i := range options {
 		if err := options[i](&s); err != nil {
 			return nil, err
@@ -91,6 +116,9 @@ func New(options ...ShellOption) (*Shell, error) {
 	}
 	if s.stderr == nil {
 		s.stderr = os.Stderr
+	}
+	if s.stdin == nil {
+		s.stdin = os.Stdin
 	}
 	if s.locals == nil {
 		s.locals = EmptyEnv()
@@ -269,8 +297,18 @@ func (s *Shell) executeSingle(ex Expander) error {
 	if err != nil {
 		return err
 	}
-	if cmd, ok := builtins[str[0]]; ok && cmd.IsEnabled() {
-		return cmd.Execute(str[1:])
+	if cmd, ok := s.builtins[str[0]]; ok && cmd.IsEnabled() {
+		cmd.shell = s
+		cmd.args = str[1:]
+		cmd.stdout = s.stdout
+		cmd.stderr = s.stderr
+		cmd.stdin = s.stdin
+		err := cmd.Run()
+		s.context.pid, s.context.code = os.Getpid(), 0
+		if err != nil {
+			s.context.code = 1
+		}
+		return err
 	}
 	if cmd, ok := s.commands[str[0]]; ok {
 		err := cmd.Execute(str[1:])
