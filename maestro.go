@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/midbel/maestro/shell"
+	"golang.org/x/sync/errgroup"
 )
 
 var ErrDuplicate = errors.New("command already registered")
@@ -77,11 +78,8 @@ func (m *Maestro) Execute(name string, args []string, remote bool) error {
 	if remote && !cmd.Remote() {
 		return fmt.Errorf("%s can not be executly on remote system", name)
 	}
-	// deps, err := m.resolveDependencies(cmd.Deps)
-	// if err != nil {
-	// 	return err
-	// }
-	// _ = deps
+
+	m.executeDependencies(cmd)
 	err = cmd.Execute(args)
 
 	next := m.MetaExec.Success
@@ -193,8 +191,50 @@ func (m *Maestro) Name() string {
 	return strings.TrimSuffix(filepath.Base(m.File), filepath.Ext(m.File))
 }
 
-func (m *Maestro) resolveDependencies(deps []Dep) ([]Command, error) {
-	return nil, nil
+func (m *Maestro) executeDependencies(cmd Command) error {
+	dep, err := m.resolveDependencies(cmd)
+	if err != nil {
+		return err
+	}
+	var grp errgroup.Group
+	for i := range deps {
+		cmd, _ := m.prepare(deps[i].Name)
+		if d := deps[i]; d.Bg {
+			grp.Go(func() error {
+				if err := m.executeDependencies(cmd); err != nil {
+					return err
+				}
+				return cmd.Execute(d.Args)
+			})
+		} else {
+			m.executeDependencies(cmd)
+			cmd.Execute(d.Args)
+		}
+	}
+	grp.Wait()
+	return grp.Wait()
+}
+
+func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
+	sg, ok := cmd.(*Single)
+	if !ok {
+		return nil, nil
+	}
+	var (
+		deps []Dep
+		seen = make(map[string]struct{})
+	)
+	for _, d := range sg.Deps {
+		if _, ok := seen[d.Name]; ok {
+			continue
+		}
+		seen[d.Name] = struct{}{}
+		cmd, err := m.lookup(d.Name)
+		if err != nil {
+			return nil, fmt.Errorf("%s: dependency not found", d.Name)
+		}
+	}
+	return deps, nil
 }
 
 func (m *Maestro) prepare(name string) (Command, error) {
