@@ -1,6 +1,6 @@
 .VERSION = "0.1.1"
 .DEFAULT = build
-.ALL     = test build
+.ALL     = test verify build loc todo
 .HELP    = <<HELP
 simple is a sample maestro file that can be used for any Go project.
 It provides commands to automatize building, checking and testing
@@ -17,13 +17,16 @@ cover   = "cover.out"
 
 buildoptions = "-v" "-trimpath"
 
+package = "github.com/midbel/maestro"
+
 test(
 	short = "run test in current directory",
 	tag   = build test,
 ): {
 	@go clean -testcache
-	@go test -v -coverprofile ${cover} .
-	#go tool cover -html ${cover}
+	@go test -cover $package
+	@go test -cover "$package/shlex"
+	@go test -cover "$package/shell"
 }
 
 build(
@@ -41,18 +44,16 @@ build(
 	go build ${buildoptions} -o ${bindir,,}/${tish,,} cmd/${tish,,}/main.go
 }
 
-package = "github.com/midbel/maestro"
-
 verify(
 	short = "verify code",
 	tag   = "build" "verify",
 	alias = vet,
 ): {
-	echo "run vet on maestro package"
+	echo "run vet on $package"
 	@go vet $package
-	echo "run vet on maestro/shell package"
+	echo "run vet on $package/shell"
 	@go vet "$package/shell"
-	echo "run vet on maestro/shlex package"
+	echo "run vet on $package/shlex"
 	@go vet "$package/shlex"
 }
 

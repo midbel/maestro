@@ -29,6 +29,8 @@ const (
 	RedirectOut
 	RedirectBoth
 	AppendOut
+	BegTest
+	EndTest
 	Length         // ${#var}
 	Slice          // ${var:from:to}
 	Replace        // ${var/from/to}
@@ -159,6 +161,10 @@ func (t Token) String() string {
 		return "<redirect-both>"
 	case AppendOut:
 		return "<append-out>"
+	case BegTest:
+		return "<beg-test>"
+	case EndTest:
+		return "<end-test>"
 	case Variable:
 		prefix = "variable"
 	case Comment:

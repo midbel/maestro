@@ -196,8 +196,16 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 	if err != nil {
 		return err
 	}
-	var grp errgroup.Group
+	var (
+		grp  errgroup.Group
+		seen = make(map[string]struct{})
+	)
 	for i := range deps {
+		if _, ok := seen[deps[i].Name]; ok {
+			continue
+		}
+		seen[deps[i].Name] = struct{}{}
+
 		cmd, _ := m.prepare(deps[i].Name)
 		if d := deps[i]; d.Bg {
 			grp.Go(func() error {
@@ -207,7 +215,6 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 				return cmd.Execute(d.Args)
 			})
 		} else {
-			m.executeDependencies(cmd)
 			cmd.Execute(d.Args)
 		}
 	}
@@ -216,25 +223,29 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 }
 
 func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
-	sg, ok := cmd.(*Single)
-	if !ok {
-		return nil, nil
-	}
-	var (
-		deps []Dep
-		seen = make(map[string]struct{})
-	)
-	for _, d := range sg.Deps {
-		if _, ok := seen[d.Name]; ok {
-			continue
+	var traverse func(Command) ([]Dep, error)
+
+	traverse = func(cmd Command) ([]Dep, error) {
+		s, ok := cmd.(*Single)
+		if !ok {
+			return nil, nil
 		}
-		seen[d.Name] = struct{}{}
-		_, err := m.lookup(d.Name)
-		if err != nil {
-			return nil, fmt.Errorf("%s: dependency not found", d.Name)
+		var all []Dep
+		for _, d := range s.Deps {
+			c, err := m.lookup(d.Name)
+			if err != nil {
+				return nil, err
+			}
+			set, err := traverse(c)
+			if err != nil {
+				return nil, err
+			}
+			all = append(all, set...)
+			all = append(all, d)
 		}
+		return all, nil
 	}
-	return deps, nil
+	return traverse(cmd)
 }
 
 func (m *Maestro) prepare(name string) (Command, error) {
@@ -254,7 +265,6 @@ func (m *Maestro) prepare(name string) (Command, error) {
 		}
 		list = append(list, c)
 	}
-	// TODO: improve
 	sg.Register(list)
 	return sg, nil
 }
@@ -264,20 +274,20 @@ func (m *Maestro) lookup(name string) (Command, error) {
 		name = m.MetaExec.Default
 	}
 	cmd, ok := m.Commands[name]
-	if !ok {
-		for _, c := range m.Commands {
-			s, ok := c.(*Single)
-			if !ok {
-				continue
-			}
-			i := sort.SearchStrings(s.Alias, name)
-			if i < len(s.Alias) && s.Alias[i] == name {
-				return c, nil
-			}
-		}
-		return nil, fmt.Errorf("%s: command not defined", name)
+	if ok {
+		return cmd, nil
 	}
-	return cmd, nil
+	for _, c := range m.Commands {
+		s, ok := c.(*Single)
+		if !ok {
+			continue
+		}
+		i := sort.SearchStrings(s.Alias, name)
+		if i < len(s.Alias) && s.Alias[i] == name {
+			return c, nil
+		}
+	}
+	return nil, fmt.Errorf("%s: command not defined", name)
 }
 
 type MetaExec struct {
