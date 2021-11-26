@@ -21,8 +21,15 @@ const (
 )
 
 const (
-	defaultFile    = "maestro.mf"
-	defaultVersion = "0.1.0"
+	CmdHelp    = "help"
+	CmdVersion = "version"
+	CmdAll     = "all"
+	CmdDefault = "default"
+)
+
+const (
+	DefaultFile    = "maestro.mf"
+	DefaultVersion = "0.1.0"
 )
 
 type Maestro struct {
@@ -33,12 +40,15 @@ type Maestro struct {
 	Duplicate string
 	Commands  map[string]Command
 	Alias     map[string]string
+
+	Remote bool
+	NoDeps bool
 }
 
 func New() *Maestro {
 	about := MetaAbout{
-		File:    defaultFile,
-		Version: defaultVersion,
+		File:    DefaultFile,
+		Version: DefaultVersion,
 	}
 	return &Maestro{
 		MetaAbout: about,
@@ -46,6 +56,24 @@ func New() *Maestro {
 		Commands:  make(map[string]Command),
 		Alias:     make(map[string]string),
 	}
+}
+
+func (m *Maestro) Load(file string) error {
+	r, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	d, err := NewDecoder(r)
+	if err != nil {
+		return err
+	}
+	if err := d.decode(m); err != nil {
+		return err
+	}
+	m.MetaAbout.File = file
+	return nil
 }
 
 func Load(file string) (*Maestro, error) {
@@ -70,16 +98,16 @@ func (m *Maestro) Dry(name string, args []string) error {
 	return cmd.Dry(args)
 }
 
-func (m *Maestro) Execute(name string, args []string, remote, nodeps bool) error {
+func (m *Maestro) Execute(name string, args []string) error {
 	cmd, err := m.prepare(name)
 	if err != nil {
 		return err
 	}
-	if remote && !cmd.Remote() {
+	if m.Remote && !cmd.Remote() {
 		return fmt.Errorf("%s can not be executly on remote system", name)
 	}
 
-	if !nodeps {
+	if !m.NoDeps {
 		if err := m.executeDependencies(cmd); err != nil {
 			return err
 		}
@@ -99,19 +127,19 @@ func (m *Maestro) Execute(name string, args []string, remote, nodeps bool) error
 	return err
 }
 
-func (m *Maestro) ExecuteDefault(args []string, remote, nodeps bool) error {
+func (m *Maestro) ExecuteDefault(args []string) error {
 	if m.MetaExec.Default == "" {
 		return fmt.Errorf("no default command defined")
 	}
-	return m.Execute(m.MetaExec.Default, args, remote, nodeps)
+	return m.Execute(m.MetaExec.Default, args)
 }
 
-func (m *Maestro) ExecuteAll(args []string, remote, nodeps bool) error {
+func (m *Maestro) ExecuteAll(args []string) error {
 	if len(m.MetaExec.All) == 0 {
 		return fmt.Errorf("no all command defined")
 	}
 	for _, n := range m.MetaExec.All {
-		if err := m.Execute(n, args, remote, nodeps); err != nil {
+		if err := m.Execute(n, args); err != nil {
 			return err
 		}
 	}

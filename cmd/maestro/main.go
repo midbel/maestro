@@ -16,35 +16,36 @@ func main() {
 		os.Exit(2)
 	}
 	var (
-		skip   = flag.Bool("k", false, "skip dependencies")
-		remote = flag.Bool("r", false, "remote")
-		dry    = flag.Bool("d", false, "run dry")
-		file   = flag.String("f", "maestro.mf", "maestro file to use")
+		mst  = maestro.New()
+		dry  = flag.Bool("d", false, "run dry")
+		file = flag.String("f", maestro.DefaultFile, "maestro file to use")
 	)
+	flag.BoolVar(&mst.NoDeps, "k", false, "skip dependencies")
+	flag.BoolVar(&mst.Remote, "r", false, "remote")
 	flag.Parse()
 
-	mst, err := maestro.Load(*file)
+	err := mst.Load(*file)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	switch cmd, args := arguments(); cmd {
-	case "help":
+	case maestro.CmdHelp:
 		if cmd = ""; len(args) > 0 {
 			cmd = args[0]
 		}
 		err = mst.ExecuteHelp(cmd)
-	case "version":
+	case maestro.CmdVersion:
 		err = mst.ExecuteVersion()
-	case "all":
-		err = mst.ExecuteAll(args, *remote, *skip)
-	case "default":
-		err = mst.ExecuteDefault(args, *remote, *skip)
+	case maestro.CmdAll:
+		err = mst.ExecuteAll(args)
+	case maestro.CmdDefault:
+		err = mst.ExecuteDefault(args)
 	default:
 		if *dry {
 			err = mst.Dry(cmd, args)
 		} else {
-			err = mst.Execute(cmd, args, *remote, *skip)
+			err = mst.Execute(cmd, args)
 		}
 	}
 	if err != nil {

@@ -67,6 +67,14 @@ type Decoder struct {
 }
 
 func Decode(r io.Reader) (*Maestro, error) {
+	d, err := NewDecoder(r)
+	if err != nil {
+		return nil, err
+	}
+	return d.Decode()
+}
+
+func NewDecoder(r io.Reader) (*Decoder, error) {
 	d := Decoder{
 		locals: EmptyEnv(),
 		env:    make(map[string]string),
@@ -74,12 +82,15 @@ func Decode(r io.Reader) (*Maestro, error) {
 	if err := d.push(r); err != nil {
 		return nil, err
 	}
-
-	return d.Decode()
+	return &d, nil
 }
 
 func (d *Decoder) Decode() (*Maestro, error) {
 	mst := New()
+	return mst, d.decode(mst)
+}
+
+func (d *Decoder) decode(mst *Maestro) error {
 	for !d.done() {
 		var err error
 		switch d.curr().Type {
@@ -99,10 +110,10 @@ func (d *Decoder) Decode() (*Maestro, error) {
 			err = d.unexpected()
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return mst, nil
+	return nil
 }
 
 func (d *Decoder) decodeKeyword(mst *Maestro) error {
