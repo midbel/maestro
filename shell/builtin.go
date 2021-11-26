@@ -3,6 +3,7 @@ package shell
 import (
 	"flag"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -78,15 +79,80 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runExport,
 	},
+	"exit": {
+		Usage:   "exit",
+		Short:   "",
+		Help:    "",
+		Execute: runExit,
+	},
+	"return": {
+		Usage:   "return",
+		Short:   "",
+		Help:    "",
+		Execute: runReturn,
+	},
 }
 
 type Builtin struct {
 	Usage   string
 	Enabled bool
 	Help    string
-	Execute func(Builtin, []string) error
+	Execute func(Builtin) error
 
+	args  []string
 	shell *Shell
+	done bool
+
+	stdout io.Writer
+	stderr io.Writer
+	stdin  io.Reader
+
+	closes []io.Closer
+}
+
+func (b *Builtin) Start() error {
+	return nil
+}
+
+func (b *Builtin) Wait() error {
+	return nil
+}
+
+func (b *Builtin) Run() error {
+	if err := b.Start(); err != nil {
+		return err
+	}
+	return b.Wait()
+}
+
+func (b *Builtin) StdoutPipe() (io.ReadCloser, error) {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	b.closes = append(b.closes, pr, pw)
+	b.stdout = pw
+	return pr, nil
+}
+
+func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	b.closes = append(b.closes, pr, pw)
+	b.stderr = pw
+	return pr, nil
+}
+
+func (b *Builtin) StdinPipe() (io.WriteCloser, error) {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	b.closes = append(b.closes, pr, pw)
+	b.stdin = pr
+	return pw, nil
 }
 
 func (b Builtin) Name() string {
@@ -121,81 +187,97 @@ func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
 	return nil, nil
 }
 
-func runBuiltins(b Builtin, args []string) error {
+func runBuiltins(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runBuiltin(b Builtin, args []string) error {
+func runBuiltin(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runCommand(b Builtin, args []string) error {
+func runCommand(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runScript(b Builtin, args []string) error {
+func runScript(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runType(b Builtin, args []string) error {
+func runType(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runSeq(b Builtin, args []string) error {
+func runSeq(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runEnable(b Builtin, args []string) error {
+func runEnable(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runReadOnly(b Builtin, args []string) error {
+func runReadOnly(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runExport(b Builtin, args []string) error {
+func runExport(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
 }
 
-func runEnv(b Builtin, args []string) error {
+func runEnv(b Builtin) error {
 	var set flag.FlagSet
-	if err := set.Parse(args); err != nil {
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runExit(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runReturn(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
 		return err
 	}
 	return nil
