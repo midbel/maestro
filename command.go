@@ -56,6 +56,7 @@ type Line struct {
 
 type Single struct {
 	Name       string
+	Alias      []string
 	Short      string
 	Desc       string
 	Error      string

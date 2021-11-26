@@ -47,6 +47,7 @@ const (
 	propError   = "error"
 	propOpts    = "options"
 	propArg     = "args"
+	propAlias   = "alias"
 )
 
 const (
@@ -366,7 +367,10 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			break
 		}
 		d.skipComment()
-		if d.curr().Type != Ident {
+		switch curr := d.curr(); {
+		case curr.Type == Ident:
+		case curr.Type == Keyword && curr.Literal == kwAlias:
+		default:
 			return d.unexpected()
 		}
 		var (
@@ -395,6 +399,8 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			cmd.Timeout, err = d.parseDuration()
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
+		case propAlias:
+			cmd.Alias, err = d.parseStringList()
 		case propArg:
 			cmd.Args, err = d.parseStringList()
 		case propOpts:

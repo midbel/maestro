@@ -39,7 +39,8 @@ Options:
 
 usage: {{.Usage}}
 
-tags: {{join .Tags ", "}}
+{{if .Alias}}alias: {{join .Alias ", "}}{{end}}
+{{if .Tags}}tags:  {{join .Tags ", "}}{{end}}
 `
 
 func renderTemplate(name string, ctx interface{}) (string, error) {
