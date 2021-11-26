@@ -40,14 +40,19 @@ build(
 	go build ${buildoptions} -o ${bindir,,}/${tish,,} cmd/${tish,,}/main.go
 }
 
+package = "github.com/midbel/maestro"
+
 verify(
 	short = "verify code",
 	tag   = "build" "verify",
+	alias = vet,
 ): {
 	echo "run vet on maestro package"
-	@go vet github.com/midbel/maestro
+	@go vet $package
 	echo "run vet on maestro/shell package"
-	@go vet github.com/midbel/maestro/shell
+	@go vet "$package/shell"
+	echo "run vet on maestro/shlex package"
+	@go vet "$package/shlex"
 }
 
 commit(
@@ -79,38 +84,6 @@ count(
 	short = "count LOC and todos",
 	tag   = "info" "verify",
 ): {
-	<loc
-	<todo
-}
-
-combine(
-	short = "combine test and build",
-	tag   = build,
-): {
-	@echo ">> run tests"
-	<test
-	@echo ">> run build"
-	<build
-}
-
-parseargs(
-	short = "demo command with custom option",
-	tag   = "demo",
-	args  = foo bar,
-	options = (
-		short   = a,
-		long    = all,
-		flag    = true,
-		help    = "do all the thing that need to be done",
-	), (
-		# short   = b,
-		long    = "bind",
-		required = true,
-		help     = "bind to given address before performing task",
-	)
-): {
-	echo $0
-	echo "arguments: $@"
-	echo "bind(short): $b, bind(long): $bind"
-	echo "all(short): $a, all(long): $all"
+	loc
+	todo
 }
