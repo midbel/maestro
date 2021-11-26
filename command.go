@@ -48,10 +48,10 @@ type Option struct {
 }
 
 type Line struct {
-	Line    string
-	Reverse bool
-	Ignore  bool
-	Echo    bool
+	Line     string
+	Reverse  bool
+	Ignore   bool
+	Echo     bool
 	Subshell bool
 }
 

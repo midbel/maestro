@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -399,8 +400,10 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			cmd.Timeout, err = d.parseDuration()
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
+			sort.Strings(cmd.Hosts)
 		case propAlias:
 			cmd.Alias, err = d.parseStringList()
+			sort.Strings(cmd.Alias)
 		case propArg:
 			cmd.Args, err = d.parseStringList()
 		case propOpts:

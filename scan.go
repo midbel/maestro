@@ -33,7 +33,7 @@ const (
 	minus      = '-'
 	bang       = '!'
 	arobase    = '@'
-	tilde = '~'
+	tilde      = '~'
 )
 
 func IsValue(r rune) bool {

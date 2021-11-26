@@ -265,6 +265,16 @@ func (m *Maestro) lookup(name string) (Command, error) {
 	}
 	cmd, ok := m.Commands[name]
 	if !ok {
+		for _, c := range m.Commands {
+			s, ok := c.(*Single)
+			if !ok {
+				continue
+			}
+			i := sort.SearchStrings(s.Alias, name)
+			if i < len(s.Alias) && s.Alias[i] == name {
+				return c, nil
+			}
+		}
 		return nil, fmt.Errorf("%s: command not defined", name)
 	}
 	return cmd, nil

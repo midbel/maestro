@@ -23,16 +23,16 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runBuiltins,
 	},
-	"true":  {
-		Usage: "true",
-		Short: "always return a successfull result",
-		Help: "",
+	"true": {
+		Usage:   "true",
+		Short:   "always return a successfull result",
+		Help:    "",
 		Execute: runTrue,
 	},
-	"false":  {
-		Usage: "false",
-		Short: "always return an unsuccessfull result",
-		Help: "",
+	"false": {
+		Usage:   "false",
+		Short:   "always return an unsuccessfull result",
+		Help:    "",
 		Execute: runFalse,
 	},
 	"builtin": {
@@ -77,47 +77,47 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runEnable,
 	},
-	"alias":   {
+	"alias": {
 		Usage: "alias",
 		Short: "",
-		Help: "",
+		Help:  "",
 	},
 	"unalias": {
 		Usage: "unalias",
 		Short: "",
-		Help: "",
+		Help:  "",
 	},
-	"cd":      {
-		Usage: "cd",
-		Short: "change the shell working directory",
-		Help: "",
+	"cd": {
+		Usage:   "cd",
+		Short:   "change the shell working directory",
+		Help:    "",
 		Execute: runChdir,
 	},
 	"pwd": {
-		Usage: "pwd",
-		Short: "print the name of the current shell working directory",
-		Help: "",
+		Usage:   "pwd",
+		Short:   "print the name of the current shell working directory",
+		Help:    "",
 		Execute: runPwd,
 	},
-	"popd":    {
+	"popd": {
 		Usage: "popd",
 		Short: "",
-		Help: "",
+		Help:  "",
 	},
-	"pushd":   {
+	"pushd": {
 		Usage: "pushd",
 		Short: "",
-		Help: "",
+		Help:  "",
 	},
-	"dirs":    {
+	"dirs": {
 		Usage: "dirs",
 		Short: "",
-		Help: "",
+		Help:  "",
 	},
-	"chroot":  {
+	"chroot": {
 		Usage: "chroot",
 		Short: "",
-		Help: "",
+		Help:  "",
 	},
 	"readonly": {
 		Usage:   "readonly",
