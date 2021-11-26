@@ -34,6 +34,7 @@ const (
 	bang       = '!'
 	arobase    = '@'
 	tilde      = '~'
+	question   = '?'
 )
 
 func IsValue(r rune) bool {
@@ -311,6 +312,8 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	case rcurly:
 		tok.Type = EndScript
 		s.script = false
+	case question:
+		tok.Type = Optional
 	default:
 	}
 	s.read()
@@ -441,7 +444,7 @@ func isVariable(b rune) bool {
 
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
-		b == lcurly || b == rcurly || b == equal || b == ampersand
+		b == lcurly || b == rcurly || b == equal || b == ampersand || b == question
 }
 
 func isOperator(b rune) bool {

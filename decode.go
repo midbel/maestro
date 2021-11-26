@@ -121,12 +121,21 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeInclude() error {
+	type include struct {
+		file     string
+		optional bool
+	}
 	d.next()
-	var list []string
+	var list []include
 	switch d.curr().Type {
 	case String, Ident:
-		list = append(list, d.curr().Literal)
+		i := include{file: d.curr().Literal}
 		d.next()
+		if d.curr().Type == Optional {
+			i.optional = true
+			d.next()
+		}
+		list = append(list, i)
 	case BegList:
 		d.next()
 		if err := d.ensureEOL(); err != nil {
@@ -139,11 +148,16 @@ func (d *Decoder) decodeInclude() error {
 			if d.curr().Type != String && d.curr().Type != Ident {
 				return d.unexpected()
 			}
-			list = append(list, d.curr().Literal)
+			i := include{file: d.curr().Literal}
 			d.next()
+			if d.curr().Type == Optional {
+				i.optional = true
+				d.next()
+			}
 			if err := d.ensureEOL(); err != nil {
 				return err
 			}
+			list = append(list, i)
 		}
 		if d.curr().Type != EndList {
 			return d.unexpected()
@@ -156,7 +170,10 @@ func (d *Decoder) decodeInclude() error {
 		return err
 	}
 	for i := range list {
-		if err := d.decodeFile(list[i]); err != nil {
+		if err := d.decodeFile(list[i].file); err != nil {
+			if list[i].optional {
+				continue
+			}
 			return err
 		}
 	}

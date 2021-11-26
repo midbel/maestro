@@ -39,6 +39,7 @@ const (
 	Copy
 	Subshell
 	Invalid
+	Optional
 )
 
 type Position struct {
@@ -59,6 +60,8 @@ func (t Token) String() string {
 		prefix = "unknown"
 	case Echo:
 		return "<echo>"
+	case Optional:
+		return "<optional>"
 	case Reverse:
 		return "<reverse>"
 	case Ignore:
