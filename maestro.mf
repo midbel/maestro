@@ -23,7 +23,7 @@ test(
 ): {
 	@go clean -testcache
 	.repeat($package, "$package/shlex", "$package/shell") {
-		@go test -cover %(var)
+		@go test -cover <var>
 	}
 }
 
