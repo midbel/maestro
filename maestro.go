@@ -192,7 +192,7 @@ func (m *Maestro) help() (string, error) {
 		Commands: make(map[string][]Command),
 	}
 	for _, c := range m.Commands {
-		if c.Blocked() {
+		if c.Blocked() || !c.Can() {
 			continue
 		}
 		for _, t := range c.Tags() {
