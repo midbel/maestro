@@ -35,6 +35,7 @@ const (
 	arobase    = '@'
 	tilde      = '~'
 	question   = '?'
+	percent    = '%'
 )
 
 func IsValue(r rune) bool {
@@ -314,6 +315,8 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		s.script = false
 	case question:
 		tok.Type = Optional
+	case percent:
+		tok.Type = Hidden
 	default:
 	}
 	s.read()
@@ -444,7 +447,8 @@ func isVariable(b rune) bool {
 
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
-		b == lcurly || b == rcurly || b == equal || b == ampersand || b == question
+		b == lcurly || b == rcurly || b == equal || b == ampersand ||
+		b == question || b == percent
 }
 
 func isOperator(b rune) bool {

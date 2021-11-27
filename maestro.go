@@ -89,6 +89,9 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if err != nil {
 		return err
 	}
+	if cmd.Blocked() {
+		return fmt.Errorf("%s: command can not be called", name)
+	}
 	if m.Remote && !cmd.Remote() {
 		return fmt.Errorf("%s can not be executly on remote system", name)
 	}
@@ -193,6 +196,9 @@ func (m *Maestro) help() (string, error) {
 		Commands: make(map[string][]Command),
 	}
 	for _, c := range m.Commands {
+		if c.Blocked() {
+			continue
+		}
 		for _, t := range c.Tags() {
 			h.Commands[t] = append(h.Commands[t], c)
 		}

@@ -66,7 +66,7 @@ commit(
 	git push
 }
 
-loc(
+%loc(
 	short = "count number of LoC",
 	tag   = "info" "verify",
 ): {
@@ -74,7 +74,7 @@ loc(
 	echo "${total:>:5} lines of code"
 }
 
-todo(
+%todo(
 	short = "count number of remaining todos in code",
 	tag   = "info" "verify",
 	options = (

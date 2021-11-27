@@ -40,6 +40,7 @@ const (
 	Subshell
 	Invalid
 	Optional
+	Hidden
 )
 
 type Position struct {
@@ -62,6 +63,8 @@ func (t Token) String() string {
 		return "<echo>"
 	case Optional:
 		return "<optional>"
+	case Hidden:
+		return "<hidden>"
 	case Reverse:
 		return "<reverse>"
 	case Ignore:

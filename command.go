@@ -22,6 +22,7 @@ type Command interface {
 	Usage() string
 	Tags() []string
 	Command() string
+	Blocked() bool
 	Combined() bool
 	Dry([]string) error
 	Remote() bool
@@ -57,7 +58,7 @@ type Line struct {
 }
 
 type Single struct {
-	Visible    bool
+	Visible bool
 
 	Name       string
 	Alias      []string
@@ -65,19 +66,19 @@ type Single struct {
 	Desc       string
 	Categories []string
 
-	Users      []string
-	Groups     []string
-	Error      string
-	Retry      int64
-	WorkDir    string
-	Timeout    time.Duration
+	Users   []string
+	Groups  []string
+	Error   string
+	Retry   int64
+	WorkDir string
+	Timeout time.Duration
 
-	Hosts      []string
-	Deps       []Dep
-	Scripts    []Line
-	Env        map[string]string
-	Options    []Option
-	Args       []string
+	Hosts   []string
+	Deps    []Dep
+	Scripts []Line
+	Env     map[string]string
+	Options []Option
+	Args    []string
 
 	executed bool
 
@@ -157,6 +158,10 @@ func (s *Single) Usage() string {
 
 func (_ *Single) Combined() bool {
 	return false
+}
+
+func (s *Single) Blocked() bool {
+	return !s.Visible
 }
 
 func (s *Single) Remote() bool {
@@ -384,6 +389,15 @@ func (c Combined) Tags() []string {
 		}
 	}
 	return tags
+}
+
+func (c Combined) Blocked() bool {
+	for i := range c {
+		if c[i].Blocked() {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Combined) Execute(args []string) error {

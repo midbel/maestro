@@ -102,6 +102,8 @@ func (d *Decoder) decode(mst *Maestro) error {
 				break
 			}
 			err = d.decodeCommand(mst)
+		case Hidden:
+			err = d.decodeCommand(mst)
 		case Meta:
 			err = d.decodeMeta(mst)
 		case Keyword:
@@ -364,10 +366,16 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
+	var hidden bool
+	if d.curr().Type == Hidden {
+		hidden = true
+		d.next()
+	}
 	cmd, err := NewSingleWithLocals(d.curr().Literal, d.locals)
 	if err != nil {
 		return err
 	}
+	cmd.Visible = !hidden
 	d.next()
 	if d.curr().Type == BegList {
 		if err := d.decodeCommandProperties(cmd); err != nil {
