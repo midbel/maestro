@@ -58,7 +58,8 @@ type Scanner struct {
 	column int
 	seen   int
 
-	script    bool
+	// script    bool
+	state     stack
 	identFunc func(rune) bool
 }
 
@@ -71,6 +72,7 @@ func Scan(r io.Reader) (*Scanner, error) {
 		input:     bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
 		line:      1,
 		column:    0,
+		state:     defaultStack(),
 		identFunc: isIdent,
 	}
 	s.read()
@@ -97,7 +99,7 @@ func (s *Scanner) Scan() Token {
 		tok.Type = Eof
 		return tok
 	}
-	if s.char != rcurly && s.script {
+	if s.char != rcurly && s.state.Script() {
 		s.scanScript(&tok)
 		return tok
 	}
@@ -126,10 +128,6 @@ func (s *Scanner) Scan() Token {
 	return tok
 }
 
-func (s *Scanner) toggleScript() {
-	s.script = !s.script
-}
-
 func (s *Scanner) scanOperator(tok *Token) {
 	switch s.char {
 	case dot:
@@ -140,6 +138,8 @@ func (s *Scanner) scanOperator(tok *Token) {
 		}
 		tok.Literal = s.str.String()
 		tok.Type = Macro
+		s.state.Push(scanMacro)
+		s.skipBlank()
 		return
 	case minus:
 		tok.Type = Ignore
@@ -322,10 +322,10 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		tok.Type = EndList
 	case lcurly:
 		tok.Type = BegScript
-		s.script = true
+		s.state.Push(scanScript)
 	case rcurly:
 		tok.Type = EndScript
-		s.script = false
+		s.state.Pop()
 	case question:
 		tok.Type = Optional
 	case percent:
@@ -333,7 +333,7 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	default:
 	}
 	s.read()
-	if s.script && isNL(s.char) {
+	if (s.state.Script() || s.state.Macro()) && isNL(s.char) {
 		s.skipNL()
 	}
 }
@@ -471,4 +471,74 @@ func isOperator(b rune) bool {
 	default:
 		return false
 	}
+}
+
+type scanState int8
+
+const (
+	scanDefault scanState = iota
+	scanScript
+	scanMacro
+)
+
+type stack []scanState
+
+func defaultStack() stack {
+	var s stack
+	s.Push(scanDefault)
+	return s
+}
+
+func (s *stack) Pop() {
+	var (
+		macro = s.Macro()
+		size = s.Len()
+	)
+	if size == 0 {
+		return
+	}
+	size--
+	*s = (*s)[:size]
+	if macro {
+		s.Pop()
+	}
+}
+
+func (s *stack) Push(st scanState) {
+	*s = append(*s, st)
+}
+
+func (s *stack) Default() bool {
+	return s.Curr() == scanDefault
+}
+
+func (s *stack) Script() bool {
+	return s.Curr() == scanScript
+}
+
+func (s *stack) Macro() bool {
+	return s.Curr() == scanMacro || (s.Script() && s.Prev() == scanMacro)
+}
+
+func (s *stack) Len() int {
+	return len(*s)
+}
+
+func (s *stack) Curr() scanState {
+	n := s.Len()
+	if n == 0 {
+		return scanDefault
+	}
+	n--
+	return (*s)[n]
+}
+
+func (s *stack) Prev() scanState {
+	n := s.Len()
+	n--
+	n--
+	if n >= 0 {
+		return (*s)[n]
+	}
+	return scanDefault
 }
