@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/midbel/maestro/shell"
@@ -63,8 +64,9 @@ const (
 )
 
 const (
-	macroRepeat = "repeat"
-	macroSingle = "single"
+	macroRepeat   = "repeat"
+	macroSequence = "sequence"
+	macroVar      = "%(var)"
 )
 
 type Decoder struct {
@@ -618,9 +620,6 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			}
 			continue
 		}
-		if d.peek().Type == Macro {
-			d.toggleScript()
-		}
 		if d.curr().Type == Copy {
 			d.next()
 			other, err := mst.lookup(d.curr().Literal)
@@ -685,15 +684,54 @@ func (d *Decoder) decodeScriptLine() (Line, error) {
 }
 
 func (d *Decoder) decodeScriptMacro(cmd *Single, mst *Maestro) error {
-	defer d.toggleScript()
 	var err error
 	switch macro := d.curr().Literal; macro {
 	case macroRepeat:
 		err = d.decodeMacroRepeat(cmd)
+	case macroSequence:
+		err = d.decodeMacroSequence(cmd)
 	default:
 		err = fmt.Errorf("%s: unknown macro", macro)
 	}
 	return err
+}
+
+func (d *Decoder) decodeMacroSequence(cmd *Single) error {
+	d.next()
+	if d.curr().Type != BegScript {
+		return d.unexpected()
+	}
+	d.next()
+
+	var lines []Line
+	for !d.done() {
+		if d.curr().Type == EndScript {
+			break
+		}
+		if d.curr().Type == Comment {
+			d.next()
+			continue
+		}
+		line, err := d.decodeScriptLine()
+		if err != nil {
+			return err
+		}
+		lines = append(lines, line)
+	}
+	if d.curr().Type != EndScript {
+		return d.unexpected()
+	}
+	d.next()
+	if len(lines) == 0 {
+		return fmt.Errorf("no script given")
+	}
+	var list []string
+	for i := range lines {
+		list = append(list, lines[i].Line)
+	}
+	lines[0].Line = strings.Join(list, "; ")
+	cmd.Scripts = append(cmd.Scripts, lines[0])
+	return nil
 }
 
 func (d *Decoder) decodeMacroRepeat(cmd *Single) error {
@@ -702,14 +740,14 @@ func (d *Decoder) decodeMacroRepeat(cmd *Single) error {
 		return d.unexpected()
 	}
 	d.next()
-	var list []string
+	var list []Token
 	for !d.done() {
 		if d.curr().Type == EndList {
 			break
 		}
 		switch curr := d.curr(); {
 		case curr.IsPrimitive() || curr.IsVariable():
-			list = append(list, curr.Literal)
+			list = append(list, curr)
 		default:
 			return d.unexpected()
 		}
@@ -729,6 +767,8 @@ func (d *Decoder) decodeMacroRepeat(cmd *Single) error {
 	if d.curr().Type != BegScript {
 		return d.unexpected()
 	}
+	d.next()
+	var lines []Line
 	for !d.done() {
 		if d.curr().Type == EndScript {
 			break
@@ -741,12 +781,21 @@ func (d *Decoder) decodeMacroRepeat(cmd *Single) error {
 		if err != nil {
 			return err
 		}
-		cmd.Scripts = append(cmd.Scripts, line)
+		lines = append(lines, line)
 	}
 	if d.curr().Type != EndScript {
 		return d.unexpected()
 	}
 	d.next()
+	for i := range list {
+		if list[i].IsVariable() {
+			list[i].Literal = fmt.Sprintf("$%s", list[i].Literal)
+		}
+		for _, n := range lines {
+			n.Line = strings.ReplaceAll(n.Line, macroVar, list[i].Literal)
+			cmd.Scripts = append(cmd.Scripts, n)
+		}
+	}
 	return nil
 }
 
@@ -912,15 +961,6 @@ func (d *Decoder) next() {
 	}
 }
 
-func (d *Decoder) toggleScript() {
-	z := len(d.frames)
-	if z == 0 {
-		return
-	}
-	z--
-	d.frames[z].toggleScript()
-}
-
 func (d *Decoder) done() bool {
 	z := len(d.frames)
 	if z == 1 {
@@ -1039,8 +1079,4 @@ func (f *frame) next() {
 
 func (f *frame) done() bool {
 	return f.curr.IsEOF()
-}
-
-func (f *frame) toggleScript() {
-	f.scan.toggleScript()
 }

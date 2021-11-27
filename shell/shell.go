@@ -299,6 +299,7 @@ func (s *Shell) executeSingle(ex Expander) error {
 	if err != nil {
 		return err
 	}
+	s.trace(str)
 	if cmd, ok := s.builtins[str[0]]; ok && cmd.IsEnabled() {
 		cmd.shell = s
 		cmd.args = str[1:]
@@ -544,4 +545,11 @@ func (s *Shell) resolveSpecials(ident string) []string {
 		ret = append(ret, arg)
 	}
 	return ret
+}
+
+func (s *Shell) trace(str []string) {
+	if !s.echo {
+		return
+	}
+	fmt.Fprintln(s.stdout, strings.Join(str, " "))
 }

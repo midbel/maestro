@@ -481,6 +481,19 @@ const (
 	scanMacro
 )
 
+func (s scanState) String() string {
+	switch s {
+	case scanDefault:
+		return "default"
+	case scanScript:
+		return "script"
+	case scanMacro:
+		return "macro"
+	default:
+		return "unknown"
+	}
+}
+
 type stack []scanState
 
 func defaultStack() stack {
@@ -490,17 +503,16 @@ func defaultStack() stack {
 }
 
 func (s *stack) Pop() {
-	var (
-		macro = s.Macro()
-		size = s.Len()
-	)
-	if size == 0 {
+	n := s.Len()
+	if n == 0 {
 		return
 	}
-	size--
-	*s = (*s)[:size]
-	if macro {
-		s.Pop()
+	n--
+	if s.Macro() {
+		n--
+	}
+	if n >= 0 {
+		*s = (*s)[:n]
 	}
 }
 
