@@ -57,15 +57,21 @@ type Line struct {
 }
 
 type Single struct {
+	Visible    bool
+
 	Name       string
 	Alias      []string
 	Short      string
 	Desc       string
-	Error      string
 	Categories []string
+
+	Users      []string
+	Groups     []string
+	Error      string
 	Retry      int64
 	WorkDir    string
 	Timeout    time.Duration
+
 	Hosts      []string
 	Deps       []Dep
 	Scripts    []Line

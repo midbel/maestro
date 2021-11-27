@@ -49,6 +49,8 @@ const (
 	propOpts    = "options"
 	propArg     = "args"
 	propAlias   = "alias"
+	propUser    = "user"
+	propGroup   = "group"
 )
 
 const (
@@ -434,6 +436,10 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			sort.Strings(cmd.Alias)
 		case propArg:
 			cmd.Args, err = d.parseStringList()
+		case propUser:
+			cmd.Users, err = d.parseStringList()
+		case propGroup:
+			cmd.Groups, err = d.parseStringList()
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
 		}

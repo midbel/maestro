@@ -46,8 +46,8 @@
 general syntax:
 
 ```
-command([property,...]): [dependency...] {
-  [operator...]script
+[!]command([property,...]): [dependency...] {
+  [modifier...]script
 }
 ```
 
@@ -62,6 +62,8 @@ command([property,...]): [dependency...] {
 * retry:
 * timeout:
 * error:
+* user:
+* group:
 
 * options:
 * args:
