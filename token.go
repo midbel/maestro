@@ -25,6 +25,7 @@ const (
 	Variable
 	Meta
 	Script
+	Macro
 	Assign
 	Comma
 	Background
@@ -113,6 +114,8 @@ func (t Token) String() string {
 		prefix = "script"
 	case Keyword:
 		prefix = "keyword"
+	case Macro:
+		prefix = "macro"
 	}
 	return fmt.Sprintf("%s(%s)", prefix, t.Literal)
 }

@@ -126,8 +126,21 @@ func (s *Scanner) Scan() Token {
 	return tok
 }
 
+func (s *Scanner) toggleScript() {
+	s.script = !s.script
+}
+
 func (s *Scanner) scanOperator(tok *Token) {
 	switch s.char {
+	case dot:
+		s.read()
+		for isLower(s.char) {
+			s.str.WriteRune(s.char)
+			s.read()
+		}
+		tok.Literal = s.str.String()
+		tok.Type = Macro
+		return
 	case minus:
 		tok.Type = Ignore
 	case bang:
@@ -452,5 +465,10 @@ func isDelimiter(b rune) bool {
 }
 
 func isOperator(b rune) bool {
-	return b == bang || b == minus || b == arobase || b == langle || b == tilde
+	switch b {
+	case bang, minus, arobase, langle, tilde, dot:
+		return true
+	default:
+		return false
+	}
 }

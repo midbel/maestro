@@ -25,6 +25,11 @@ test(
 	@go test -cover $package
 	@go test -cover "$package/shlex"
 	@go test -cover "$package/shell"
+	.repeat(
+		$package,
+		"$package/shlex",
+		"$package/shell"
+	)
 }
 
 build(

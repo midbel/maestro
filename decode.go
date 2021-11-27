@@ -62,6 +62,11 @@ const (
 	optHelp     = "help"
 )
 
+const (
+	macroRepeat = "repeat"
+	macroSingle = "single"
+)
+
 type Decoder struct {
 	locals *Env
 	env    map[string]string
@@ -446,8 +451,10 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			cmd.Args, err = d.parseStringList()
 		case propUser:
 			cmd.Users, err = d.parseStringList()
+			sort.Strings(cmd.Users)
 		case propGroup:
 			cmd.Groups, err = d.parseStringList()
+			sort.Strings(cmd.Groups)
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
 		}
@@ -605,6 +612,15 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			d.next()
 			continue
 		}
+		if d.curr().Type == Macro {
+			if err := d.decodeScriptMacro(cmd, mst); err != nil {
+				return err
+			}
+			continue
+		}
+		if d.peek().Type == Macro {
+			d.toggleScript()
+		}
 		if d.curr().Type == Copy {
 			d.next()
 			other, err := mst.lookup(d.curr().Literal)
@@ -622,41 +638,116 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			d.next()
 			continue
 		}
-		var (
-			i    Line
-			seen = make(map[rune]struct{})
-		)
-		for d.curr().IsOperator() {
-			if _, ok := seen[d.curr().Type]; ok {
-				return fmt.Errorf("operator already set")
-			}
-			seen[d.curr().Type] = struct{}{}
-			switch d.curr().Type {
-			case Echo:
-				i.Echo = !i.Echo
-			case Reverse:
-				i.Reverse = !i.Reverse
-			case Ignore:
-				i.Ignore = !i.Ignore
-			case Subshell:
-				i.Subshell = !i.Subshell
-			default:
-				return d.unexpected()
-			}
-			d.next()
+		line, err := d.decodeScriptLine()
+		if err != nil {
+			return err
 		}
-		if d.curr().Type != Script {
-			return d.unexpected()
-		}
-		i.Line = d.curr().Literal
-		cmd.Scripts = append(cmd.Scripts, i)
-		d.next()
+		cmd.Scripts = append(cmd.Scripts, line)
 	}
 	if d.curr().Type != EndScript {
 		return d.unexpected()
 	}
 	d.next()
 	return d.ensureEOL()
+}
+
+func (d *Decoder) decodeScriptLine() (Line, error) {
+	var (
+		line Line
+		seen = make(map[rune]struct{})
+	)
+	for d.curr().IsOperator() {
+		if _, ok := seen[d.curr().Type]; ok {
+			return line, fmt.Errorf("operator already set")
+		}
+		seen[d.curr().Type] = struct{}{}
+		switch d.curr().Type {
+		case Echo:
+			line.Echo = !line.Echo
+		case Reverse:
+			line.Reverse = !line.Reverse
+		case Ignore:
+			line.Ignore = !line.Ignore
+		case Subshell:
+			line.Subshell = !line.Subshell
+		default:
+			return line, d.unexpected()
+		}
+		d.next()
+	}
+	if d.curr().Type != Script {
+		return line, d.unexpected()
+	}
+	line.Line = d.curr().Literal
+	d.next()
+
+	return line, nil
+}
+
+func (d *Decoder) decodeScriptMacro(cmd *Single, mst *Maestro) error {
+	defer d.toggleScript()
+	var err error
+	switch macro := d.curr().Literal; macro {
+	case macroRepeat:
+		err = d.decodeMacroRepeat(cmd)
+	default:
+		err = fmt.Errorf("%s: unknown macro", macro)
+	}
+	return err
+}
+
+func (d *Decoder) decodeMacroRepeat(cmd *Single) error {
+	d.next()
+	if d.curr().Type != BegList {
+		return d.unexpected()
+	}
+	d.next()
+	var list []string
+	for !d.done() {
+		if d.curr().Type == EndList {
+			break
+		}
+		switch curr := d.curr(); {
+		case curr.IsPrimitive() || curr.IsVariable():
+			list = append(list, curr.Literal)
+		default:
+			return d.unexpected()
+		}
+		d.next()
+		switch d.curr().Type {
+		case Comma:
+			d.next()
+		case EndList:
+		default:
+			return d.unexpected()
+		}
+	}
+	if d.curr().Type != EndList {
+		return d.unexpected()
+	}
+	d.next()
+	if d.curr().Type != BegScript {
+		return d.unexpected()
+	}
+	for !d.done() {
+		if d.curr().Type == EndScript {
+			break
+		}
+		if d.curr().Type == Comment {
+			d.next()
+			continue
+		}
+		line, err := d.decodeScriptLine()
+		if err != nil {
+			return err
+		}
+		cmd.Scripts = append(cmd.Scripts, line)
+	}
+	if d.curr().Type != EndScript {
+		return d.unexpected()
+	}
+	d.next()
+	return nil
 }
 
 func (d *Decoder) decodeMeta(mst *Maestro) error {
@@ -821,6 +912,15 @@ func (d *Decoder) next() {
 	}
 }
 
+func (d *Decoder) toggleScript() {
+	z := len(d.frames)
+	if z == 0 {
+		return
+	}
+	z--
+	d.frames[z].toggleScript()
+}
+
 func (d *Decoder) done() bool {
 	z := len(d.frames)
 	if z == 1 {
@@ -939,4 +1039,8 @@ func (f *frame) next() {
 
 func (f *frame) done() bool {
 	return f.curr.IsEOF()
+}
+
+func (f *frame) toggleScript() {
+	f.scan.toggleScript()
 }
