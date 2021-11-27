@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/user"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +25,7 @@ type Command interface {
 	Tags() []string
 	Command() string
 	Blocked() bool
+	Can() bool
 	Combined() bool
 	Dry([]string) error
 	Remote() bool
@@ -162,6 +165,46 @@ func (_ *Single) Combined() bool {
 
 func (s *Single) Blocked() bool {
 	return !s.Visible
+}
+
+func (s *Single) Can() bool {
+	if len(s.Users) == 0 && len(s.Groups) == 0 {
+		return true
+	}
+	if s.can(strconv.Itoa(os.Geteuid())) {
+		return true
+	}
+	return s.can(strconv.Itoa(os.Getuid()))
+}
+
+func (s *Single) can(uid string) bool {
+	curr, err := user.LookupId(uid)
+	if err != nil {
+		return false
+	}
+	if len(s.Users) > 0 {
+		i := sort.SearchStrings(s.Users, curr.Username)
+		if i < len(s.Users) && s.Users[i] == curr.Username {
+			return true
+		}
+	}
+	if len(s.Groups) > 0 {
+		groups, err := curr.GroupIds()
+		if err != nil {
+			return false
+		}
+		for _, gid := range groups {
+			grp, err := user.LookupGroupId(gid)
+			if err != nil {
+				continue
+			}
+			i := sort.SearchStrings(s.Groups, grp.Name)
+			if i < len(s.Groups) && s.Groups[i] == grp.Name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Single) Remote() bool {
@@ -398,6 +441,15 @@ func (c Combined) Blocked() bool {
 		}
 	}
 	return false
+}
+
+func (c Combined) Can() bool {
+	for i := range c {
+		if !c[i].Can() {
+			return false
+		}
+	}
+	return true
 }
 
 func (c Combined) Execute(args []string) error {

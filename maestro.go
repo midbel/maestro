@@ -89,13 +89,9 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	if cmd.Blocked() {
-		return fmt.Errorf("%s: command can not be called", name)
+	if err := m.canExecute(cmd); err != nil {
+		return err
 	}
-	if m.Remote && !cmd.Remote() {
-		return fmt.Errorf("%s can not be executly on remote system", name)
-	}
-
 	if !m.NoDeps {
 		if err := m.executeDependencies(cmd); err != nil {
 			return err
@@ -213,6 +209,19 @@ func (m *Maestro) help() (string, error) {
 
 func (m *Maestro) Name() string {
 	return strings.TrimSuffix(filepath.Base(m.File), filepath.Ext(m.File))
+}
+
+func (m *Maestro) canExecute(cmd Command) error {
+	if cmd.Blocked() {
+		return fmt.Errorf("%s: command can not be called", cmd.Command())
+	}
+	if !cmd.Can() {
+		return fmt.Errorf("current user is not allowed to executed %s", cmd.Command())
+	}
+	if m.Remote && !cmd.Remote() {
+		return fmt.Errorf("%s can not be executly on remote system", cmd.Command())
+	}
+	return nil
 }
 
 func (m *Maestro) executeDependencies(cmd Command) error {

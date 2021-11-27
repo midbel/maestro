@@ -46,7 +46,7 @@
 general syntax:
 
 ```
-[!]command([property,...]): [dependency...] {
+[%]command([property,...]): [dependency...] {
   [modifier...]script
 }
 ```
