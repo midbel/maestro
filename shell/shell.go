@@ -331,6 +331,8 @@ func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
 			stdout, err = setWriter(stdout, str[0], os.O_CREATE|os.O_WRONLY|os.O_APPEND)
 		case AppendErr:
 			stderr, err = setWriter(stderr, str[0], os.O_CREATE|os.O_WRONLY|os.O_APPEND)
+		case RedirectBoth:
+		case AppendBoth:
 		default:
 			err = fmt.Errorf("unknown/unsupported redirection")
 		}
