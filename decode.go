@@ -35,6 +35,7 @@ const (
 	metaPass      = "PASSWORD"
 	metaPrivKey   = "PRIVATEKEY"
 	metaPubKey    = "PUBLICKEY"
+	metaBuiltin   = "BUILTIN"
 )
 
 const (

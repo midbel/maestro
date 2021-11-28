@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/midbel/maestro/shell"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -282,24 +281,7 @@ func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
 }
 
 func (m *Maestro) prepare(name string) (Command, error) {
-	cmd, err := m.lookup(name)
-	if err != nil {
-		return nil, err
-	}
-	sg, ok := cmd.(*Single)
-	if !ok {
-		return cmd, nil
-	}
-	var list []shell.Command
-	for _, c := range m.Commands {
-		if c.Command() == name {
-			// avoid recursive call but can be disabled if needed one day
-			continue
-		}
-		list = append(list, c)
-	}
-	sg.Register(list)
-	return sg, nil
+	return m.lookup(name)
 }
 
 func (m *Maestro) lookup(name string) (Command, error) {

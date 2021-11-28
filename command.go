@@ -29,8 +29,7 @@ type Command interface {
 	Combined() bool
 	Dry([]string) error
 	Remote() bool
-
-	shell.Command
+	Execute([]string) error
 }
 
 type Dep struct {
@@ -211,18 +210,6 @@ func (s *Single) Remote() bool {
 	return len(s.Hosts) > 0
 }
 
-func (s *Single) Register(list []shell.Command) {
-	s.shell.Register(list...)
-}
-
-func (s *Single) Status() (int, int) {
-	return s.shell.ExitStatus()
-}
-
-func (_ *Single) Type() shell.CommandType {
-	return shell.TypeScript
-}
-
 func (s *Single) Dry(args []string) error {
 	args, err := s.parseArgs(args)
 	if err != nil {
@@ -397,15 +384,6 @@ func (c Combined) Help() (string, error) {
 
 func (_ Combined) Combined() bool {
 	return true
-}
-
-func (c Combined) Type() shell.CommandType {
-	return c[0].Type()
-}
-
-func (c Combined) Status() (int, int) {
-	z := len(c) - 1
-	return c[z].Status()
 }
 
 func (c Combined) Remote() bool {

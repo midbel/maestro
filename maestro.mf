@@ -20,7 +20,7 @@ package = "github.com/midbel/maestro"
 test(
 	short = "run test in current directory",
 	tag   = build test,
-): {
+): gofmt {
 	@go clean -testcache
 	.repeat($package, "$package/shlex", "$package/shell") {
 		@go test -cover <var>
@@ -31,7 +31,7 @@ build(
 	short = "build binaries",
 	tag   = build,
 	alias = compile,
-): test, verify {
+): gofmt, test, verify {
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
 
@@ -46,9 +46,9 @@ build(
 
 verify(
 	short = "verify code",
-	tag   = "build" "verify",
+	tag   = build verify,
 	alias = vet,
-): {
+): gofmt {
 	echo "run vet on $package"
 	@go vet $package
 	echo "run vet on $package/shell"
@@ -60,15 +60,14 @@ verify(
 commit(
 	short = "commit changes and push to remote",
 	tag   = build,
-): {
-	gofmt -w -s .
+): gofmt {
 	git commit -am $1
 	git push
 }
 
 %loc(
 	short = "count number of LoC",
-	tag   = "info" "verify",
+	tag   = info verify,
 ): {
 	total = $(find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l)
 	echo "${total:>:5} lines of code"
@@ -76,7 +75,7 @@ commit(
 
 %todo(
 	short = "count number of remaining todos in code",
-	tag   = "info" "verify",
+	tag   = info verify,
 	options = (
 		short = s,
 		long  = show,
@@ -91,8 +90,12 @@ commit(
 
 count(
 	short = "count LOC and todos",
-	tag   = "info" "verify",
+	tag   = info verify,
 ): {
 	loc
 	todo
+}
+
+%gofmt {
+	gofmt -w -s .
 }
