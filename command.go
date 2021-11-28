@@ -107,6 +107,7 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 		Error:  errSilent,
 		shell:  sh,
 		locals: locals,
+		Env:    make(map[string]string),
 	}
 	return &cmd, nil
 }
@@ -255,7 +256,7 @@ func (s *Single) execute(args []string) error {
 			sh, _ = sh.Subshell()
 		}
 		for k, v := range s.Env {
-			sh.Define(k, v)
+			sh.Export(k, v)
 		}
 		sh.SetEcho(cmd.Echo)
 		err := sh.Execute(cmd.Line, s.Name, args)
