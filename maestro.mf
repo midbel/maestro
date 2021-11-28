@@ -60,9 +60,16 @@ verify(
 commit(
 	short = "commit changes and push to remote",
 	tag   = build,
+	args  = message,
+	options = (
+		short = p,
+		long  = push,
+		flag  = true,
+		help  = "push committed changes to remote repository",
+	)
 ): gofmt {
 	git commit -am $1
-	git push
+	$push && git push
 }
 
 %loc(

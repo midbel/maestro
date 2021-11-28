@@ -68,19 +68,44 @@ func (p *Parser) parse() (Executer, error) {
 }
 
 func (p *Parser) parseSimple() (Executer, error) {
-	var ex ExpandList
+	var (
+		ex     ExpandList
+		stdin  Expander
+		stdout Expander
+		stderr Expander
+	)
 	for {
+		var (
+			next Expander
+			err  error
+		)
 		switch p.curr.Type {
 		case Literal, Quote, Variable, BegExp, BegBrace, BegSub:
-			next, err := p.parseWords()
-			if err != nil {
-				return nil, err
+			next, err = p.parseWords()
+			if err == nil {
+				ex.List = append(ex.List, next)
 			}
-			ex.List = append(ex.List, next)
+		case RedirectIn:
+			stdin, err = p.parseRedirection()
+		case RedirectOut:
+			stdout, err = p.parseRedirection()
+		case AppendOut:
+			_, err = p.parseRedirection()
+		case RedirectBoth:
+			stdout, err = p.parseRedirection()
+			stderr = stdout
 		default:
+			_, _, _ = stdin, stdout, stderr
 			return createSimple(ex), nil
 		}
+		if err != nil {
+			return nil, err
+		}
 	}
+}
+
+func (p *Parser) parseRedirection() (Expander, error) {
+	return nil, nil
 }
 
 func (p *Parser) parseAssignment() (Executer, error) {

@@ -29,8 +29,8 @@ const (
 	RedirectOut
 	RedirectBoth
 	AppendOut
-	BegTest
-	EndTest
+	BegTest        // [[
+	EndTest        // ]]
 	Length         // ${#var}
 	Slice          // ${var:from:to}
 	Replace        // ${var/from/to}

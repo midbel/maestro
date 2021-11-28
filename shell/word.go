@@ -120,9 +120,9 @@ func createPipeItem(ex Executer, both bool) pipeitem {
 
 type ExecSimple struct {
 	Expander
-	// In    Expander
-	// Out   Expander
-	// Err   Expander
+	In  Expander
+	Out Expander
+	Err Expander
 }
 
 func createSimple(ex Expander) ExecSimple {
