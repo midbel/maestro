@@ -12,12 +12,36 @@ var tokens = []struct {
 	Tokens []rune
 }{
 	{
-		Input:  `echo foobar 2> err.txt`,
+		Input:  `echo err 2> err.txt`,
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.RedirectErr, shell.Literal},
 	},
 	{
-		Input:  `echo foobar 2>> err.txt`,
+		Input:  `echo err 2>> err.txt`,
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.AppendErr, shell.Literal},
+	},
+	{
+		Input:  `echo out1 1> out.txt`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.RedirectOut, shell.Literal},
+	},
+	{
+		Input:  `echo out1 1>> out.txt`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.AppendOut, shell.Literal},
+	},
+	{
+		Input:  `echo out > out.txt`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.RedirectOut, shell.Literal},
+	},
+	{
+		Input:  `echo out >> out.txt`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.AppendOut, shell.Literal},
+	},
+	{
+		Input:  `echo both &> both.txt`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.RedirectBoth, shell.Literal},
+	},
+	{
+		Input:  `echo both &>> both.txt`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.AppendBoth, shell.Literal},
 	},
 }
 
@@ -26,12 +50,7 @@ func TestScan(t *testing.T) {
 		scan := shell.Scan(strings.NewReader(in.Input))
 		for i := 0; ; i++ {
 			tok := scan.Scan()
-      t.Logf("current: %s", tok)
 			if tok.Type == shell.EOF {
-				break
-			}
-			if tok.Type == shell.Invalid {
-				t.Errorf("invalid token generated")
 				break
 			}
 			if i >= len(in.Tokens) {
@@ -39,7 +58,8 @@ func TestScan(t *testing.T) {
 				break
 			}
 			if tok.Type != in.Tokens[i] {
-				t.Errorf("token mismatched! %s", tok)
+				t.Errorf("token mismatched! %s (got %d, want %d)", tok, tok.Type, in.Tokens[i])
+				break
 			}
 		}
 	}

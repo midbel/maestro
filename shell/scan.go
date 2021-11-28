@@ -97,7 +97,7 @@ func (s *Scanner) Scan() Token {
 		s.skipBlank()
 	case isSequence(s.char) && !s.quoted:
 		s.scanSequence(&tok)
-	case isRedirect(s.char) && !s.quoted:
+	case isRedirectBis(s.char, s.peek()) && !s.quoted:
 		s.scanRedirect(&tok)
 	case isAssign(s.char) && !s.quoted:
 		s.scanAssignment(&tok)
@@ -164,6 +164,43 @@ func (s *Scanner) scanRedirect(tok *Token) {
 		if k := s.peek(); k == s.char {
 			tok.Type = AppendOut
 			s.read()
+		}
+	case ampersand:
+		s.read()
+		if s.char == rangle && s.peek() == s.char {
+			s.read()
+			tok.Type = AppendBoth
+		} else if s.char == rangle {
+			tok.Type = RedirectBoth
+		} else {
+			tok.Type = Invalid
+		}
+	case '0':
+		s.read()
+		if s.char != langle {
+			tok.Type = Invalid
+			break
+		}
+		tok.Type = RedirectIn
+	case '1':
+		s.read()
+		if s.char == rangle && s.peek() == s.char {
+			s.read()
+			tok.Type = AppendOut
+		} else if s.char == rangle {
+			tok.Type = RedirectOut
+		} else {
+			tok.Type = Invalid
+		}
+	case '2':
+		s.read()
+		if s.char == rangle && s.peek() == s.char {
+			s.read()
+			tok.Type = AppendErr
+		} else if s.char == rangle {
+			tok.Type = RedirectErr
+		} else {
+			tok.Type = Invalid
 		}
 	default:
 		tok.Type = Invalid
@@ -340,7 +377,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	tok.Type = Literal
 	tok.Literal = s.string()
 	s.skipBlankUntil(func(r rune) bool {
-		return isSequence(r) || isAssign(r)
+		return isSequence(r) || isAssign(r) || isRedirectBis(r, s.peek())
 	})
 }
 
@@ -506,6 +543,21 @@ func isAssign(r rune) bool {
 
 func isRedirect(r rune) bool {
 	return r == langle || r == rangle
+}
+
+func isRedirectBis(r, k rune) bool {
+	if isRedirect(r) {
+		return true
+	}
+	switch {
+	case r == ampersand && k == rangle:
+	case r == '0' && k == langle:
+	case r == '1' && k == rangle:
+	case r == '2' && k == rangle:
+	default:
+		return false
+	}
+	return true
 }
 
 func isBraces(r rune) bool {
