@@ -21,9 +21,6 @@ func main() {
 	}
 
 	options := []shell.ShellOption{
-		shell.WithVar("foo", "foo"),
-		shell.WithVar("bar", "bar"),
-		shell.WithVar("foobar", "foobar"),
 		shell.WithCwd(*cwd),
 	}
 	if *echo {

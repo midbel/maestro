@@ -156,6 +156,32 @@ type Builtin struct {
 	stdin  io.Reader
 
 	closes []io.Closer
+	copies []func() error
+	errch  chan error
+}
+
+func (b *Builtin) Name() string {
+	i := strings.Index(b.Usage, " ")
+	if i <= 0 {
+		return b.Usage
+	}
+	return b.Usage[:i]
+}
+
+func (b *Builtin) Command() string {
+	return b.Name()
+}
+
+func (b *Builtin) IsEnabled() bool {
+	return !b.Disabled && b.Execute != nil
+}
+
+func (b *Builtin) Exit() (int, int) {
+	return 0, 0
+}
+
+func (b *Builtin) Type() CommandType {
+	return TypeBuiltin
 }
 
 func (b *Builtin) Start() error {
@@ -165,16 +191,24 @@ func (b *Builtin) Start() error {
 	if b.finished {
 		return fmt.Errorf("builtin already executed")
 	}
-	setupfd := []func() error{
+	setupfd := []func() (*os.File, error){
 		b.setStdin,
 		b.setStdout,
 		b.setStderr,
 	}
 	for _, set := range setupfd {
-		err := set()
+		_, err := set()
 		if err != nil {
 			b.closeDescriptors()
 			return err
+		}
+	}
+	if len(b.copies) > 0 {
+		b.errch = make(chan error)
+		for _, fn := range b.copies {
+			go func(fn func() error) {
+				b.errch <- fn()
+			}(fn)
 		}
 	}
 	b.done = make(chan error, 1)
@@ -196,7 +230,21 @@ func (b *Builtin) Wait() error {
 		b.closeDescriptors()
 	}()
 	b.finished = true
-	return <-b.done
+
+	var (
+		errex = <-b.done
+		errcp error
+	)
+	for range b.copies {
+		e := <-b.errch
+		if errcp == nil && e != nil {
+			errcp = e
+		}
+	}
+	if errex != nil {
+		return errex
+	}
+	return errcp
 }
 
 func (b *Builtin) Run() error {
@@ -206,11 +254,23 @@ func (b *Builtin) Run() error {
 	return b.Wait()
 }
 
+func (b *Builtin) SetIn(r io.Reader) {
+	b.stdin = r
+}
+
+func (b *Builtin) SetOut(w io.Writer) {
+	b.stdout = w
+}
+
+func (b *Builtin) SetErr(w io.Writer) {
+	b.stderr = w
+}
+
 func (b *Builtin) StdoutPipe() (io.ReadCloser, error) {
 	if b.stdout != nil {
 		return nil, fmt.Errorf("stdout already set")
 	}
-	if b.shell != nil {
+	if b.finished {
 		return nil, fmt.Errorf("stdout after builtin started")
 	}
 	pr, pw, err := os.Pipe()
@@ -226,7 +286,7 @@ func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
 	if b.stderr != nil {
 		return nil, fmt.Errorf("stderr already set")
 	}
-	if b.shell != nil {
+	if b.finished {
 		return nil, fmt.Errorf("stderr after builtin started")
 	}
 	pr, pw, err := os.Pipe()
@@ -254,60 +314,63 @@ func (b *Builtin) StdinPipe() (io.WriteCloser, error) {
 	return pw, nil
 }
 
-func (b Builtin) Name() string {
-	i := strings.Index(b.Usage, " ")
-	if i <= 0 {
-		return b.Usage
+func (b *Builtin) setStdin() (*os.File, error) {
+	if b.stdin == nil {
+		f, err := os.Open(os.DevNull)
+		if err != nil {
+			return nil, err
+		}
+		b.closes = append(b.closes, f)
+		return f, nil
 	}
-	return b.Usage[:i]
-}
-
-func (b Builtin) IsEnabled() bool {
-	return !b.Disabled && b.Execute != nil
-}
-
-func (b *Builtin) setStdin() error {
-	if b.stdin != nil {
-		return nil
+	if f, ok := b.stdin.(*os.File); ok {
+		return f, nil
 	}
-	f, err := os.Open(os.DevNull)
-	if err != nil {
-		return err
-	}
-	b.stdin = f
-	b.closes = append(b.closes, f)
-	return nil
-}
-
-func (b *Builtin) setStdout() error {
-	if b.stdout != nil {
-		return nil
-	}
-	out, err := b.openFile()
-	if err == nil {
-		b.stdout = out
-	}
-	return err
-}
-
-func (b *Builtin) setStderr() error {
-	if b.stderr != nil {
-		return nil
-	}
-	out, err := b.openFile()
-	if err == nil {
-		b.stderr = out
-	}
-	return err
-}
-
-func (b *Builtin) openFile() (*os.File, error) {
-	f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	b.closes = append(b.closes, f)
-	return f, nil
+	b.closes = append(b.closes, pr, pw)
+	b.copies = append(b.copies, func() error {
+		defer pw.Close()
+		_, err := io.Copy(pw, b.stdin)
+		return err
+	})
+	return pr, nil
+}
+
+func (b *Builtin) setStdout() (*os.File, error) {
+	return b.openFile(b.stdout)
+}
+
+func (b *Builtin) setStderr() (*os.File, error) {
+	return b.openFile(b.stderr)
+}
+
+func (b *Builtin) openFile(w io.Writer) (*os.File, error) {
+	if w == nil {
+		f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			return nil, err
+		}
+		b.closes = append(b.closes, f)
+		return f, nil
+	}
+	if f, ok := w.(*os.File); ok {
+		return f, nil
+	}
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	b.closes = append(b.closes, pr, pw)
+	b.copies = append(b.copies, func() error {
+		defer pr.Close()
+		_, err := io.Copy(w, pr)
+		return err
+	})
+	return pw, nil
 }
 
 func (b *Builtin) closeDescriptors() {

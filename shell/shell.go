@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
@@ -49,17 +48,17 @@ const (
 	TypeRegular
 )
 
-type Command interface {
-	// Run() error
-	// Start() error
-	// Wait() error
-	// StdoutPipe() (io.ReadCloser, error)
-	// StderrPipe() (io.ReadCloser, error)
-	Command() string
-	Execute([]string) error
-	Type() CommandType
-	Status() (int, int)
-}
+// type Command interface {
+// 	Run() error
+// 	Start() error
+// 	Wait() error
+// 	StdoutPipe() (io.ReadCloser, error)
+// 	StderrPipe() (io.ReadCloser, error)
+// 	Command() string
+// 	Execute([]string) error
+// 	Type() CommandType
+// 	Status() (int, int)
+// }
 
 var specials = map[string]struct{}{
 	"HOME":    {},
@@ -300,28 +299,6 @@ func (s *Shell) executeSingle(ex Expander) error {
 		return err
 	}
 	s.trace(str)
-	if cmd, ok := s.builtins[str[0]]; ok && cmd.IsEnabled() {
-		cmd.shell = s
-		cmd.args = str[1:]
-		cmd.stdout = s.stdout
-		cmd.stderr = s.stderr
-		cmd.stdin = s.stdin
-		err := cmd.Run()
-		s.context.pid, s.context.code = os.Getpid(), 0
-		if err != nil {
-			s.context.code = 1
-		}
-		return err
-	}
-	if cmd, ok := s.commands[str[0]]; ok {
-		err := cmd.Execute(str[1:])
-		s.context.pid, s.context.code = cmd.Status()
-		return err
-	}
-	if _, err := exec.LookPath(str[0]); err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		defer cancel()
@@ -330,10 +307,12 @@ func (s *Shell) executeSingle(ex Expander) error {
 		signal.Notify(sig, os.Kill, os.Interrupt)
 		<-sig
 	}()
+	cmd := s.resolveCommand(ctx, str)
 
-	cmd := exec.CommandContext(ctx, str[0], str[1:]...)
-	cmd.Stdout = s.stdout
-	cmd.Stderr = s.stderr
+	cmd.SetOut(s.stdout)
+	cmd.SetErr(s.stderr)
+	cmd.SetIn(s.stdin)
+
 	err = cmd.Run()
 	s.updateContext(cmd)
 	return err
@@ -341,17 +320,15 @@ func (s *Shell) executeSingle(ex Expander) error {
 
 func (s *Shell) executePipe(ex ExecPipe) error {
 	var (
-		cs          []*exec.Cmd
+		cs          []Command
 		ctx, cancel = context.WithCancel(context.Background())
 	)
 	go func() {
 		defer cancel()
-
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, os.Kill, os.Interrupt)
 		<-sig
 	}()
-	// TODO: plug Command and Builtin with exec.Cmd
 	for i := range ex.List {
 		sex, ok := ex.List[i].Executer.(ExecSimple)
 		if !ok {
@@ -361,12 +338,9 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		if err != nil {
 			return err
 		}
-		if _, err = exec.LookPath(str[0]); err != nil {
-			return err
-		}
-		cmd := exec.CommandContext(ctx, str[0], str[1:]...)
+		cmd := s.resolveCommand(ctx, str)
 		if !ex.List[i].Both {
-			cmd.Stderr = s.stderr
+			cmd.SetErr(s.stderr)
 		}
 		cs = append(cs, cmd)
 	}
@@ -378,15 +352,16 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 		var (
 			curr = cs[i]
 			next = cs[i+1]
+			in   io.ReadCloser
 		)
-		if next.Stdin, err = curr.StdoutPipe(); err != nil {
+		if in, err = curr.StdoutPipe(); err != nil {
 			return err
 		}
-		grp.Go(curr.Start)
-		defer curr.Wait()
+		next.SetIn(in)
+		grp.Go(curr.Run)
 	}
 	cmd := cs[len(cs)-1]
-	cmd.Stdout = s.stdout
+	cmd.SetOut(s.stdout)
 	grp.Go(func() error {
 		err := cmd.Run()
 		s.updateContext(cmd)
@@ -479,14 +454,27 @@ func (s *Shell) setContext(name string, args []string) {
 	s.context.args = append(s.context.args[:0], args...)
 }
 
-func (s *Shell) updateContext(cmd *exec.Cmd) {
-	s.context.pid = cmd.ProcessState.Pid()
-	s.context.code = cmd.ProcessState.ExitCode()
+func (s *Shell) updateContext(cmd Command) {
+	pid, code := cmd.Exit()
+	s.context.pid = pid
+	s.context.code = code
 }
 
 func (s *Shell) clearContext() {
 	s.context.name = ""
 	s.context.args = nil
+}
+
+func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
+	var cmd Command
+	if b, ok := s.builtins[str[0]]; ok && b.IsEnabled() {
+		b.shell = s
+		b.args = str[1:]
+		cmd = &b
+	} else {
+		cmd = StandardContext(ctx, str[0], str[1:])
+	}
+	return cmd
 }
 
 func (s *Shell) resolveSpecials(ident string) []string {
