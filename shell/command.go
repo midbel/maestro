@@ -72,3 +72,7 @@ func (c *StdCmd) Exit() (int, int) {
 	)
 	return pid, code
 }
+
+func (c *StdCmd) SetEnv(env []string) {
+	c.Cmd.Env = append(c.Cmd.Env[:0], env...)
+}

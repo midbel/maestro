@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/signal"
 	"os/user"
@@ -12,8 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/shlex"
 	"golang.org/x/sync/errgroup"
 )
+
+const shell = "tish"
 
 var (
 	ErrExit     = errors.New("exit")
@@ -48,18 +52,6 @@ const (
 	TypeRegular
 )
 
-// type Command interface {
-// 	Run() error
-// 	Start() error
-// 	Wait() error
-// 	StdoutPipe() (io.ReadCloser, error)
-// 	StderrPipe() (io.ReadCloser, error)
-// 	Command() string
-// 	Execute([]string) error
-// 	Type() CommandType
-// 	Status() (int, int)
-// }
-
 var specials = map[string]struct{}{
 	"HOME":    {},
 	"SECONDS": {},
@@ -69,6 +61,7 @@ var specials = map[string]struct{}{
 	"PPID":    {},
 	"RANDOM":  {},
 	"PATH":    {},
+	"SHELL":   {},
 	"?":       {},
 	"#":       {},
 	"0":       {},
@@ -81,8 +74,13 @@ type Shell struct {
 	alias    map[string][]string
 	commands map[string]Command
 	echo     bool
-	cwd      string
-	now      time.Time
+
+	env map[string]string
+
+	cwd  string
+	old  string
+	now  time.Time
+	rand *rand.Rand
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -102,10 +100,13 @@ func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
 		now:      time.Now(),
 		cwd:      ".",
+		old:      "..",
 		alias:    make(map[string][]string),
 		commands: make(map[string]Command),
+		env:      make(map[string]string),
 		builtins: builtins,
 	}
+	s.rand = rand.New(rand.NewSource(s.now.Unix()))
 	s.cwd, _ = os.Getwd()
 	for i := range options {
 		if err := options[i](&s); err != nil {
@@ -141,6 +142,7 @@ func (s *Shell) Chdir(dir string) error {
 	}
 	err := os.Chdir(dir)
 	if err == nil {
+		s.old = s.cwd
 		s.cwd = dir
 	}
 	return err
@@ -150,24 +152,21 @@ func (s *Shell) SetEcho(echo bool) {
 	s.echo = echo
 }
 
+func (s *Shell) Export(ident, value string) {
+	s.env[ident] = value
+}
+
+func (s *Shell) Unexport(ident string) {
+	delete(s.env, ident)
+}
+
 func (s *Shell) Alias(ident, script string) error {
-	p := NewParser(strings.NewReader(script))
-	ex, err := p.Parse()
+	alias, err := shlex.Split(strings.NewReader(script))
 	if err != nil {
 		return err
 	}
-	alias, err := s.expandExecuter(ex)
-	if err != nil {
-		return err
-	}
-	if len(alias) == 0 || len(alias) > 1 {
-		return fmt.Errorf("invalid alias definition %s", script)
-	}
-	s.alias[ident] = alias[0]
-	if _, err := p.Parse(); err == nil || errors.Is(err, io.EOF) {
-		return nil
-	}
-	return fmt.Errorf("invalid alias definition (%s)", script)
+	s.alias[ident] = alias
+	return nil
 }
 
 func (s *Shell) Unalias(ident string) {
@@ -193,11 +192,17 @@ func (s *Shell) Subshell() (*Shell, error) {
 }
 
 func (s *Shell) Resolve(ident string) ([]string, error) {
-	str := s.resolveSpecials(ident)
-	if len(str) > 0 {
+	str, err := s.locals.Resolve(ident)
+	if err == nil {
 		return str, nil
 	}
-	return s.locals.Resolve(ident)
+	if v, ok := s.env[ident]; ok {
+		return []string{v}, nil
+	}
+	if str = s.resolveSpecials(ident); len(str) > 0 {
+		return str, nil
+	}
+	return nil, err
 }
 
 func (s *Shell) Define(ident string, values []string) error {
@@ -473,6 +478,9 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 		cmd = &b
 	} else {
 		cmd = StandardContext(ctx, str[0], str[1:])
+		if e, ok := cmd.(interface{ SetEnv([]string) }); ok {
+			e.SetEnv(s.environ())
+		}
 	}
 	return cmd
 }
@@ -480,6 +488,8 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 func (s *Shell) resolveSpecials(ident string) []string {
 	var ret []string
 	switch ident {
+	case "SHELL":
+		ret = append(ret, shell)
 	case "HOME":
 		u, err := user.Current()
 		if err == nil {
@@ -495,8 +505,7 @@ func (s *Shell) resolveSpecials(ident string) []string {
 		}
 		ret = append(ret, cwd)
 	case "OLDPWD":
-		// TODO
-		ret = append(ret, "")
+		ret = append(ret, s.old)
 	case "PID", "$":
 		str := strconv.Itoa(os.Getpid())
 		ret = append(ret, str)
@@ -504,8 +513,8 @@ func (s *Shell) resolveSpecials(ident string) []string {
 		str := strconv.Itoa(os.Getppid())
 		ret = append(ret, str)
 	case "RANDOM":
-		// TODO
-		ret = append(ret, "")
+		str := strconv.Itoa(s.rand.Int())
+		ret = append(ret, str)
 	case "PATH":
 		// TODO
 		ret = append(ret, "")
@@ -540,4 +549,12 @@ func (s *Shell) trace(str []string) {
 		return
 	}
 	fmt.Fprintln(s.stdout, strings.Join(str, " "))
+}
+
+func (s *Shell) environ() []string {
+	var str []string
+	for n, v := range s.env {
+		str = append(str, fmt.Sprintf("%s=%s", n, v))
+	}
+	return str
 }

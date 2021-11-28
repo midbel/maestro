@@ -47,12 +47,6 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runCommand,
 	},
-	"script": {
-		Usage:   "script",
-		Short:   "execute a simple script or display information about scripts",
-		Help:    "",
-		Execute: runScript,
-	},
 	"seq": {
 		Usage:   "seq",
 		Short:   "print a sequence of number to stdout",
@@ -70,6 +64,12 @@ var builtins = map[string]Builtin{
 		Short:   "display list of variables exported to environment of commands to be executed",
 		Help:    "",
 		Execute: runEnv,
+	},
+	"export": {
+		Usage:   "export",
+		Short:   "mark variables to export in environment of commands to be executed",
+		Help:    "",
+		Execute: runExport,
 	},
 	"enable": {
 		Usage:   "enable",
@@ -100,36 +100,28 @@ var builtins = map[string]Builtin{
 		Execute: runPwd,
 	},
 	"popd": {
-		Usage: "popd",
-		Short: "",
-		Help:  "",
+		Usage:   "popd",
+		Short:   "",
+		Help:    "",
+		Execute: runPopd,
 	},
 	"pushd": {
-		Usage: "pushd",
-		Short: "",
-		Help:  "",
+		Usage:   "pushd",
+		Short:   "",
+		Help:    "",
+		Execute: runPushd,
 	},
 	"dirs": {
-		Usage: "dirs",
-		Short: "",
-		Help:  "",
-	},
-	"chroot": {
-		Usage: "chroot",
-		Short: "",
-		Help:  "",
+		Usage:   "dirs",
+		Short:   "",
+		Help:    "",
+		Execute: runDirs,
 	},
 	"readonly": {
 		Usage:   "readonly",
 		Short:   "mark and unmark shell variables as readonly",
 		Help:    "",
 		Execute: runReadOnly,
-	},
-	"export": {
-		Usage:   "export",
-		Short:   "mark variables to export in environment of commands to be executed",
-		Help:    "",
-		Execute: runExport,
 	},
 	"exit": {
 		Usage:   "exit",
@@ -440,14 +432,6 @@ func runCommand(b Builtin) error {
 	return nil
 }
 
-func runScript(b Builtin) error {
-	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
-		return err
-	}
-	return nil
-}
-
 func runType(b Builtin) error {
 	var set flag.FlagSet
 	if err := set.Parse(b.args); err != nil {
@@ -466,7 +450,7 @@ func runType(b Builtin) error {
 		} else {
 			kind = "command"
 		}
-		fmt.Fprintf(b.stdout, "%s: %s", a, kind)
+		fmt.Fprintf(b.stdout, "%s is %s", a, kind)
 		fmt.Fprintln(b.stdout)
 	}
 	return nil
@@ -615,18 +599,32 @@ func runReadOnly(b Builtin) error {
 	return nil
 }
 
-func runExport(b Builtin) error {
-	var set flag.FlagSet
-	if err := set.Parse(b.args); err != nil {
-		return err
+func runEnv(b Builtin) error {
+	for n, v := range b.shell.env {
+		fmt.Fprintf(b.stdout, "%-10s = %s", n, v)
+		fmt.Fprintln(b.stdout)
 	}
 	return nil
 }
 
-func runEnv(b Builtin) error {
-	var set flag.FlagSet
+func runExport(b Builtin) error {
+	var (
+		set flag.FlagSet
+		del = set.Bool("d", false, "delete")
+	)
 	if err := set.Parse(b.args); err != nil {
 		return err
+	}
+	for _, k := range set.Args() {
+		if *del {
+			b.shell.Unexport(k)
+			continue
+		}
+		var v string
+		if x := strings.Index(k, "="); x > 0 {
+			k, v = k[:x], v[x+1:]
+		}
+		b.shell.Export(k, v)
 	}
 	return nil
 }
@@ -651,7 +649,11 @@ func runChdir(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	if err := b.shell.Chdir(set.Arg(0)); err != nil {
+	dir := set.Arg(0)
+	if dir == "-" {
+		dir = b.shell.old
+	}
+	if err := b.shell.Chdir(dir); err != nil {
 		fmt.Fprintf(b.stderr, err.Error())
 		fmt.Fprintln(b.stderr)
 	}
@@ -659,10 +661,62 @@ func runChdir(b Builtin) error {
 }
 
 func runPwd(b Builtin) error {
+	fmt.Fprintln(b.stdout, b.shell.cwd)
+	return nil
+}
+
+func runPopd(b Builtin) error {
 	var set flag.FlagSet
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	fmt.Fprintln(b.stdout, b.shell.cwd)
+	return nil
+}
+
+func runPushd(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runDirs(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runAlias(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	if set.NArg() == 0 {
+		for k, a := range b.shell.alias {
+			fmt.Fprintf(b.stdout, "%s: %s", k, strings.Join(a, " "))
+			fmt.Fprintln(b.stdout)
+		}
+	}
+	for _, k := range set.Args() {
+		var v string
+		if x := strings.Index(k, "="); x > 0 {
+			k, v = k[:x], v[x+1:]
+		}
+		b.shell.Alias(k, v)
+	}
+	return nil
+}
+
+func runUnalias(b Builtin) error {
+	var set flag.FlagSet
+	if err := set.Parse(b.args); err != nil {
+		return err
+	}
+	for _, a := range set.Args() {
+		b.shell.Unalias(a)
+	}
 	return nil
 }
