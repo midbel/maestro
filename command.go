@@ -254,6 +254,9 @@ func (s *Single) execute(args []string) error {
 		if cmd.Subshell {
 			sh, _ = sh.Subshell()
 		}
+		for k, v := range s.Env {
+			sh.Define(k, v)
+		}
 		sh.SetEcho(cmd.Echo)
 		err := sh.Execute(cmd.Line, s.Name, args)
 		if cmd.Reverse {

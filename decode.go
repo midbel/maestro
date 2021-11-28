@@ -375,6 +375,9 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if err != nil {
 		return err
 	}
+	for k, v := range d.env {
+		cmd.Env[k] = v
+	}
 	cmd.Visible = !hidden
 	d.next()
 	if d.curr().Type == BegList {
