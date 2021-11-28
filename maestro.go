@@ -96,6 +96,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 			return err
 		}
 	}
+	m.Trace(cmd, args...)
 	err = cmd.Execute(args)
 
 	next := m.MetaExec.Success
@@ -239,6 +240,7 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 		seen[deps[i].Name] = struct{}{}
 
 		cmd, _ := m.prepare(deps[i].Name)
+		m.Trace(cmd)
 		if d := deps[i]; d.Bg {
 			grp.Go(func() error {
 				if err := m.executeDependencies(cmd); err != nil {
@@ -318,6 +320,13 @@ type MetaExec struct {
 	After   []string
 	Error   []string
 	Success []string
+}
+
+func (m MetaExec) Trace(cmd Command, args ...string) {
+	if !m.Echo {
+		return
+	}
+	fmt.Println(cmd.Command(), strings.Join(args, " "))
 }
 
 type MetaAbout struct {

@@ -92,8 +92,8 @@ count(
 	short = "count LOC and todos",
 	tag   = info verify,
 ): {
-	loc
-	todo
+	<loc
+	<todo
 }
 
 %gofmt {

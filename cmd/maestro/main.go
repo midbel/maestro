@@ -20,6 +20,7 @@ func main() {
 		dry  = flag.Bool("d", false, "run dry")
 		file = flag.String("f", maestro.DefaultFile, "maestro file to use")
 	)
+	flag.BoolVar(&mst.MetaExec.Echo, "e", false, "echo")
 	flag.BoolVar(&mst.NoDeps, "k", false, "skip dependencies")
 	flag.BoolVar(&mst.Remote, "r", false, "remote")
 	flag.Parse()
