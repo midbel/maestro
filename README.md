@@ -14,7 +14,6 @@
 
 * DUPLICATE;
 
-* PARALLEL:
 * ECHO:
 * WORKDIR:
 

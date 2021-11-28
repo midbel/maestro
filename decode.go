@@ -19,7 +19,6 @@ const (
 	metaWorkDir   = "WORKDIR"
 	metaPath      = "PATH"
 	metaEcho      = "ECHO"
-	metaParallel  = "PARALLEL"
 	metaAll       = "ALL"
 	metaDefault   = "DEFAULT"
 	metaBefore    = "BEFORE"
@@ -711,8 +710,6 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		mst.MetaExec.Path, err = d.parseStringList()
 	case metaEcho:
 		mst.MetaExec.Echo, err = d.parseBool()
-	case metaParallel:
-		mst.MetaExec.Parallel, err = d.parseInt()
 	case metaAll:
 		mst.MetaExec.All, err = d.parseStringList()
 	case metaDefault:
