@@ -120,9 +120,7 @@ func createPipeItem(ex Executer, both bool) pipeitem {
 
 type ExecSimple struct {
 	Expander
-	In  Expander
-	Out Expander
-	Err Expander
+	Redirect []ExpandRedirect
 }
 
 func createSimple(ex Expander) ExecSimple {
@@ -223,6 +221,29 @@ func (w ExpandWord) expandPattern() ([]string, error) {
 		list = append(list, w.Literal)
 	}
 	return list, nil
+}
+
+type ExpandRedirect struct {
+	Expander
+	Type rune
+}
+
+func createRedirect(e Expander, kind rune) ExpandRedirect {
+	return ExpandRedirect{
+		Expander: e,
+		Type:     kind,
+	}
+}
+
+func (e ExpandRedirect) Expand(env Environment) ([]string, error) {
+	str, err := e.Expander.Expand(env)
+	if err != nil {
+		return nil, err
+	}
+	if len(str) != 1 {
+		return nil, fmt.Errorf("can only redirect to one file")
+	}
+	return str, nil
 }
 
 type ExpandListBrace struct {

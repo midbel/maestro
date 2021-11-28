@@ -317,8 +317,14 @@ func (b *Builtin) setStdin() (*os.File, error) {
 		b.closes = append(b.closes, f)
 		return f, nil
 	}
-	if f, ok := b.stdin.(*os.File); ok {
-		return f, nil
+	switch r := b.stdin.(type) {
+	case *os.File:
+		return r, nil
+	case noopCloseReader:
+		f, ok := r.Reader.(*os.File)
+		if ok {
+			return f, nil
+		}
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -350,8 +356,14 @@ func (b *Builtin) openFile(w io.Writer) (*os.File, error) {
 		b.closes = append(b.closes, f)
 		return f, nil
 	}
-	if f, ok := w.(*os.File); ok {
-		return f, nil
+	switch w := w.(type) {
+	case *os.File:
+		return w, nil
+	case noopCloseWriter:
+		f, ok := w.Writer.(*os.File)
+		if ok {
+			return f, nil
+		}
 	}
 
 	pr, pw, err := os.Pipe()

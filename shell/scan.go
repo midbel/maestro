@@ -169,6 +169,7 @@ func (s *Scanner) scanRedirect(tok *Token) {
 		tok.Type = Invalid
 	}
 	s.read()
+	s.skipBlank()
 }
 
 func (s *Scanner) scanSequence(tok *Token) {

@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"io"
+	"os"
 	"os/exec"
 )
 
@@ -54,14 +55,32 @@ func (_ *StdCmd) Type() CommandType {
 }
 
 func (c *StdCmd) SetIn(r io.Reader) {
+	if r, ok := r.(noopCloseReader); ok {
+		if f, ok := r.Reader.(*os.File); ok {
+			c.Stdin = f
+			return
+		}
+	}
 	c.Stdin = r
 }
 
 func (c *StdCmd) SetOut(w io.Writer) {
+	if w, ok := w.(noopCloseWriter); ok {
+		if f, ok := w.Writer.(*os.File); ok {
+			c.Stdout = f
+			return
+		}
+	}
 	c.Stdout = w
 }
 
 func (c *StdCmd) SetErr(w io.Writer) {
+	if w, ok := w.(noopCloseWriter); ok {
+		if f, ok := w.Writer.(*os.File); ok {
+			c.Stderr = f
+			return
+		}
+	}
 	c.Stderr = w
 }
 

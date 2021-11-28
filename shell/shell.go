@@ -273,7 +273,7 @@ func (s *Shell) execute(ex Executer) error {
 	var err error
 	switch ex := ex.(type) {
 	case ExecSimple:
-		err = s.executeSingle(ex.Expander)
+		err = s.executeSingle(ex.Expander, ex.Redirect)
 	case ExecAssign:
 		err = s.executeAssign(ex)
 	case ExecAnd:
@@ -294,7 +294,7 @@ func (s *Shell) execute(ex Executer) error {
 	return err
 }
 
-func (s *Shell) executeSingle(ex Expander) error {
+func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
 	str, err := s.expand(ex)
 	if err != nil {
 		return err
@@ -310,9 +310,42 @@ func (s *Shell) executeSingle(ex Expander) error {
 	}()
 	cmd := s.resolveCommand(ctx, str)
 
-	cmd.SetOut(s.stdout)
-	cmd.SetErr(s.stderr)
-	cmd.SetIn(s.stdin)
+	var (
+		stdin  = noopReadCloser(s.stdin)
+		stdout = noopWriteCloser(s.stdout)
+		stderr = noopWriteCloser(s.stderr)
+	)
+	for _, r := range redirect {
+		str, err := r.Expand(s)
+		if err != nil {
+			return err
+		}
+		switch r.Type {
+		case RedirectIn:
+			stdin, err = setReader(stdin, str[0])
+		case RedirectOut:
+			stdout, err = setWriter(stdout, str[0], os.O_CREATE|os.O_WRONLY)
+		case RedirectErr:
+			stderr, err = setWriter(stderr, str[0], os.O_CREATE|os.O_WRONLY)
+		case AppendOut:
+			stdout, err = setWriter(stdout, str[0], os.O_CREATE|os.O_WRONLY|os.O_APPEND)
+		case AppendErr:
+			stderr, err = setWriter(stderr, str[0], os.O_CREATE|os.O_WRONLY|os.O_APPEND)
+		default:
+			err = fmt.Errorf("unknown/unsupported redirection")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	defer func() {
+		stdout.Close()
+		stderr.Close()
+		stdin.Close()
+	}()
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetIn(stdin)
 
 	err = cmd.Run()
 	s.updateContext(cmd)
@@ -553,4 +586,49 @@ func (s *Shell) environ() []string {
 		str = append(str, fmt.Sprintf("%s=%s", n, v))
 	}
 	return str
+}
+
+type noopCloseReader struct {
+	io.Reader
+}
+
+func noopReadCloser(r io.Reader) io.ReadCloser {
+	return noopCloseReader{
+		Reader: r,
+	}
+}
+
+func (_ noopCloseReader) Close() error {
+	return nil
+}
+
+type noopCloseWriter struct {
+	io.Writer
+}
+
+func noopWriteCloser(w io.Writer) io.WriteCloser {
+	return noopCloseWriter{
+		Writer: w,
+	}
+}
+
+func (_ noopCloseWriter) Close() error {
+	return nil
+}
+
+func setWriter(src io.WriteCloser, file string, flag int) (io.WriteCloser, error) {
+	fd, err := os.OpenFile(file, flag, 0644)
+	if err != nil {
+		return nil, err
+	}
+	src.Close()
+	return fd, nil
+}
+func setReader(src io.ReadCloser, file string) (io.ReadCloser, error) {
+	fd, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	src.Close()
+	return fd, nil
 }

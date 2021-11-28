@@ -25,10 +25,13 @@ const (
 	And
 	Or
 	Assign
-	RedirectIn
-	RedirectOut
-	RedirectBoth
-	AppendOut
+	RedirectIn     // < | 0<
+	RedirectOut    // > | 1>
+	RedirectErr    // 2>
+	RedirectBoth   // &>
+	AppendOut      // >> | 1>>
+	AppendErr      // 2>>
+	AppendBoth     // &>>
 	BegTest        // [[
 	EndTest        // ]]
 	Length         // ${#var}
@@ -157,10 +160,16 @@ func (t Token) String() string {
 		return "<redirect-in>"
 	case RedirectOut:
 		return "<redirect-out>"
+	case RedirectErr:
+		return "<redirect-err>"
 	case RedirectBoth:
 		return "<redirect-both>"
 	case AppendOut:
 		return "<append-out>"
+	case AppendErr:
+		return "<append-err>"
+	case AppendBoth:
+		return "<append-Both>"
 	case BegTest:
 		return "<beg-test>"
 	case EndTest:

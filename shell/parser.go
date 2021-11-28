@@ -69,43 +69,39 @@ func (p *Parser) parse() (Executer, error) {
 
 func (p *Parser) parseSimple() (Executer, error) {
 	var (
-		ex     ExpandList
-		stdin  Expander
-		stdout Expander
-		stderr Expander
+		ex   ExpandList
+		dirs []ExpandRedirect
 	)
 	for {
-		var (
-			next Expander
-			err  error
-		)
 		switch p.curr.Type {
 		case Literal, Quote, Variable, BegExp, BegBrace, BegSub:
-			next, err = p.parseWords()
-			if err == nil {
-				ex.List = append(ex.List, next)
+			next, err := p.parseWords()
+			if err != nil {
+				return nil, err
 			}
-		case RedirectIn:
-			stdin, err = p.parseRedirection()
-		case RedirectOut:
-			stdout, err = p.parseRedirection()
-		case AppendOut:
-			_, err = p.parseRedirection()
-		case RedirectBoth:
-			stdout, err = p.parseRedirection()
-			stderr = stdout
+			ex.List = append(ex.List, next)
+		case RedirectIn, RedirectOut, RedirectErr, RedirectBoth, AppendOut, AppendBoth:
+			next, err := p.parseRedirection()
+			if err != nil {
+				return nil, err
+			}
+			dirs = append(dirs, next)
 		default:
-			_, _, _ = stdin, stdout, stderr
-			return createSimple(ex), nil
-		}
-		if err != nil {
-			return nil, err
+			sg := createSimple(ex)
+			sg.Redirect = append(sg.Redirect, dirs...)
+			return sg, nil
 		}
 	}
 }
 
-func (p *Parser) parseRedirection() (Expander, error) {
-	return nil, nil
+func (p *Parser) parseRedirection() (ExpandRedirect, error) {
+	kind := p.curr.Type
+	p.next()
+	e, err := p.parseWords()
+	if err != nil {
+		return ExpandRedirect{}, err
+	}
+	return createRedirect(e, kind), nil
 }
 
 func (p *Parser) parseAssignment() (Executer, error) {
