@@ -12,7 +12,7 @@ import (
 
 var builtins = map[string]Builtin{
 	"help": {
-		Usage:   "help",
+		Usage:   "help <builtin>",
 		Short:   "display information about a builtin command",
 		Help:    "",
 		Execute: runHelp,
@@ -48,13 +48,13 @@ var builtins = map[string]Builtin{
 		Execute: runCommand,
 	},
 	"seq": {
-		Usage:   "seq",
+		Usage:   "seq [first] [inc] <last>",
 		Short:   "print a sequence of number to stdout",
 		Help:    "",
 		Execute: runSeq,
 	},
 	"type": {
-		Usage:   "type",
+		Usage:   "type <name...>",
 		Short:   "display information about command type",
 		Help:    "",
 		Execute: runType,
@@ -66,29 +66,31 @@ var builtins = map[string]Builtin{
 		Execute: runEnv,
 	},
 	"export": {
-		Usage:   "export",
+		Usage:   "export [name[=value]]...",
 		Short:   "mark variables to export in environment of commands to be executed",
 		Help:    "",
 		Execute: runExport,
 	},
 	"enable": {
-		Usage:   "enable",
+		Usage:   "enable [-p] [-d] [-f] <builtin...>",
 		Short:   "enable and disable builtins",
 		Help:    "",
 		Execute: runEnable,
 	},
 	"alias": {
-		Usage: "alias",
-		Short: "",
-		Help:  "",
+		Usage:   "alias [name[=value]]...",
+		Short:   "define or display aliases",
+		Help:    "",
+		Execute: runAlias,
 	},
 	"unalias": {
-		Usage: "unalias",
-		Short: "",
-		Help:  "",
+		Usage:   "unalias [name...]",
+		Short:   "remove each name from the list of defined aliases",
+		Help:    "",
+		Execute: runUnalias,
 	},
 	"cd": {
-		Usage:   "cd",
+		Usage:   "cd <dir>",
 		Short:   "change the shell working directory",
 		Help:    "",
 		Execute: runChdir,
@@ -118,13 +120,13 @@ var builtins = map[string]Builtin{
 		Execute: runDirs,
 	},
 	"readonly": {
-		Usage:   "readonly",
+		Usage:   "readonly <name>",
 		Short:   "mark and unmark shell variables as readonly",
 		Help:    "",
 		Execute: runReadOnly,
 	},
 	"exit": {
-		Usage:   "exit",
+		Usage:   "exit [code]",
 		Short:   "exit the shell",
 		Help:    "",
 		Execute: runExit,

@@ -193,7 +193,7 @@ func (s *Shell) Subshell() (*Shell, error) {
 
 func (s *Shell) Resolve(ident string) ([]string, error) {
 	str, err := s.locals.Resolve(ident)
-	if err == nil {
+	if err == nil && len(str) > 0 {
 		return str, nil
 	}
 	if v, ok := s.env[ident]; ok {
@@ -248,10 +248,6 @@ func (s *Shell) Register(list ...Command) {
 	for i := range list {
 		s.commands[list[i].Command()] = list[i]
 	}
-}
-
-func (s *Shell) ExitStatus() (int, int) {
-	return s.context.pid, s.context.code
 }
 
 func (s *Shell) Execute(str, cmd string, args []string) error {
