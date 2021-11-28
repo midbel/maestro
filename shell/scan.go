@@ -216,6 +216,9 @@ func (s *Scanner) scanSequence(tok *Token) {
 	case s.char == ampersand && k == s.char:
 		tok.Type = And
 		s.read()
+	case s.char == ampersand && isRedirect(k):
+		s.scanRedirect(tok)
+		return
 	case s.char == pipe && k == s.char:
 		tok.Type = Or
 		s.read()
