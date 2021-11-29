@@ -31,6 +31,7 @@ build(
 	short = "build binaries",
 	tag   = build,
 	alias = compile,
+	hosts = "127.0.0.1:22",
 ): gofmt, test, verify {
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
@@ -98,6 +99,7 @@ commit(
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
+	hosts = "127.0.0.1:22",
 ): {
 	<loc
 	<todo

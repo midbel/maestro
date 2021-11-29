@@ -91,6 +91,9 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if err := m.canExecute(cmd); err != nil {
 		return err
 	}
+	if m.Remote {
+		return m.executeRemote(cmd, args)
+	}
 	if !m.NoDeps {
 		if err := m.executeDependencies(cmd); err != nil {
 			return err
@@ -182,6 +185,17 @@ func (m *Maestro) Register(cmd *Single) error {
 		m.Commands[cmd.Name] = mul
 	default:
 		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
+	}
+	return nil
+}
+
+func (m *Maestro) executeRemote(cmd Command, args []string) error {
+	scripts, err := cmd.Script(args)
+	if err != nil {
+		return err
+	}
+	for _, str := range scripts {
+		fmt.Println(str)
 	}
 	return nil
 }

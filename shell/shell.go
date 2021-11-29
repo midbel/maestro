@@ -218,6 +218,32 @@ func (s *Shell) Delete(ident string) error {
 	return s.locals.Delete(ident)
 }
 
+func (s *Shell) Expand(str string, args []string) ([]string, error) {
+	var (
+		p   = NewParser(strings.NewReader(str))
+		ret []string
+	)
+	for {
+		ex, err := p.Parse()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		str, err := s.expandExecuter(ex)
+		if err != nil {
+			continue
+		}
+		var lines []string
+		for i := range str {
+			lines = append(lines, strings.Join(str[i], " "))
+		}
+		ret = append(ret, strings.Join(lines, "; "))
+	}
+	return ret, nil
+}
+
 func (s *Shell) Dry(str, cmd string, args []string) error {
 	s.setContext(cmd, args)
 	defer s.clearContext()

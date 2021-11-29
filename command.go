@@ -28,6 +28,7 @@ type Command interface {
 	Can() bool
 	Combined() bool
 	Dry([]string) error
+	Script([]string) ([]string, error)
 	Remote() bool
 	Execute([]string) error
 }
@@ -222,6 +223,22 @@ func (s *Single) Dry(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (s *Single) Script(args []string) ([]string, error) {
+	args, err := s.parseArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	var scripts []string
+	for _, i := range s.Scripts {
+		rs, err := s.shell.Expand(i.Line, args)
+		if err != nil {
+			return nil, err
+		}
+		scripts = append(scripts, rs...)
+	}
+	return scripts, nil
 }
 
 func (s *Single) Execute(args []string) error {
@@ -450,6 +467,18 @@ func (c Combined) Dry(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (c Combined) Script(args []string) ([]string, error) {
+	var scripts []string
+	for i := range c {
+		str, err := c[i].Script(args)
+		if err != nil {
+			return nil, err
+		}
+		scripts = append(scripts, str...)
+	}
+	return scripts, nil
 }
 
 func (c Combined) Usage() string {
