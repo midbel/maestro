@@ -12,6 +12,14 @@ var tokens = []struct {
 	Tokens []rune
 }{
 	{
+		Input: `echo 'foobar' # a comment`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.Blank, shell.Comment},
+	},
+	{
+		Input: `echo "$foobar" # a comment`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Quote, shell.Variable, shell.Quote, shell.Blank, shell.Comment},
+	},
+	{
 		Input:  `echo err 2> err.txt`,
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.RedirectErr, shell.Literal},
 	},
