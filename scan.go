@@ -196,7 +196,7 @@ func (s *Scanner) scanEol(tok *Token) {
 
 func (s *Scanner) scanMeta(tok *Token) {
 	s.read()
-	for isUpper(s.char) {
+	for isUpper(s.char) || s.char == underscore {
 		s.str.WriteRune(s.char)
 		s.read()
 	}

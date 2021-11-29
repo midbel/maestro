@@ -23,6 +23,7 @@ func main() {
 	flag.BoolVar(&mst.MetaExec.Echo, "e", false, "echo")
 	flag.BoolVar(&mst.NoDeps, "k", false, "skip dependencies")
 	flag.BoolVar(&mst.Remote, "r", false, "remote")
+	flag.StringVar(&mst.MetaHttp.Addr, "a", mst.MetaHttp.Addr, "address")
 	flag.Parse()
 
 	err := mst.Load(*file)
@@ -31,6 +32,8 @@ func main() {
 		os.Exit(1)
 	}
 	switch cmd, args := arguments(); cmd {
+	case maestro.CmdListen, maestro.CmdServe:
+		err = mst.ListenAndServe()
 	case maestro.CmdHelp:
 		if cmd = ""; len(args) > 0 {
 			cmd = args[0]

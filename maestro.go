@@ -24,17 +24,21 @@ const (
 	CmdVersion = "version"
 	CmdAll     = "all"
 	CmdDefault = "default"
+	CmdListen  = "listen"
+	CmdServe   = "serve"
 )
 
 const (
-	DefaultFile    = "maestro.mf"
-	DefaultVersion = "0.1.0"
+	DefaultFile     = "maestro.mf"
+	DefaultVersion  = "0.1.0"
+	DefaultHttpAddr = ":9090"
 )
 
 type Maestro struct {
 	MetaExec
 	MetaAbout
 	MetaSSH
+	MetaHttp
 
 	Duplicate string
 	Commands  map[string]Command
@@ -49,8 +53,12 @@ func New() *Maestro {
 		File:    DefaultFile,
 		Version: DefaultVersion,
 	}
+	mhttp := MetaHttp{
+		Addr: DefaultHttpAddr,
+	}
 	return &Maestro{
 		MetaAbout: about,
+		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
 		Commands:  make(map[string]Command),
 		Alias:     make(map[string]string),
@@ -75,11 +83,16 @@ func (m *Maestro) Load(file string) error {
 	return nil
 }
 
+func (m *Maestro) ListenAndServe() error {
+	return nil
+}
+
 func (m *Maestro) Dry(name string, args []string) error {
 	cmd, err := m.lookup(name)
 	if err != nil {
 		return err
 	}
+	m.Trace(cmd, args...)
 	return cmd.Dry(args)
 }
 
@@ -368,6 +381,12 @@ type MetaSSH struct {
 	Pass       string
 	PublicKey  string
 	PrivateKey string
+}
+
+type MetaHttp struct {
+	CertFile string
+	KeyFile  string
+	Addr     string
 }
 
 type help struct {
