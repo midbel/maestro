@@ -31,6 +31,7 @@ func main() {
 		os.Exit(1)
 	}
 	switch cmd, args := arguments(); cmd {
+	case maestro.CmdListen, maestro.CmdServe:
 	case maestro.CmdHelp:
 		if cmd = ""; len(args) > 0 {
 			cmd = args[0]

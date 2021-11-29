@@ -31,8 +31,10 @@ const (
 	metaHelp      = "HELP"
 	metaUser      = "USER"
 	metaPass      = "PASSWORD"
-	metaPrivKey   = "PRIVATEKEY"
-	metaPubKey    = "PUBLICKEY"
+	metaPrivKey   = "SSH_PRIVATE_KEY"
+	metaPubKey    = "SSH_PUBLIC_KEY"
+	metaCertFile  = "TLS_CERT_FILE"
+	metaKeyFile   = "TLS_CERT_KEY"
 )
 
 const (
@@ -735,6 +737,10 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		mst.MetaSSH.Pass, err = d.parseString()
 	case metaPrivKey:
 	case metaPubKey:
+	case metaCertFile:
+		mst.MetaHttp.CertFile, err = d.parseString()
+	case metaKeyFile:
+		mst.MetaHttp.KeyFile, err = d.parseString()
 	default:
 		return fmt.Errorf("%s: unknown/unsupported meta", meta)
 	}

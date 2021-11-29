@@ -24,6 +24,8 @@ const (
 	CmdVersion = "version"
 	CmdAll     = "all"
 	CmdDefault = "default"
+	CmdListen  = "listen"
+	CmdServe   = "serve"
 )
 
 const (
@@ -35,6 +37,7 @@ type Maestro struct {
 	MetaExec
 	MetaAbout
 	MetaSSH
+	MetaHttp
 
 	Duplicate string
 	Commands  map[string]Command
@@ -80,6 +83,7 @@ func (m *Maestro) Dry(name string, args []string) error {
 	if err != nil {
 		return err
 	}
+	m.Trace(cmd, args...)
 	return cmd.Dry(args)
 }
 
@@ -368,6 +372,11 @@ type MetaSSH struct {
 	Pass       string
 	PublicKey  string
 	PrivateKey string
+}
+
+type MetaHttp struct {
+	CertFile string
+	KeyFile  string
 }
 
 type help struct {
