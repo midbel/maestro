@@ -67,6 +67,9 @@ func (t Token) IsSequence() bool {
 	case And, Or, List, Pipe, PipeBoth, Comment, EndSub:
 		return true
 	default:
+		if t.IsRedirect() {
+			return true
+		}
 		return false
 	}
 }
@@ -75,8 +78,25 @@ func (t Token) IsList() bool {
 	return t.Type == Range || t.Type == Seq
 }
 
+func (t Token) IsRedirect() bool {
+	switch t.Type {
+	case RedirectIn, RedirectOut, RedirectErr, RedirectBoth, AppendOut, AppendErr, AppendBoth:
+		return true
+	default:
+		return false
+	}
+}
+
 func (t Token) Eow() bool {
-	return t.Type == Comment || t.Type == EOF || t.Type == EndSub || t.Type == Blank || t.IsSequence()
+	return t.Type == EndSub || t.Type == Blank || t.IsSequence() || t.IsRedirect() || t.IsEOF() || t.IsComment()
+}
+
+func (t Token) IsEOF() bool {
+	return t.Type == EOF
+}
+
+func (t Token) IsComment() bool {
+	return t.Type == Comment
 }
 
 func (t Token) String() string {

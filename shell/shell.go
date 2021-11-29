@@ -310,44 +310,18 @@ func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
 	}()
 	cmd := s.resolveCommand(ctx, str)
 
-	var (
-		stdin  = noopReadCloser(s.stdin)
-		stdout = noopWriteCloser(s.stdout)
-		stderr = noopWriteCloser(s.stderr)
-	)
-	for _, r := range redirect {
-		str, err := r.Expand(s)
-		if err != nil {
-			return err
-		}
-		switch r.Type {
-		case RedirectIn:
-			stdin, err = setReader(stdin, str[0])
-		case RedirectOut:
-			stdout, err = setWriter(stdout, str[0], os.O_CREATE|os.O_WRONLY)
-		case RedirectErr:
-			stderr, err = setWriter(stderr, str[0], os.O_CREATE|os.O_WRONLY)
-		case AppendOut:
-			stdout, err = setWriter(stdout, str[0], os.O_CREATE|os.O_WRONLY|os.O_APPEND)
-		case AppendErr:
-			stderr, err = setWriter(stderr, str[0], os.O_CREATE|os.O_WRONLY|os.O_APPEND)
-		case RedirectBoth:
-		case AppendBoth:
-		default:
-			err = fmt.Errorf("unknown/unsupported redirection")
-		}
-		if err != nil {
-			return err
-		}
+	rd, err := s.setupRedirect(redirect)
+	if err != nil {
+		return err
 	}
 	defer func() {
-		stdout.Close()
-		stderr.Close()
-		stdin.Close()
+		rd.out.Close()
+		rd.err.Close()
+		rd.in.Close()
 	}()
-	cmd.SetOut(stdout)
-	cmd.SetErr(stderr)
-	cmd.SetIn(stdin)
+	cmd.SetOut(rd.out)
+	cmd.SetErr(rd.err)
+	cmd.SetIn(rd.in)
 
 	err = cmd.Run()
 	s.updateContext(cmd)
@@ -618,19 +592,100 @@ func (_ noopCloseWriter) Close() error {
 	return nil
 }
 
-func setWriter(src io.WriteCloser, file string, flag int) (io.WriteCloser, error) {
+const (
+	flagRead   = os.O_CREATE | os.O_RDONLY
+	flagWrite  = os.O_CREATE | os.O_WRONLY
+	flagAppend = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+)
+
+func replaceFile(file string, flag int, list ...*os.File) (*os.File, error) {
 	fd, err := os.OpenFile(file, flag, 0644)
 	if err != nil {
 		return nil, err
 	}
-	src.Close()
+	for i := range list {
+		if list[i] == nil {
+			continue
+		}
+		list[i].Close()
+	}
 	return fd, nil
 }
-func setReader(src io.ReadCloser, file string) (io.ReadCloser, error) {
-	fd, err := os.Open(file)
-	if err != nil {
-		return nil, err
+
+type redirect struct {
+	in  io.ReadCloser
+	out io.WriteCloser
+	err io.WriteCloser
+}
+
+func (s *Shell) setupRedirect(rs []ExpandRedirect) (redirect, error) {
+	var (
+		stdin  *os.File
+		stdout *os.File
+		stderr *os.File
+		rd     redirect
+	)
+	for _, r := range rs {
+		str, err := r.Expand(s)
+		if err != nil {
+			return rd, err
+		}
+		switch file := str[0]; r.Type {
+		case RedirectIn:
+			stdin, err = replaceFile(file, flagRead, stdin)
+		case RedirectOut:
+			if stdout == stderr {
+				stdout = nil
+			}
+			stdout, err = replaceFile(file, flagWrite, stdout)
+		case RedirectErr:
+			if stderr == stdout {
+				stderr = nil
+			}
+			stderr, err = replaceFile(file, flagWrite, stderr)
+		case RedirectBoth:
+			var fd *os.File
+			if fd, err = replaceFile(file, flagWrite, stdout, stderr); err == nil {
+				stdout, stderr = fd, fd
+			}
+		case AppendOut:
+			if stdout.Fd() == stderr.Fd() {
+				stdout = nil
+			}
+			stdout, err = replaceFile(file, flagAppend, stdout)
+		case AppendErr:
+			if stderr == stdout {
+				stderr = nil
+			}
+			stderr, err = replaceFile(file, flagAppend, stderr)
+		case AppendBoth:
+			var fd *os.File
+			if fd, err = replaceFile(file, flagAppend, stdout, stderr); err == nil {
+				stdout, stderr = fd, fd
+			}
+		default:
+			err = fmt.Errorf("unknown/unsupported redirection")
+		}
+		if err != nil {
+			return rd, err
+		}
 	}
-	src.Close()
-	return fd, nil
+	rd.in = fileOrReader(stdin, s.stdin)
+	rd.out = fileOrWriter(stdout, s.stdout)
+	rd.err = fileOrWriter(stderr, s.stderr)
+	return rd, nil
+}
+
+func fileOrWriter(f *os.File, w io.Writer) io.WriteCloser {
+	if f == nil {
+		return noopWriteCloser(w)
+	}
+	return f
+}
+
+func fileOrReader(f *os.File, r io.Reader) io.ReadCloser {
+	if f == nil {
+		return noopReadCloser(r)
+	}
+	return f
 }
