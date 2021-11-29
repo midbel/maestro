@@ -102,9 +102,7 @@ func (s *Scanner) Scan() Token {
 	case isAssign(s.char) && !s.quoted:
 		s.scanAssignment(&tok)
 	case isDouble(s.char):
-		tok.Type = Quote
-		s.read()
-		s.toggleQuote()
+		s.scanQuote(&tok)
 	case isSingle(s.char):
 		s.scanString(&tok)
 	case isComment(s.char):
@@ -115,6 +113,18 @@ func (s *Scanner) Scan() Token {
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanQuote(tok *Token) {
+	tok.Type = Quote
+	s.read()
+	s.toggleQuote()
+	if s.quoted {
+		return
+	}
+	s.skipBlankUntil(func(r rune) bool {
+		return isSequence(r) || isAssign(r) || isComment(r) || isRedirectBis(r, s.peek())
+	})
 }
 
 func (s *Scanner) scanBraces(tok *Token) {
@@ -363,6 +373,9 @@ func (s *Scanner) scanString(tok *Token) {
 		tok.Type = Invalid
 	}
 	s.read()
+	s.skipBlankUntil(func(r rune) bool {
+		return isSequence(r) || isAssign(r) || isComment(r) || isRedirectBis(r, s.peek())
+	})
 }
 
 func (s *Scanner) scanLiteral(tok *Token) {
@@ -380,7 +393,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	tok.Type = Literal
 	tok.Literal = s.string()
 	s.skipBlankUntil(func(r rune) bool {
-		return isSequence(r) || isAssign(r) || isRedirectBis(r, s.peek())
+		return isSequence(r) || isAssign(r) || isComment(r) || isRedirectBis(r, s.peek())
 	})
 }
 
