@@ -96,6 +96,9 @@ func (m *Maestro) Execute(name string, args []string) error {
 			return err
 		}
 	}
+	m.executeList(m.MetaExec.Before)
+	defer m.executeList(m.MetaExec.After)
+
 	m.Trace(cmd, args...)
 	err = cmd.Execute(args)
 
@@ -181,6 +184,16 @@ func (m *Maestro) Register(cmd *Single) error {
 		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
 	}
 	return nil
+}
+
+func (m *Maestro) executeList(list []string) {
+	for i := range list {
+		cmd, err := m.lookup(list[i])
+		if err != nil {
+			continue
+		}
+		cmd.Execute(nil)
+	}
 }
 
 func (m *Maestro) help() (string, error) {
