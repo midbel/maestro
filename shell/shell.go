@@ -60,7 +60,6 @@ var specials = map[string]struct{}{
 	"PID":     {},
 	"PPID":    {},
 	"RANDOM":  {},
-	"PATH":    {},
 	"SHELL":   {},
 	"?":       {},
 	"#":       {},
@@ -524,9 +523,6 @@ func (s *Shell) resolveSpecials(ident string) []string {
 	case "RANDOM":
 		str := strconv.Itoa(s.rand.Int())
 		ret = append(ret, str)
-	case "PATH":
-		// TODO
-		ret = append(ret, "")
 	case "0":
 		ret = append(ret, s.context.name)
 	case "#":

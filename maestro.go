@@ -310,7 +310,6 @@ func (m *Maestro) lookup(name string) (Command, error) {
 type MetaExec struct {
 	WorkDir string
 
-	Path []string
 	Echo bool
 
 	All     []string

@@ -17,8 +17,6 @@
 * ECHO:
 * WORKDIR:
 
-* PATH:
-
 * ALL:
 * DEFAULT:
 * BEFORE:

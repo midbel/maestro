@@ -17,7 +17,6 @@ import (
 const (
 	metaDuplicate = "DUPLICATE"
 	metaWorkDir   = "WORKDIR"
-	metaPath      = "PATH"
 	metaEcho      = "ECHO"
 	metaAll       = "ALL"
 	metaDefault   = "DEFAULT"
@@ -706,8 +705,6 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		mst.Duplicate, err = d.parseString()
 	case metaWorkDir:
 		mst.MetaExec.WorkDir, err = d.parseString()
-	case metaPath:
-		mst.MetaExec.Path, err = d.parseStringList()
 	case metaEcho:
 		mst.MetaExec.Echo, err = d.parseBool()
 	case metaAll:
