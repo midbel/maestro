@@ -310,15 +310,12 @@ func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
 	}()
 	cmd := s.resolveCommand(ctx, str)
 
-	rd, err := s.setupRedirect(redirect)
+	rd, err := s.setupRedirect(redirect, false)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		rd.out.Close()
-		rd.err.Close()
-		rd.in.Close()
-	}()
+	defer rd.Close()
+
 	cmd.SetOut(rd.out)
 	cmd.SetErr(rd.err)
 	cmd.SetIn(rd.in)
@@ -349,9 +346,16 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 			return err
 		}
 		cmd := s.resolveCommand(ctx, str)
-		if !ex.List[i].Both {
-			cmd.SetErr(s.stderr)
+		rd, err := s.setupRedirect(sex.Redirect, true)
+		if err != nil {
+			return err
 		}
+		defer rd.Close()
+
+		cmd.SetOut(rd.out)
+		cmd.SetIn(rd.in)
+		cmd.SetErr(rd.err)
+
 		cs = append(cs, cmd)
 	}
 	var (
@@ -368,7 +372,7 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 			return err
 		}
 		next.SetIn(in)
-		grp.Go(curr.Run)
+		grp.Go(curr.Start)
 	}
 	cmd := cs[len(cs)-1]
 	cmd.SetOut(s.stdout)
@@ -618,7 +622,17 @@ type redirect struct {
 	err io.WriteCloser
 }
 
-func (s *Shell) setupRedirect(rs []ExpandRedirect) (redirect, error) {
+func (r redirect) Close() error {
+	for _, c := range []io.Closer{r.in, r.out, r.err} {
+		if c == nil {
+			continue
+		}
+		c.Close()
+	}
+	return nil
+}
+
+func (s *Shell) setupRedirect(rs []ExpandRedirect, pipe bool) (redirect, error) {
 	var (
 		stdin  *os.File
 		stdout *os.File
@@ -670,21 +684,27 @@ func (s *Shell) setupRedirect(rs []ExpandRedirect) (redirect, error) {
 			return rd, err
 		}
 	}
-	rd.in = fileOrReader(stdin, s.stdin)
-	rd.out = fileOrWriter(stdout, s.stdout)
-	rd.err = fileOrWriter(stderr, s.stderr)
+	rd.in = fileOrReader(stdin, s.stdin, pipe)
+	rd.out = fileOrWriter(stdout, s.stdout, pipe)
+	rd.err = fileOrWriter(stderr, s.stderr, pipe)
 	return rd, nil
 }
 
-func fileOrWriter(f *os.File, w io.Writer) io.WriteCloser {
+func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.WriteCloser {
 	if f == nil {
+		if pipe {
+			return nil
+		}
 		return noopWriteCloser(w)
 	}
 	return f
 }
 
-func fileOrReader(f *os.File, r io.Reader) io.ReadCloser {
+func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 	if f == nil {
+		if pipe {
+			return nil
+		}
 		return noopReadCloser(r)
 	}
 	return f
