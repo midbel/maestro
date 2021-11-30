@@ -167,6 +167,9 @@ func (s *Scanner) scanScript(tok *Token) {
 	default:
 		ok = !ok
 	case isOperator(s.char):
+		if ok = s.char == dot && !isLetter(s.peek()); ok {
+			break
+		}
 		s.scanOperator(tok)
 	case isComment(s.char):
 		s.scanComment(tok)
