@@ -195,10 +195,11 @@ func createWord(str string, quoted bool) ExpandWord {
 }
 
 func (w ExpandWord) Expand(env Environment) ([]string, error) {
-	if w.Quoted {
-		return []string{w.Literal}, nil
-	}
-	return w.expand(env)
+	return []string{w.Literal}, nil
+	// if w.Quoted {
+	// 	return []string{w.Literal}, nil
+	// }
+	// return w.expand(env)
 }
 
 func (w ExpandWord) expand(env Environment) ([]string, error) {
@@ -648,7 +649,7 @@ func createValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
 
 func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
-	if err == nil {
+	if err == nil && len(str) > 0 {
 		return str, nil
 	}
 	return []string{v.Value}, nil

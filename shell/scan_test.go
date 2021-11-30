@@ -51,6 +51,10 @@ var tokens = []struct {
 		Input:  `echo both &>> both.txt`,
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.AppendBoth, shell.Literal},
 	},
+	{
+		Input: `echo $etc/$plug/files/*`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Variable, shell.Literal, shell.Variable, shell.Literal},
+	},
 }
 
 func TestScan(t *testing.T) {
