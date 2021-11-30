@@ -57,7 +57,7 @@ func (e *Env) Delete(ident string) error {
 type Executer interface{}
 
 type Expander interface {
-	Expand(Environment) ([]string, error)
+	Expand(env Environment, top bool) ([]string, error)
 }
 
 type ExecAssign struct {
@@ -134,7 +134,7 @@ type ExpandSub struct {
 	Quoted bool
 }
 
-func (e ExpandSub) Expand(env Environment) ([]string, error) {
+func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
 	sh, ok := env.(*Shell)
 	if !ok {
 		return nil, fmt.Errorf("substitution can not expanded")
@@ -159,10 +159,10 @@ type ExpandList struct {
 	Quoted bool
 }
 
-func (e ExpandList) Expand(env Environment) ([]string, error) {
+func (e ExpandList) Expand(env Environment, top bool) ([]string, error) {
 	var str []string
 	for i := range e.List {
-		ws, err := e.List[i].Expand(env)
+		ws, err := e.List[i].Expand(env, false)
 		if err != nil {
 			return nil, err
 		}
@@ -194,12 +194,12 @@ func createWord(str string, quoted bool) ExpandWord {
 	}
 }
 
-func (w ExpandWord) Expand(env Environment) ([]string, error) {
+func (w ExpandWord) Expand(env Environment, top bool) ([]string, error) {
 	return []string{w.Literal}, nil
-	// if w.Quoted {
-	// 	return []string{w.Literal}, nil
-	// }
-	// return w.expand(env)
+	if w.Quoted || !top {
+		return []string{w.Literal}, nil
+	}
+	return w.expand(env)
 }
 
 func (w ExpandWord) expand(env Environment) ([]string, error) {
@@ -236,8 +236,8 @@ func createRedirect(e Expander, kind rune) ExpandRedirect {
 	}
 }
 
-func (e ExpandRedirect) Expand(env Environment) ([]string, error) {
-	str, err := e.Expander.Expand(env)
+func (e ExpandRedirect) Expand(env Environment, _ bool) ([]string, error) {
+	str, err := e.Expander.Expand(env, false)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ type ExpandListBrace struct {
 	Words  []Expander
 }
 
-func (b ExpandListBrace) Expand(env Environment) ([]string, error) {
+func (b ExpandListBrace) Expand(env Environment, _ bool) ([]string, error) {
 	var (
 		prefix []string
 		suffix []string
@@ -261,17 +261,17 @@ func (b ExpandListBrace) Expand(env Environment) ([]string, error) {
 		err    error
 	)
 	if b.Prefix != nil {
-		if prefix, err = b.Prefix.Expand(env); err != nil {
+		if prefix, err = b.Prefix.Expand(env, false); err != nil {
 			return nil, err
 		}
 	}
 	if b.Suffix != nil {
-		if suffix, err = b.Suffix.Expand(env); err != nil {
+		if suffix, err = b.Suffix.Expand(env, false); err != nil {
 			return nil, err
 		}
 	}
 	for i := range b.Words {
-		str, err := b.Words[i].Expand(env)
+		str, err := b.Words[i].Expand(env, false)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +289,7 @@ type ExpandRangeBrace struct {
 	Step   int
 }
 
-func (b ExpandRangeBrace) Expand(env Environment) ([]string, error) {
+func (b ExpandRangeBrace) Expand(env Environment, _ bool) ([]string, error) {
 	var (
 		prefix []string
 		suffix []string
@@ -297,12 +297,12 @@ func (b ExpandRangeBrace) Expand(env Environment) ([]string, error) {
 		err    error
 	)
 	if b.Prefix != nil {
-		if prefix, err = b.Prefix.Expand(env); err != nil {
+		if prefix, err = b.Prefix.Expand(env, false); err != nil {
 			return nil, err
 		}
 	}
 	if b.Suffix != nil {
-		if suffix, err = b.Suffix.Expand(env); err != nil {
+		if suffix, err = b.Suffix.Expand(env, false); err != nil {
 			return nil, err
 		}
 	}
@@ -336,10 +336,10 @@ type ExpandMulti struct {
 	Quoted bool
 }
 
-func (m ExpandMulti) Expand(env Environment) ([]string, error) {
+func (m ExpandMulti) Expand(env Environment, _ bool) ([]string, error) {
 	var words []string
 	for _, w := range m.List {
-		ws, err := w.Expand(env)
+		ws, err := w.Expand(env, false)
 		if err != nil {
 			return nil, err
 		}
@@ -372,7 +372,7 @@ func createVariable(ident string, quoted bool) ExpandVar {
 	}
 }
 
-func (v ExpandVar) Expand(env Environment) ([]string, error) {
+func (v ExpandVar) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ type ExpandLength struct {
 	Ident string
 }
 
-func (v ExpandLength) Expand(env Environment) ([]string, error) {
+func (v ExpandLength) Expand(env Environment, _ bool) ([]string, error) {
 	var (
 		ws, err = env.Resolve(v.Ident)
 		sz      int
@@ -411,7 +411,7 @@ type ExpandReplace struct {
 	Quoted bool
 }
 
-func (v ExpandReplace) Expand(env Environment) ([]string, error) {
+func (v ExpandReplace) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		return nil, err
@@ -458,7 +458,7 @@ type ExpandTrim struct {
 	Quoted bool
 }
 
-func (v ExpandTrim) Expand(env Environment) ([]string, error) {
+func (v ExpandTrim) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		return nil, err
@@ -515,7 +515,7 @@ type ExpandSlice struct {
 	Quoted bool
 }
 
-func (v ExpandSlice) Expand(env Environment) ([]string, error) {
+func (v ExpandSlice) Expand(env Environment, _ bool) ([]string, error) {
 	return env.Resolve(v.Ident)
 }
 
@@ -526,7 +526,7 @@ type ExpandPad struct {
 	What  rune
 }
 
-func (v ExpandPad) Expand(env Environment) ([]string, error) {
+func (v ExpandPad) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil || len(str) >= v.Len {
 		return str, err
@@ -559,7 +559,7 @@ type ExpandLower struct {
 	Quoted bool
 }
 
-func (v ExpandLower) Expand(env Environment) ([]string, error) {
+func (v ExpandLower) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		return nil, err
@@ -599,7 +599,7 @@ type ExpandUpper struct {
 	Quoted bool
 }
 
-func (v ExpandUpper) Expand(env Environment) ([]string, error) {
+func (v ExpandUpper) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		return nil, err
@@ -647,7 +647,7 @@ func createValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
 	}
 }
 
-func (v ExpandValIfUnset) Expand(env Environment) ([]string, error) {
+func (v ExpandValIfUnset) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err == nil && len(str) > 0 {
 		return str, nil
@@ -669,7 +669,7 @@ func createSetValIfUnset(ident, value string, quoted bool) ExpandSetValIfUnset {
 	}
 }
 
-func (v ExpandSetValIfUnset) Expand(env Environment) ([]string, error) {
+func (v ExpandSetValIfUnset) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
 		str = []string{v.Value}
@@ -692,7 +692,7 @@ func createExpandValIfSet(ident, value string, quoted bool) ExpandValIfSet {
 	}
 }
 
-func (v ExpandValIfSet) Expand(env Environment) ([]string, error) {
+func (v ExpandValIfSet) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err == nil {
 		str = []string{v.Value}
@@ -714,7 +714,7 @@ func createExpandExitIfUnset(ident, value string, quoted bool) ExpandExitIfUnset
 	}
 }
 
-func (v ExpandExitIfUnset) Expand(env Environment) ([]string, error) {
+func (v ExpandExitIfUnset) Expand(env Environment, _ bool) ([]string, error) {
 	return nil, nil
 }
 

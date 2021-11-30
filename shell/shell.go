@@ -410,7 +410,7 @@ func (s *Shell) executePipe(ex ExecPipe) error {
 }
 
 func (s *Shell) executeAssign(ex ExecAssign) error {
-	str, err := ex.Expand(s)
+	str, err := ex.Expand(s, true)
 	if err != nil {
 		return err
 	}
@@ -418,7 +418,7 @@ func (s *Shell) executeAssign(ex ExecAssign) error {
 }
 
 func (s *Shell) expand(ex Expander) ([]string, error) {
-	str, err := ex.Expand(s)
+	str, err := ex.Expand(s, true)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +441,7 @@ func (s *Shell) expandExecuter(ex Executer) ([][]string, error) {
 	)
 	switch x := ex.(type) {
 	case ExecSimple:
-		xs, err1 := x.Expand(s)
+		xs, err1 := x.Expand(s, true)
 		if err1 != nil {
 			err = err1
 			break
@@ -662,7 +662,7 @@ func (s *Shell) setupRedirect(rs []ExpandRedirect, pipe bool) (redirect, error) 
 		rd     redirect
 	)
 	for _, r := range rs {
-		str, err := r.Expand(s)
+		str, err := r.Expand(s, true)
 		if err != nil {
 			return rd, err
 		}
