@@ -166,6 +166,9 @@ func (e ExpandList) Expand(env Environment, top bool) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
+		if top {
+			ws = expandList(ws)
+		}
 		str = append(str, ws...)
 	}
 	return str, nil
@@ -182,6 +185,38 @@ func (e *ExpandList) Pop() Expander {
 	return x
 }
 
+type ExpandMulti struct {
+	List   []Expander
+	Quoted bool
+}
+
+func (m ExpandMulti) Expand(env Environment, top bool) ([]string, error) {
+	var words []string
+	for _, w := range m.List {
+		ws, err := w.Expand(env, false)
+		if err != nil {
+			return nil, err
+		}
+		words = append(words, ws...)
+	}
+	str := strings.Join(words, "")
+	if top {
+		return expandFilename(str), nil
+	}
+	return []string{str}, nil
+}
+
+func (m *ExpandMulti) Pop() Expander {
+	n := len(m.List)
+	if n == 0 {
+		return nil
+	}
+	n--
+	x := m.List[n]
+	m.List = m.List[:n]
+	return x
+}
+
 type ExpandWord struct {
 	Literal string
 	Quoted  bool
@@ -195,33 +230,10 @@ func createWord(str string, quoted bool) ExpandWord {
 }
 
 func (w ExpandWord) Expand(env Environment, top bool) ([]string, error) {
-	return []string{w.Literal}, nil
 	if w.Quoted || !top {
 		return []string{w.Literal}, nil
 	}
-	return w.expand(env)
-}
-
-func (w ExpandWord) expand(env Environment) ([]string, error) {
-	if strings.HasPrefix(w.Literal, "~") {
-		return w.expandTilde(env)
-	}
-	if strings.ContainsAny(w.Literal, "[?*") {
-		return w.expandPattern()
-	}
-	return []string{w.Literal}, nil
-}
-
-func (w ExpandWord) expandTilde(env Environment) ([]string, error) {
-	return []string{w.Literal}, nil
-}
-
-func (w ExpandWord) expandPattern() ([]string, error) {
-	list, err := filepath.Glob(w.Literal)
-	if err != nil {
-		list = append(list, w.Literal)
-	}
-	return list, nil
+	return expandFilename(w.Literal), nil
 }
 
 type ExpandRedirect struct {
@@ -329,35 +341,6 @@ func (b ExpandRangeBrace) Expand(env Environment, _ bool) ([]string, error) {
 		b.From += b.Step
 	}
 	return combineStrings(words, prefix, suffix), nil
-}
-
-type ExpandMulti struct {
-	List   []Expander
-	Quoted bool
-}
-
-func (m ExpandMulti) Expand(env Environment, _ bool) ([]string, error) {
-	var words []string
-	for _, w := range m.List {
-		ws, err := w.Expand(env, false)
-		if err != nil {
-			return nil, err
-		}
-		words = append(words, ws...)
-	}
-	str := strings.Join(words, "")
-	return []string{str}, nil
-}
-
-func (m *ExpandMulti) Pop() Expander {
-	n := len(m.List)
-	if n == 0 {
-		return nil
-	}
-	n--
-	x := m.List[n]
-	m.List = m.List[:n]
-	return x
 }
 
 type ExpandVar struct {
@@ -746,4 +729,37 @@ func combineStringsWith(ws *strings.Builder, all, with []string) []string {
 		}
 	}
 	return str
+}
+
+func expandList(str []string) []string {
+	var list []string
+	for i := range str {
+		list = append(list, expandFilename(str[i])...)
+	}
+	return list
+}
+
+func expandFilename(str string) []string {
+	if strings.HasPrefix(str, "~") {
+		return expandTilde(str)
+	}
+	if strings.ContainsAny(str, "[?*") {
+		dir, file := filepath.Split(str)
+		str = filepath.Join(filepath.Dir(dir), file)
+		return expandPath(str)
+	}
+	return []string{str}
+}
+
+func expandTilde(str string) []string {
+	// TODO: replace tilde by home directory of current user
+	return []string{str}
+}
+
+func expandPath(str string) []string {
+	list, err := filepath.Glob(str)
+	if err != nil || len(list) == 0 {
+		list = append(list[:0], str)
+	}
+	return list
 }
