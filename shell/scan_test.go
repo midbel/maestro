@@ -52,7 +52,7 @@ var tokens = []struct {
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.AppendBoth, shell.Literal},
 	},
 	{
-		Input: `echo $etc/$plug/files/*`,
+		Input:  `echo $etc/$plug/files/*`,
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Variable, shell.Literal, shell.Variable, shell.Literal},
 	},
 }

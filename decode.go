@@ -319,11 +319,15 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeVariable(mst *Maestro) error {
-	ident := d.curr()
+	var (
+		ident  = d.curr()
+		assign bool
+	)
 	d.next()
-	if d.curr().Type != Assign {
+	if !d.curr().IsAssign() {
 		return d.unexpected()
 	}
+	assign = d.curr().Type == Assign
 	d.next()
 
 	var vs []string
@@ -346,7 +350,12 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 		}
 		d.next()
 	}
-	d.locals.Define(ident.Literal, vs)
+	if assign {
+		d.locals.Define(ident.Literal, vs)
+	} else {
+		xs, _ := d.locals.Resolve(ident.Literal)
+		d.locals.Define(ident.Literal, append(xs, vs...))
+	}
 	return d.ensureEOL()
 }
 

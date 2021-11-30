@@ -1,10 +1,12 @@
 // TODOS syntax
 // # section
-// * code[(tag list...)]: short description
+// * [modifier]code[(tag list...)]: short description
 // multine description with optional leading space
 // - property: value
 // <<: marks an item as "done"
 // >>: marks an item as "in progress"
+// !: marks an item as ignored
+// ? marks an item as suspended
 
 # TODOS
 
@@ -19,6 +21,12 @@
   - version: 0.1.0
   - author: midbel
 
+* <<maestro(feature,decoder,syntax): append operator
+  syntax: variable += values...
+  - date: 2021-11-30
+  - version: 0.1.x
+  - author: midbel
+
 # NICE TO HAVE
 
 * maestro(feature): prefix output with the name of the command being executed
@@ -31,9 +39,9 @@
 
 * maestro(decoder,environment): predefined functions to "transform" value(s)
 
-* maestro(macro): ellipsis operator (...) in repeat macro
+* maestro(macro): expand operator in repeat macro
   variable to be considered as a list of values
-  operator syntax is TBD
+  operator syntax: variable^ (variable name + caret)
 
 * maestro(feature): remote maestro file hosted on a web server
   use -f to retrieve a maestro file located on a remote web server

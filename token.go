@@ -27,6 +27,7 @@ const (
 	Script
 	Macro
 	Assign
+	Append
 	Comma
 	Background
 	Dependency
@@ -42,6 +43,7 @@ const (
 	Invalid
 	Optional
 	Hidden
+	Expand
 )
 
 type Position struct {
@@ -60,6 +62,8 @@ func (t Token) String() string {
 	switch t.Type {
 	default:
 		prefix = "unknown"
+	case Expand:
+		return "<expand>"
 	case Echo:
 		return "<echo>"
 	case Optional:
@@ -80,6 +84,8 @@ func (t Token) String() string {
 		return "<eol>"
 	case Assign:
 		return "<assign>"
+	case Append:
+		return "<append>"
 	case Comma:
 		return "<comma>"
 	case Dependency:
@@ -118,6 +124,10 @@ func (t Token) String() string {
 		prefix = "macro"
 	}
 	return fmt.Sprintf("%s(%s)", prefix, t.Literal)
+}
+
+func (t Token) IsAssign() bool {
+	return t.Type == Append || t.Type == Assign
 }
 
 func (t Token) IsVariable() bool {

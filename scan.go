@@ -36,6 +36,8 @@ const (
 	tilde      = '~'
 	question   = '?'
 	percent    = '%'
+	plus       = '+'
+	caret      = '^'
 )
 
 func IsValue(r rune) bool {
@@ -315,6 +317,12 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		tok.Type = Background
 	case colon:
 		tok.Type = Dependency
+	case plus:
+		tok.Type = Append
+		s.read()
+		if s.char != equal {
+			tok.Type = Invalid
+		}
 	case equal:
 		tok.Type = Assign
 	case comma:
@@ -464,7 +472,7 @@ func isVariable(b rune) bool {
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
 		b == lcurly || b == rcurly || b == equal || b == ampersand ||
-		b == question || b == percent
+		b == question || b == percent || b == plus
 }
 
 func isOperator(b rune) bool {
