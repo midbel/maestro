@@ -307,7 +307,13 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 		}
 		seen[deps[i].Name] = struct{}{}
 
-		cmd, _ := m.prepare(deps[i].Name)
+		cmd, err := m.prepare(deps[i].Name)
+		if err != nil {
+			if deps[i].Optional {
+				continue
+			}
+			return err
+		}
 		if d := deps[i]; d.Bg {
 			grp.Go(func() error {
 				if err := m.executeDependencies(cmd); err != nil {
@@ -317,7 +323,10 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 				return nil
 			})
 		} else {
-			m.executeCommand(cmd, d.Args)
+			err := m.executeCommand(cmd, d.Args)
+			if err != nil && !deps[i].Optional {
+				return err
+			}
 		}
 	}
 	grp.Wait()

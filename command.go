@@ -38,9 +38,10 @@ type Command interface {
 }
 
 type Dep struct {
-	Name string
-	Args []string
-	Bg   bool
+	Name     string
+	Args     []string
+	Bg       bool
+	Optional bool
 }
 
 type Option struct {
