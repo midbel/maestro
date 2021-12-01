@@ -58,6 +58,7 @@ type Executer interface{}
 
 type Expander interface {
 	Expand(env Environment, top bool) ([]string, error)
+	IsQuoted() bool
 }
 
 type ExecAssign struct {
@@ -134,6 +135,10 @@ type ExpandSub struct {
 	Quoted bool
 }
 
+func (e ExpandSub) IsQuoted() bool {
+	return e.Quoted
+}
+
 func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
 	sh, ok := env.(*Shell)
 	if !ok {
@@ -144,7 +149,7 @@ func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
 		buf bytes.Buffer
 	)
 	sh, _ = sh.Subshell()
-	sh.SetStdout(&buf)
+	sh.SetOut(&buf)
 
 	for i := range e.List {
 		if err = sh.execute(e.List[i]); err != nil {
@@ -159,6 +164,10 @@ type ExpandList struct {
 	Quoted bool
 }
 
+func (e ExpandList) IsQuoted() bool {
+	return e.Quoted
+}
+
 func (e ExpandList) Expand(env Environment, top bool) ([]string, error) {
 	var str []string
 	for i := range e.List {
@@ -166,7 +175,7 @@ func (e ExpandList) Expand(env Environment, top bool) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if top {
+		if top && !e.List[i].IsQuoted() {
 			ws = expandList(ws)
 		}
 		str = append(str, ws...)
@@ -190,6 +199,10 @@ type ExpandMulti struct {
 	Quoted bool
 }
 
+func (m ExpandMulti) IsQuoted() bool {
+	return m.Quoted
+}
+
 func (m ExpandMulti) Expand(env Environment, top bool) ([]string, error) {
 	var words []string
 	for _, w := range m.List {
@@ -200,7 +213,7 @@ func (m ExpandMulti) Expand(env Environment, top bool) ([]string, error) {
 		words = append(words, ws...)
 	}
 	str := strings.Join(words, "")
-	if top {
+	if top && !m.IsQuoted() {
 		return expandFilename(str), nil
 	}
 	return []string{str}, nil
@@ -217,6 +230,13 @@ func (m *ExpandMulti) Pop() Expander {
 	return x
 }
 
+func (m ExpandMulti) Expander() Expander {
+	if len(m.List) == 1 {
+		return m.List[0]
+	}
+	return m
+}
+
 type ExpandWord struct {
 	Literal string
 	Quoted  bool
@@ -229,6 +249,10 @@ func createWord(str string, quoted bool) ExpandWord {
 	}
 }
 
+func (w ExpandWord) IsQuoted() bool {
+	return w.Quoted
+}
+
 func (w ExpandWord) Expand(env Environment, top bool) ([]string, error) {
 	if w.Quoted || !top {
 		return []string{w.Literal}, nil
@@ -238,7 +262,8 @@ func (w ExpandWord) Expand(env Environment, top bool) ([]string, error) {
 
 type ExpandRedirect struct {
 	Expander
-	Type rune
+	Quoted bool
+	Type   rune
 }
 
 func createRedirect(e Expander, kind rune) ExpandRedirect {
@@ -246,6 +271,10 @@ func createRedirect(e Expander, kind rune) ExpandRedirect {
 		Expander: e,
 		Type:     kind,
 	}
+}
+
+func (e ExpandRedirect) IsQuoted() bool {
+	return e.Quoted
 }
 
 func (e ExpandRedirect) Expand(env Environment, _ bool) ([]string, error) {
@@ -263,6 +292,10 @@ type ExpandListBrace struct {
 	Prefix Expander
 	Suffix Expander
 	Words  []Expander
+}
+
+func (_ ExpandListBrace) IsQuoted() bool {
+	return false
 }
 
 func (b ExpandListBrace) Expand(env Environment, _ bool) ([]string, error) {
@@ -299,6 +332,10 @@ type ExpandRangeBrace struct {
 	From   int
 	To     int
 	Step   int
+}
+
+func (_ ExpandRangeBrace) IsQuoted() bool {
+	return false
 }
 
 func (b ExpandRangeBrace) Expand(env Environment, _ bool) ([]string, error) {
@@ -355,6 +392,10 @@ func createVariable(ident string, quoted bool) ExpandVar {
 	}
 }
 
+func (v ExpandVar) IsQuoted() bool {
+	return v.Quoted
+}
+
 func (v ExpandVar) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err != nil {
@@ -369,6 +410,10 @@ func (v ExpandVar) Expand(env Environment, _ bool) ([]string, error) {
 
 type ExpandLength struct {
 	Ident string
+}
+
+func (_ ExpandLength) IsQuoted() bool {
+	return false
 }
 
 func (v ExpandLength) Expand(env Environment, _ bool) ([]string, error) {
@@ -392,6 +437,10 @@ type ExpandReplace struct {
 	To     string
 	What   rune
 	Quoted bool
+}
+
+func (v ExpandReplace) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandReplace) Expand(env Environment, _ bool) ([]string, error) {
@@ -439,6 +488,10 @@ type ExpandTrim struct {
 	Trim   string
 	What   rune
 	Quoted bool
+}
+
+func (v ExpandTrim) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandTrim) Expand(env Environment, _ bool) ([]string, error) {
@@ -498,15 +551,24 @@ type ExpandSlice struct {
 	Quoted bool
 }
 
+func (v ExpandSlice) IsQuoted() bool {
+	return v.Quoted
+}
+
 func (v ExpandSlice) Expand(env Environment, _ bool) ([]string, error) {
 	return env.Resolve(v.Ident)
 }
 
 type ExpandPad struct {
-	Ident string
-	With  string
-	Len   int
-	What  rune
+	Ident  string
+	With   string
+	Len    int
+	What   rune
+	Quoted bool
+}
+
+func (v ExpandPad) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandPad) Expand(env Environment, _ bool) ([]string, error) {
@@ -540,6 +602,10 @@ type ExpandLower struct {
 	Ident  string
 	All    bool
 	Quoted bool
+}
+
+func (v ExpandLower) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandLower) Expand(env Environment, _ bool) ([]string, error) {
@@ -580,6 +646,10 @@ type ExpandUpper struct {
 	Ident  string
 	All    bool
 	Quoted bool
+}
+
+func (v ExpandUpper) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandUpper) Expand(env Environment, _ bool) ([]string, error) {
@@ -630,6 +700,10 @@ func createValIfUnset(ident, value string, quoted bool) ExpandValIfUnset {
 	}
 }
 
+func (v ExpandValIfUnset) IsQuoted() bool {
+	return v.Quoted
+}
+
 func (v ExpandValIfUnset) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err == nil && len(str) > 0 {
@@ -650,6 +724,10 @@ func createSetValIfUnset(ident, value string, quoted bool) ExpandSetValIfUnset {
 		Value:  value,
 		Quoted: quoted,
 	}
+}
+
+func (v ExpandSetValIfUnset) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandSetValIfUnset) Expand(env Environment, _ bool) ([]string, error) {
@@ -675,6 +753,10 @@ func createExpandValIfSet(ident, value string, quoted bool) ExpandValIfSet {
 	}
 }
 
+func (v ExpandValIfSet) IsQuoted() bool {
+	return v.Quoted
+}
+
 func (v ExpandValIfSet) Expand(env Environment, _ bool) ([]string, error) {
 	str, err := env.Resolve(v.Ident)
 	if err == nil {
@@ -695,6 +777,10 @@ func createExpandExitIfUnset(ident, value string, quoted bool) ExpandExitIfUnset
 		Value:  value,
 		Quoted: quoted,
 	}
+}
+
+func (v ExpandExitIfUnset) IsQuoted() bool {
+	return v.Quoted
 }
 
 func (v ExpandExitIfUnset) Expand(env Environment, _ bool) ([]string, error) {

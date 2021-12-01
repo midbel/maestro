@@ -127,11 +127,11 @@ func New(options ...ShellOption) (*Shell, error) {
 	return &s, nil
 }
 
-func (s *Shell) SetStdout(w io.Writer) {
+func (s *Shell) SetOut(w io.Writer) {
 	s.stdout = w
 }
 
-func (s *Shell) SetStderr(w io.Writer) {
+func (s *Shell) SetErr(w io.Writer) {
 	s.stderr = w
 }
 

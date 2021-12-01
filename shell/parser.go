@@ -203,11 +203,7 @@ func (p *Parser) parseWords() (Expander, error) {
 		}
 		list.List = append(list.List, next)
 	}
-	var ex Expander = list
-	if len(list.List) == 1 {
-		ex = list.List[0]
-	}
-	return ex, nil
+	return list.Expander(), nil
 }
 
 func (p *Parser) parseSubstitution() (Expander, error) {
@@ -231,11 +227,11 @@ func (p *Parser) parseSubstitution() (Expander, error) {
 	return ex, nil
 }
 
-func (p *Parser) parseQuote() (ExpandMulti, error) {
+func (p *Parser) parseQuote() (Expander, error) {
 	p.enterQuote()
-
 	p.next()
-	var ex ExpandMulti
+
+	var list ExpandMulti
 	for !p.done() {
 		if p.curr.Type == Quote {
 			break
@@ -257,16 +253,16 @@ func (p *Parser) parseQuote() (ExpandMulti, error) {
 			err = p.unexpected()
 		}
 		if err != nil {
-			return ex, err
+			return nil, err
 		}
-		ex.List = append(ex.List, next)
+		list.List = append(list.List, next)
 	}
 	if p.curr.Type != Quote {
-		return ex, p.unexpected()
+		return nil, p.unexpected()
 	}
 	p.leaveQuote()
 	p.next()
-	return ex, nil
+	return list.Expander(), nil
 }
 
 func (p *Parser) parseLiteral() (ExpandWord, error) {
