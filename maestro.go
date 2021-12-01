@@ -139,14 +139,14 @@ func (m *Maestro) Execute(name string, args []string) error {
 
 func (m *Maestro) ExecuteDefault(args []string) error {
 	if m.MetaExec.Default == "" {
-		return fmt.Errorf("no default command defined")
+		return fmt.Errorf("default command not defined")
 	}
 	return m.Execute(m.MetaExec.Default, args)
 }
 
 func (m *Maestro) ExecuteAll(args []string) error {
 	if len(m.MetaExec.All) == 0 {
-		return fmt.Errorf("no all command defined")
+		return fmt.Errorf("all command not defined")
 	}
 	for _, n := range m.MetaExec.All {
 		if err := m.Execute(n, args); err != nil {
@@ -284,8 +284,8 @@ func (m *Maestro) executeCommand(cmd Command, args []string) error {
 	cmd.SetOut(pout.W)
 	cmd.SetErr(perr.W)
 
-	go toStd(cmd.Command(), os.Stdout, pout.R)
-	go toStd(cmd.Command(), os.Stderr, perr.R)
+	go toStd(cmd.Command(), stdout, pout.R)
+	go toStd(cmd.Command(), stderr, perr.R)
 
 	return m.TraceTime(cmd, args, func() error {
 		return cmd.Execute(args)
@@ -390,6 +390,9 @@ type MetaExec struct {
 }
 
 func (m MetaExec) TraceTime(cmd Command, args []string, run func() error) error {
+	if cmd.HasRun() {
+		return nil
+	}
 	m.traceStart(cmd, args)
 	var (
 		now = time.Now()
@@ -411,7 +414,7 @@ func (m MetaExec) traceEnd(cmd Command, err error, elapsed time.Duration) {
 		fmt.Print("[maestro] fail")
 		fmt.Println()
 	}
-	fmt.Printf("[maestro] time: %s", elapsed)
+	fmt.Printf("[maestro] time: %.3fs", elapsed.Seconds())
 	fmt.Println()
 }
 
@@ -509,6 +512,11 @@ func (w *lockedWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
+var (
+	stdout = createLock(os.Stdout)
+	stderr = createLock(os.Stderr)
+)
+
 func toStd(prefix string, w io.Writer, r io.Reader) {
-	io.Copy(createPrefix(prefix, createLock(w)), r)
+	io.Copy(createPrefix(prefix, w), r)
 }

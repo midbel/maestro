@@ -87,7 +87,7 @@ commit(
 	tag   = info verify,
 ): {
 	total = $(find -type f -name "*.go" -exec cat {} \; | egrep -v '^$' | wc -l)
-	echo "${total:>:5} lines of code"
+	echo "${total:>:5} LoC"
 }
 
 %todo(
