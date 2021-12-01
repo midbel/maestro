@@ -394,7 +394,7 @@ func (p *Parser) parseSlice(ident Token) (Expander, error) {
 		if err != nil {
 			return nil, err
 		}
-		e.From = i
+		e.Offset = i
 		p.next()
 	}
 	if p.curr.Type != Slice {
@@ -406,7 +406,7 @@ func (p *Parser) parseSlice(ident Token) (Expander, error) {
 		if err != nil {
 			return nil, err
 		}
-		e.To = i
+		e.Size = i
 		p.next()
 	}
 	return e, nil

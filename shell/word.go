@@ -546,8 +546,8 @@ func (v ExpandTrim) trimPrefixLong(str []string) []string {
 
 type ExpandSlice struct {
 	Ident  string
-	From   int
-	To     int
+	Offset int
+	Size   int
 	Quoted bool
 }
 
@@ -556,7 +556,64 @@ func (v ExpandSlice) IsQuoted() bool {
 }
 
 func (v ExpandSlice) Expand(env Environment, _ bool) ([]string, error) {
-	return env.Resolve(v.Ident)
+	str, err := env.Resolve(v.Ident)
+	if err == nil {
+		str = v.expandSlice(str)
+	}
+	return str, err
+}
+
+func (v ExpandSlice) expandSlice(str []string) []string {
+	var list []string
+	for i := range str {
+		var (
+			siz = len(str[i])
+			off = v.Offset
+			cut = v.Size
+		)
+		if siz == 0 {
+			list = append(list, str[i])
+			continue
+		}
+		off = normOffset(off, siz)
+		off, cut = normCut(off, cut, siz)
+
+		list = append(list, str[i][off:off+cut])
+	}
+	return list
+}
+
+func normCut(off, cut, siz int) (int, int) {
+	if cut > 0 {
+		if off+cut > siz {
+			cut = siz - off
+		}
+		return off, cut
+	}
+	if cut < 0 {
+		if off == 0 {
+			off = siz
+		}
+		if off+cut < 0 {
+			return 0, off
+		}
+		return off + cut, -cut
+	}
+	return off, siz - off
+}
+
+func normOffset(off, siz int) int {
+	if off < 0 {
+		off = siz + off
+		if off < 0 {
+			off = 0
+		}
+		return off
+	}
+	if off > siz {
+		return siz
+	}
+	return off
 }
 
 type ExpandPad struct {
