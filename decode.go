@@ -97,7 +97,7 @@ func (d *Decoder) decode(mst *Maestro) error {
 		var err error
 		switch d.curr().Type {
 		case Ident:
-			if d.peek().Type == Assign {
+			if d.peek().IsAssign() {
 				err = d.decodeVariable(mst)
 				break
 			}
@@ -872,8 +872,14 @@ func (d *Decoder) done() bool {
 }
 
 func (d *Decoder) unexpected() error {
-	curr := d.curr()
-	return fmt.Errorf("%w %s at %d:%d", errUnexpected, curr.Literal, curr.Line, curr.Column)
+	var (
+		curr = d.curr()
+		str  = curr.Literal
+	)
+	if str == "" {
+		str = curr.String()
+	}
+	return fmt.Errorf("%w %s at %d:%d", errUnexpected, str, curr.Line, curr.Column)
 }
 
 func (d *Decoder) undefined() error {

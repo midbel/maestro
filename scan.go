@@ -318,6 +318,10 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	case colon:
 		tok.Type = Dependency
 	case plus:
+		if s.state.Macro() {
+			tok.Type = Expand
+			break
+		}
 		tok.Type = Append
 		s.read()
 		if s.char != equal {
@@ -477,7 +481,7 @@ func isDelimiter(b rune) bool {
 
 func isOperator(b rune) bool {
 	switch b {
-	case bang, minus, arobase, langle, tilde, dot:
+	case bang, minus, arobase, langle, tilde, dot, plus:
 		return true
 	default:
 		return false

@@ -34,14 +34,15 @@
 
 * maestro(command,decoder,execute): marks dependencies as "optional"
   errors returned by these commands are ignored and execution can continue
+  syntax: !dep-name
 
 * maestro(command,decoder,execute): conditionally executing dependendies and/or commands
 
 * maestro(decoder,environment): predefined functions to "transform" value(s)
 
-* maestro(macro): expand operator in repeat macro
+* <<maestro(macro): expand operator in repeat macro
   variable to be considered as a list of values
-  operator syntax: variable^ (variable name + caret)
+  operator syntax: variable+ (variable name + plus sign)
 
 * maestro(feature): remote maestro file hosted on a web server
   use -f to retrieve a maestro file located on a remote web server

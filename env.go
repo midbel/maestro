@@ -17,7 +17,7 @@ func EnclosedEnv(parent *Env) *Env {
 }
 
 func (e *Env) Define(key string, vs []string) error {
-	e.locals[key] = append(e.locals[key], vs...)
+	e.locals[key] = append(e.locals[key][:0], vs...)
 	return nil
 }
 

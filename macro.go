@@ -2,6 +2,7 @@ package maestro
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -9,6 +10,8 @@ const (
 	macroRepeat   = "repeat"
 	macroSequence = "sequence"
 	macroVar      = "<var>"
+	macroIter     = "<iter>"
+	macroIter0    = "<iter0>"
 )
 
 func decodeMacroSequence(d *Decoder, cmd *Single) error {
@@ -61,7 +64,17 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 			break
 		}
 		switch curr := d.curr(); {
-		case curr.IsPrimitive() || curr.IsVariable():
+		case curr.IsPrimitive():
+			list = append(list, curr)
+		case curr.IsVariable():
+			if d.peek().Type == Expand {
+				vs, _ := d.locals.Resolve(curr.Literal)
+				for i := range vs {
+					list = append(list, createToken(vs[i], String))
+				}
+				d.next()
+				break
+			}
 			list = append(list, curr)
 		default:
 			return d.unexpected()
@@ -106,8 +119,14 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 		if list[i].IsVariable() {
 			list[i].Literal = fmt.Sprintf("$%s", list[i].Literal)
 		}
+		var (
+			iter  = strconv.Itoa(i + 1)
+			iter0 = strconv.Itoa(i)
+		)
 		for _, n := range lines {
 			n.Line = strings.ReplaceAll(n.Line, macroVar, list[i].Literal)
+			n.Line = strings.ReplaceAll(n.Line, macroIter, iter)
+			n.Line = strings.ReplaceAll(n.Line, macroIter0, iter0)
 			cmd.Scripts = append(cmd.Scripts, n)
 		}
 	}

@@ -57,6 +57,13 @@ type Token struct {
 	Position
 }
 
+func createToken(str string, kind rune) Token {
+	return Token{
+		Literal: str,
+		Type:    kind,
+	}
+}
+
 func (t Token) String() string {
 	var prefix string
 	switch t.Type {
