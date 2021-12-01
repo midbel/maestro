@@ -24,12 +24,12 @@
 * <<maestro(feature,decoder,syntax): append operator
   syntax: variable += values...
   - date: 2021-11-30
-  - version: 0.1.x
+  - version: 0.1.0
   - author: midbel
 
 * shell(expander): implements ExpandSlice.Expand
   - date: 2021-11-30
-  - version: 0.1.x
+  - version: 0.1.0
   - author: midbel
 
 # BUGS
@@ -42,7 +42,7 @@
   - version: 0.1.0
   - author: midbel
 
-* maestro(feature,command): skip dependencies/before/after command when -h flag is set
+* <<maestro(feature,command): skip dependencies/before/after command when -h flag is set
   when -h/--help flag is set, only the help of the command being executed should
   be printed.
   dependencies and others commands should not be executed and maestro should exit

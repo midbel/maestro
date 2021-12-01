@@ -100,6 +100,9 @@ func (m *Maestro) Dry(name string, args []string) error {
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
+	if hasHelp(args) {
+		return m.ExecuteHelp(name)
+	}
 	if m.MetaExec.Dry {
 		return m.Dry(name, args)
 	}
@@ -528,4 +531,17 @@ var (
 
 func toStd(prefix string, w io.Writer, r io.Reader) {
 	io.Copy(createPrefix(prefix, w), r)
+}
+
+func hasHelp(args []string) bool {
+	as := make([]string, len(args))
+	copy(as, args)
+	sort.Strings(as)
+	i := sort.Search(len(as), func(i int) bool {
+		return "-h" <= as[i] || "-help" <= as[i] || "--help" <= as[i]
+	})
+	if i >= len(as) {
+		return false
+	}
+	return as[i] == "-h" || as[i] == "-help" || as[i] == "--help"
 }
