@@ -27,6 +27,15 @@ test(
 	}
 }
 
+deploy(
+	short = "copy binaries in PATH",
+	tag   = build deploy,
+	alias = install,
+): build {
+	cp ${bindir,,}/${maestro} /home/nico/go/bin
+	cp ${bindir,,}/${tish} /home/nico/go/bin
+}
+
 build(
 	short = "build binaries",
 	tag   = build,
@@ -77,7 +86,7 @@ commit(
 	short = "count number of LoC",
 	tag   = info verify,
 ): {
-	total = $(find -type f -name "*go" -exec cat {} \; | egrep -v '^$' | wc -l)
+	total = $(find -type f -name "*.go" -exec cat {} \; | egrep -v '^$' | wc -l)
 	echo "${total:>:5} lines of code"
 }
 

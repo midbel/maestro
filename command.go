@@ -3,6 +3,7 @@ package maestro
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"sort"
@@ -24,6 +25,7 @@ type Command interface {
 	Usage() string
 	Tags() []string
 	Command() string
+	HasRun() bool
 	Blocked() bool
 	Can() bool
 	Combined() bool
@@ -31,6 +33,8 @@ type Command interface {
 	Script([]string) ([]string, error)
 	Remote() bool
 	Execute([]string) error
+	SetOut(w io.Writer)
+	SetErr(w io.Writer)
 }
 
 type Dep struct {
@@ -164,6 +168,10 @@ func (_ *Single) Combined() bool {
 	return false
 }
 
+func (s *Single) HasRun() bool {
+	return s.executed
+}
+
 func (s *Single) Blocked() bool {
 	return !s.Visible
 }
@@ -239,6 +247,14 @@ func (s *Single) Script(args []string) ([]string, error) {
 		scripts = append(scripts, rs...)
 	}
 	return scripts, nil
+}
+
+func (s *Single) SetOut(w io.Writer) {
+	s.shell.SetOut(w)
+}
+
+func (s *Single) SetErr(w io.Writer) {
+	s.shell.SetErr(w)
 }
 
 func (s *Single) Execute(args []string) error {
@@ -442,6 +458,15 @@ func (c Combined) Blocked() bool {
 	return false
 }
 
+func (c Combined) HasRun() bool {
+	for i := range c {
+		if c[i].HasRun() {
+			return true
+		}
+	}
+	return false
+}
+
 func (c Combined) Can() bool {
 	for i := range c {
 		if !c[i].Can() {
@@ -458,6 +483,18 @@ func (c Combined) Execute(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (c Combined) SetOut(w io.Writer) {
+	for i := range c {
+		c[i].SetOut(w)
+	}
+}
+
+func (c Combined) SetErr(w io.Writer) {
+	for i := range c {
+		c[i].SetErr(w)
+	}
 }
 
 func (c Combined) Dry(args []string) error {

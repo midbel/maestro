@@ -3,10 +3,13 @@ package maestro
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -92,11 +95,14 @@ func (m *Maestro) Dry(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	m.Trace(cmd, args...)
+	m.Trace(cmd, args)
 	return cmd.Dry(args)
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
+	if m.MetaExec.Dry {
+		return m.Dry(name, args)
+	}
 	cmd, err := m.prepare(name)
 	if err != nil {
 		return err
@@ -107,6 +113,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if m.Remote {
 		return m.executeRemote(cmd, args)
 	}
+
 	if !m.NoDeps {
 		if err := m.executeDependencies(cmd); err != nil {
 			return err
@@ -115,8 +122,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 	m.executeList(m.MetaExec.Before)
 	defer m.executeList(m.MetaExec.After)
 
-	m.Trace(cmd, args...)
-	err = cmd.Execute(args)
+	err = m.executeCommand(cmd, args)
 
 	next := m.MetaExec.Success
 	if err != nil {
@@ -219,7 +225,7 @@ func (m *Maestro) executeList(list []string) {
 		if err != nil {
 			continue
 		}
-		cmd.Execute(nil)
+		m.executeCommand(cmd, nil)
 	}
 }
 
@@ -264,6 +270,28 @@ func (m *Maestro) canExecute(cmd Command) error {
 	return nil
 }
 
+func (m *Maestro) executeCommand(cmd Command, args []string) error {
+	var (
+		pout, _ = createPipe()
+		perr, _ = createPipe()
+	)
+
+	defer func() {
+		pout.Close()
+		perr.Close()
+	}()
+
+	cmd.SetOut(pout.W)
+	cmd.SetErr(perr.W)
+
+	go toStd(cmd.Command(), os.Stdout, pout.R)
+	go toStd(cmd.Command(), os.Stderr, perr.R)
+
+	return m.TraceTime(cmd, args, func() error {
+		return cmd.Execute(args)
+	})
+}
+
 func (m *Maestro) executeDependencies(cmd Command) error {
 	deps, err := m.resolveDependencies(cmd)
 	if err != nil {
@@ -280,16 +308,16 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 		seen[deps[i].Name] = struct{}{}
 
 		cmd, _ := m.prepare(deps[i].Name)
-		m.Trace(cmd)
 		if d := deps[i]; d.Bg {
 			grp.Go(func() error {
 				if err := m.executeDependencies(cmd); err != nil {
 					return err
 				}
-				return cmd.Execute(d.Args)
+				m.executeCommand(cmd, d.Args)
+				return nil
 			})
 		} else {
-			cmd.Execute(d.Args)
+			m.executeCommand(cmd, d.Args)
 		}
 	}
 	grp.Wait()
@@ -349,6 +377,7 @@ func (m *Maestro) lookup(name string) (Command, error) {
 
 type MetaExec struct {
 	WorkDir string
+	Dry     bool
 
 	Echo bool
 
@@ -360,11 +389,41 @@ type MetaExec struct {
 	Success []string
 }
 
-func (m MetaExec) Trace(cmd Command, args ...string) {
+func (m MetaExec) TraceTime(cmd Command, args []string, run func() error) error {
+	m.traceStart(cmd, args)
+	var (
+		now = time.Now()
+		err = run()
+	)
+	m.traceEnd(cmd, err, time.Since(now))
+	return err
+}
+
+func (m MetaExec) Trace(cmd Command, args []string) {
+	m.traceStart(cmd, args)
+}
+
+func (m MetaExec) traceEnd(cmd Command, err error, elapsed time.Duration) {
 	if !m.Echo {
 		return
 	}
-	fmt.Println(cmd.Command(), strings.Join(args, " "))
+	if err != nil {
+		fmt.Print("[maestro] fail")
+		fmt.Println()
+	}
+	fmt.Printf("[maestro] time: %s", elapsed)
+	fmt.Println()
+}
+
+func (m MetaExec) traceStart(cmd Command, args []string) {
+	if !m.Echo {
+		return
+	}
+	fmt.Printf("[maestro] %s", cmd.Command())
+	if len(args) > 0 {
+		fmt.Printf(": %s", strings.Join(args, " "))
+	}
+	fmt.Println()
 }
 
 type MetaAbout struct {
@@ -395,4 +454,61 @@ type help struct {
 	Usage    string
 	Version  string
 	Commands map[string][]Command
+}
+
+type pipe struct {
+	R *os.File
+	W *os.File
+}
+
+func createPipe() (*pipe, error) {
+	var (
+		p   pipe
+		err error
+	)
+	p.R, p.W, err = os.Pipe()
+	return &p, err
+}
+
+func (p *pipe) Close() error {
+	p.R.Close()
+	return p.W.Close()
+}
+
+type prefixWriter struct {
+	prefix string
+	inner  io.Writer
+}
+
+func createPrefix(prefix string, w io.Writer) io.Writer {
+	return &prefixWriter{
+		prefix: fmt.Sprintf("[%s] ", prefix),
+		inner:  w,
+	}
+}
+
+func (w *prefixWriter) Write(b []byte) (int, error) {
+	io.WriteString(w.inner, w.prefix)
+	return w.inner.Write(b)
+}
+
+type lockedWriter struct {
+	mu sync.Mutex
+	io.Writer
+}
+
+func createLock(w io.Writer) io.Writer {
+	return &lockedWriter{
+		Writer: w,
+	}
+}
+
+func (w *lockedWriter) Write(b []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.Writer.Write(b)
+}
+
+func toStd(prefix string, w io.Writer, r io.Reader) {
+	io.Copy(createPrefix(prefix, createLock(w)), r)
 }

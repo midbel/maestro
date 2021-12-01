@@ -8,6 +8,8 @@ import (
 	"github.com/midbel/maestro"
 )
 
+const MaestroEnv = "MAESTRO_FILE"
+
 const help = "maestro command help"
 
 func main() {
@@ -16,17 +18,22 @@ func main() {
 		os.Exit(2)
 	}
 	var (
+		file = maestro.DefaultFile
 		mst  = maestro.New()
-		dry  = flag.Bool("d", false, "run dry")
-		file = flag.String("f", maestro.DefaultFile, "maestro file to use")
 	)
+	if str, ok := os.LookupEnv(MaestroEnv); ok && str != "" {
+		file = str
+	}
+
+	flag.BoolVar(&mst.MetaExec.Dry, "d", false, "run dry")
+	flag.StringVar(&file, "f", file, "maestro file to use")
 	flag.BoolVar(&mst.MetaExec.Echo, "e", false, "echo")
 	flag.BoolVar(&mst.NoDeps, "k", false, "skip dependencies")
 	flag.BoolVar(&mst.Remote, "r", false, "remote")
 	flag.StringVar(&mst.MetaHttp.Addr, "a", mst.MetaHttp.Addr, "address")
 	flag.Parse()
 
-	err := mst.Load(*file)
+	err := mst.Load(file)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -46,11 +53,7 @@ func main() {
 	case maestro.CmdDefault:
 		err = mst.ExecuteDefault(args)
 	default:
-		if *dry {
-			err = mst.Dry(cmd, args)
-		} else {
-			err = mst.Execute(cmd, args)
-		}
+		err = mst.Execute(cmd, args)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

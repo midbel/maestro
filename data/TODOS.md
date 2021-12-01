@@ -27,10 +27,31 @@
   - version: 0.1.x
   - author: midbel
 
-# NICE TO HAVE
+* shell(expander): implements ExpandSlice.Expand
+  - date: 2021-11-30
+  - version: 0.1.x
+  - author: midbel
 
-* maestro(feature): prefix output with the name of the command being executed
-  set stdout/stderr of Command.Shell with os.Pipe/io.Pipe
+# BUGS
+
+* maestro(feature,command): cancel command execution
+  once a signal is sent to maestro, all commands being executed and the following one
+  should be discarded/cancelled properly
+  better use of context.Context and cancel
+  - date: 2021-12-01
+  - version: 0.1.0
+  - author: midbel
+
+* >>maestro(feature,command): skip dependencies/before/after command when -h flag is set
+  when -h/--help flag is set, only the help of the command being executed should
+  be printed.
+  dependencies and others commands should not be executed and maestro should exit
+  directly after having printed the help message
+  - date: 2021-12-01
+  - version: 0.1.0
+  - author: midbel
+
+# NICE TO HAVE
 
 * maestro(command,decoder,execute): marks dependencies as "optional"
   errors returned by these commands are ignored and execution can continue
@@ -58,3 +79,6 @@
 
 * shell(expansion): escaped character
   check if special character has been escaped before performing any expansion
+
+* >>maestro(feature): prefix output with the name of the command being executed
+  revise type and mechanism used to output the results of the commands
