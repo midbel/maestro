@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-  file := flag.String("f", "TODOS", "read TODOS from file")
+	file := flag.String("f", "TODOS", "read TODOS from file")
 	flag.Parse()
 
 	r, err := os.Open(*file)
@@ -20,12 +20,12 @@ func main() {
 	defer r.Close()
 
 	list, err := todos.Parse(r)
-  if err != nil {
-    fmt.Fprintln(os.Stderr, err)
-    os.Exit(1)
-  }
-  for i, t := range list {
-    fmt.Printf("% 3d | %-10s | %-10s | %s", i+1, t.Section, t.State, t.Title)
-    fmt.Println()
-  }
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	for i, t := range list {
+		fmt.Printf("% 3d | %-10s | %-10s | %s", i+1, t.Section, t.State, t.Title)
+		fmt.Println()
+	}
 }

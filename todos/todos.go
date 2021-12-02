@@ -160,9 +160,9 @@ func (p *Parser) parseDescription() (string, error) {
 	stop := func(t rune) bool {
 		return t == Property || t == Section || t == Category
 	}
-  for p.curr.Type == EOL {
-    p.next()
-  }
+	for p.curr.Type == EOL {
+		p.next()
+	}
 	var list []string
 	for !p.done() && !stop(p.curr.Type) {
 		switch p.curr.Type {
@@ -211,9 +211,9 @@ func (p *Parser) parseCategory() error {
 	}
 	p.category = p.curr.Literal
 	p.next()
-  if p.curr.Type != EOL {
-    return ErrSyntax
-  }
+	if p.curr.Type != EOL {
+		return ErrSyntax
+	}
 	return nil
 }
 
@@ -350,7 +350,7 @@ type Scanner struct {
 	column int
 	seen   int
 
-  scanlines bool
+	scanlines bool
 }
 
 func Scan(r io.Reader) *Scanner {
@@ -390,12 +390,12 @@ func (s *Scanner) Scan() Token {
 }
 
 func (s *Scanner) scanLiteral(tok *Token) {
-  ok := isNL
-  if !s.scanlines {
-    ok = func(r rune) bool {
-      return isDelimiter(r) || isNL(r)
-    }
-  }
+	ok := isNL
+	if !s.scanlines {
+		ok = func(r rune) bool {
+			return isDelimiter(r) || isNL(r)
+		}
+	}
 	for !ok(s.char) {
 		if s.char == backslash && s.peek() == nl {
 			s.read()
@@ -427,7 +427,7 @@ func (s *Scanner) scanStatus(tok *Token) {
 
 func (s *Scanner) scanProperty(tok *Token) {
 	tok.Type = Property
-  s.toggleLines()
+	s.toggleLines()
 	s.read()
 	s.skipBlank()
 }
@@ -436,10 +436,10 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	switch s.char {
 	case pound:
 		tok.Type = Category
-    s.resetLines()
+		s.resetLines()
 	case star:
 		tok.Type = Section
-    s.resetLines()
+		s.resetLines()
 	case lparen:
 		tok.Type = BegList
 	case rparen:
@@ -448,7 +448,7 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		tok.Type = Comma
 	case colon:
 		tok.Type = Sep
-    s.toggleLines()
+		s.toggleLines()
 	default:
 		tok.Type = Invalid
 	}
@@ -470,11 +470,11 @@ func (s *Scanner) scanComment(tok *Token) {
 }
 
 func (s *Scanner) resetLines() {
-  s.scanlines = false
+	s.scanlines = false
 }
 
 func (s *Scanner) toggleLines() {
-  s.scanlines = !s.scanlines
+	s.scanlines = !s.scanlines
 }
 
 func (s *Scanner) peek() rune {

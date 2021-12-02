@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -216,8 +217,68 @@ func (m *Maestro) executeRemote(cmd Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, str := range scripts {
-		fmt.Println(str)
+	sg, ok := cmd.(*Single)
+	if !ok {
+		return nil
+	}
+	var grp errgroup.Group
+	for i := range sg.Hosts {
+		host := sg.Hosts[i]
+		grp.Go(func() error {
+			return m.executeHost(cmd, host, scripts)
+		})
+	}
+	return grp.Wait()
+}
+
+func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error {
+	exec := func(sess *ssh.Session, line string) error {
+		var (
+			pout, _ = createPipe()
+			perr, _ = createPipe()
+		)
+
+		defer func() {
+			pout.Close()
+			perr.Close()
+		}()
+
+		cmd.SetOut(pout.W)
+		cmd.SetErr(perr.W)
+
+		prefix := fmt.Sprintf("%s:%s", addr, cmd.Command())
+
+		go toStd(prefix, stdout, pout.R)
+		go toStd(prefix, stderr, perr.R)
+
+		defer sess.Close()
+		sess.Stdout = pout.W
+		sess.Stderr = perr.W
+
+		return m.TraceTime(cmd, nil, func() error {
+			return sess.Run(line)
+		})
+	}
+	config := ssh.ClientConfig{
+		User: m.MetaSSH.User,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(m.MetaSSH.Pass),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	client, err := ssh.Dial("tcp", addr, &config)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	for i := range scripts {
+		sess, err := client.NewSession()
+		if err != nil {
+			return err
+		}
+		if err := exec(sess, scripts[i]); err != nil {
+			return err
+		}
 	}
 	return nil
 }

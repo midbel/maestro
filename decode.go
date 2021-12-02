@@ -29,8 +29,8 @@ const (
 	metaVersion   = "VERSION"
 	metaUsage     = "USAGE"
 	metaHelp      = "HELP"
-	metaUser      = "USER"
-	metaPass      = "PASSWORD"
+	metaUser      = "SSH_USER"
+	metaPass      = "SSH_PASSWORD"
 	metaPrivKey   = "SSH_PRIVATE_KEY"
 	metaPubKey    = "SSH_PUBLIC_KEY"
 	metaCertFile  = "HTTP_CERT_FILE"
@@ -57,7 +57,6 @@ const (
 	propAlias   = "alias"
 	propUser    = "user"
 	propGroup   = "group"
-	propExpose  = "expose"
 )
 
 const (
@@ -458,8 +457,6 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
 			sort.Strings(cmd.Hosts)
-		case propExpose:
-			cmd.Expose, err = d.parseBool()
 		case propAlias:
 			cmd.Alias, err = d.parseStringList()
 			sort.Strings(cmd.Alias)

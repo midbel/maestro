@@ -41,7 +41,7 @@ build(
 	tag   = build,
 	alias = compile,
 	hosts = "127.0.0.1:22",
-): gofmt, test, verify {
+): tidy, gofmt, test, verify {
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
 
@@ -105,16 +105,29 @@ commit(
 	$show && grep 'TODO' *go shlex/*go shell/*go | cut -f 3 -d : | awk '{$1=$1};1'
 }
 
+.SSH_USER     = test
+.SSH_PASSWORD = usertest
+
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
-	hosts = "127.0.0.1:22",
 ): gofmt {
 	<loc
 	<todo
 }
 
+list(
+	short = "list files on remote system",
+	tag   = info,
+	hosts = "127.0.0.1:22" "192.168.1.56:22",
+): {
+	pwd && ls -l
+}
+
 %gofmt {
-	echo $@
 	gofmt -w -s .
+}
+
+%tidy {
+	go mod tidy
 }
