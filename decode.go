@@ -603,12 +603,37 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 		}
 		seen[dep.Name] = struct{}{}
 
-		cmd.Deps = append(cmd.Deps, dep)
 		d.next()
+		if d.curr().Type == BegList {
+			d.next()
+			for !d.done() && d.curr().Type != EndList {
+				switch curr := d.curr(); {
+				case curr.IsPrimitive():
+					dep.Args = append(dep.Args, curr.Literal)
+				case curr.IsVariable():
+					vs, err := d.locals.Resolve(curr.Literal)
+					if err != nil {
+						return err
+					}
+					dep.Args = append(dep.Args, vs...)
+				default:
+					return d.unexpected()
+				}
+				d.next()
+				if d.curr().Type == Comma {
+					d.next()
+				}
+			}
+			if d.curr().Type != EndList {
+				return d.unexpected()
+			}
+			d.next()
+		}
 		if d.curr().Type == Background {
 			d.next()
 			dep.Bg = true
 		}
+		cmd.Deps = append(cmd.Deps, dep)
 		switch d.curr().Type {
 		case Comma:
 			d.next()

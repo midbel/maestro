@@ -109,11 +109,12 @@ count(
 	short = "count LOC and todos",
 	tag   = info verify,
 	hosts = "127.0.0.1:22",
-): {
+): gofmt {
 	<loc
 	<todo
 }
 
 %gofmt {
+	echo $@
 	gofmt -w -s .
 }

@@ -3,10 +3,10 @@
 // * [modifier]code[(tag list...)]: short description
 // multine description with optional leading space
 // - property: value
-// <<: marks an item as "done"
-// >>: marks an item as "in progress"
+// <: marks an item as "done"
+// >: marks an item as "in progress"
 // !: marks an item as ignored
-// ? marks an item as suspended
+// ?: marks an item as suspended
 
 # TODOS
 
@@ -21,18 +21,18 @@
   - version: 0.1.0
   - author: midbel
 
-* <<maestro(feature,decoder,syntax): append operator
+* <maestro(feature,decoder,syntax): append operator
   syntax: variable += values...
   - date: 2021-11-30
   - version: 0.1.0
   - author: midbel
 
-* <<shell(expander): implements ExpandSlice.Expand
+* <shell(expander): implements ExpandSlice.Expand
   - date: 2021-11-30
   - version: 0.1.0
   - author: midbel
 
-* maestro(feature,command,decoder): decode dependency's arguments
+* <maestro(feature,command,decoder): decode dependency's arguments
   - date: 2021-12-02
   - version: 0.1.0
   - author: midbel
@@ -51,7 +51,7 @@
   - version: 0.1.0
   - author: midbel
 
-* <<maestro(feature,command): skip dependencies/before/after command when -h flag is set
+* <maestro(feature,command): skip dependencies/before/after command when -h flag is set
   when -h/--help flag is set, only the help of the command being executed should
   be printed.
   dependencies and others commands should not be executed and maestro should exit
@@ -62,7 +62,7 @@
 
 # NICE TO HAVE
 
-* <<maestro(command,decoder,execute): marks dependencies as "optional"
+* <maestro(command,decoder,execute): marks dependencies as "optional"
   errors returned by these commands are ignored and execution can continue
   syntax: !dep-name
 
@@ -70,7 +70,7 @@
 
 * ?maestro(decoder,environment): predefined functions to "transform" value(s)
 
-* <<maestro(macro): expand operator in repeat macro
+* <maestro(macro): expand operator in repeat macro
   variable to be considered as a list of values
   operator syntax: variable+ (variable name + plus sign)
 
@@ -84,12 +84,12 @@
   check for special character
   resolving current and parent directories
 
-* <<shell(expansion): check the quoted status of each Expander
+* <shell(expansion): check the quoted status of each Expander
 
 * shell(expansion): escaped character
   check if special character has been escaped before performing any expansion
 
-* >>maestro(feature): prefix output with the name of the command being executed
+* >maestro(feature): prefix output with the name of the command being executed
   revise type and mechanism used to output the results of the commands
 
 * command(feature): improve formatting of help command
