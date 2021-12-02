@@ -7,6 +7,7 @@
 // >: marks an item as "in progress"
 // !: marks an item as ignored
 // ?: marks an item as suspended
+// list of related TODOS???
 
 # TODOS
 
