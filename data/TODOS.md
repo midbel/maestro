@@ -27,9 +27,18 @@
   - version: 0.1.0
   - author: midbel
 
-* shell(expander): implements ExpandSlice.Expand
+* <<shell(expander): implements ExpandSlice.Expand
   - date: 2021-11-30
   - version: 0.1.0
+  - author: midbel
+
+* maestro(feature,command,decoder): decode dependency's arguments
+  - date: 2021-12-02
+  - version: 0.1.0
+  - author: midbel
+
+* shell(feature): implements for loop and if statement
+  - date: 2021-12-02
   - author: midbel
 
 # BUGS
@@ -53,13 +62,13 @@
 
 # NICE TO HAVE
 
-* >>maestro(command,decoder,execute): marks dependencies as "optional"
+* <<maestro(command,decoder,execute): marks dependencies as "optional"
   errors returned by these commands are ignored and execution can continue
   syntax: !dep-name
 
-* maestro(command,decoder,execute): conditionally executing dependendies and/or commands
+* ?maestro(command,decoder,execute): conditionally executing dependendies and/or commands
 
-* maestro(decoder,environment): predefined functions to "transform" value(s)
+* ?maestro(decoder,environment): predefined functions to "transform" value(s)
 
 * <<maestro(macro): expand operator in repeat macro
   variable to be considered as a list of values
@@ -82,3 +91,5 @@
 
 * >>maestro(feature): prefix output with the name of the command being executed
   revise type and mechanism used to output the results of the commands
+
+* command(feature): improve formatting of help command

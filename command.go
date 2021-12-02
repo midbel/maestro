@@ -81,6 +81,7 @@ type Single struct {
 	WorkDir string
 	Timeout time.Duration
 
+	Expose  bool
 	Hosts   []string
 	Deps    []Dep
 	Scripts []Line
@@ -218,7 +219,7 @@ func (s *Single) can(uid string) bool {
 }
 
 func (s *Single) Remote() bool {
-	return len(s.Hosts) > 0
+	return s.Expose && len(s.Hosts) > 0
 }
 
 func (s *Single) Dry(args []string) error {

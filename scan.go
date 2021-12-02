@@ -124,6 +124,9 @@ func (s *Scanner) Scan() Token {
 		s.scanMeta(&tok)
 	case isNL(s.char):
 		s.scanEol(&tok)
+	case s.char == bang:
+		tok.Type = Ignore
+		s.read()
 	default:
 		tok.Type = Invalid
 	}

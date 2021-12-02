@@ -461,6 +461,14 @@ type MetaHttp struct {
 	CertFile string
 	KeyFile  string
 	Addr     string
+
+	// mapping of commands with http method
+	Get    []string
+	Post   []string
+	Delete []string
+	Patch  []string
+	Put    []string
+	Head   []string
 }
 
 type help struct {

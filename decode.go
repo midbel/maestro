@@ -33,8 +33,14 @@ const (
 	metaPass      = "PASSWORD"
 	metaPrivKey   = "SSH_PRIVATE_KEY"
 	metaPubKey    = "SSH_PUBLIC_KEY"
-	metaCertFile  = "TLS_CERT_FILE"
-	metaKeyFile   = "TLS_CERT_KEY"
+	metaCertFile  = "HTTP_CERT_FILE"
+	metaKeyFile   = "HTTP_CERT_KEY"
+	metaHttpGet   = "HTTP_GET"
+	metaHttpPost  = "HTTP_POST"
+	metaHttpPut   = "HTTP_PUT"
+	metaHttpDel   = "HTTP_DELETE"
+	metaHttpPatch = "HTTP_PATCH"
+	metaHttpHead  = "HTTP_HEAD"
 )
 
 const (
@@ -51,6 +57,7 @@ const (
 	propAlias   = "alias"
 	propUser    = "user"
 	propGroup   = "group"
+	propExpose  = "expose"
 )
 
 const (
@@ -451,6 +458,8 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propHosts:
 			cmd.Hosts, err = d.parseStringList()
 			sort.Strings(cmd.Hosts)
+		case propExpose:
+			cmd.Expose, err = d.parseBool()
 		case propAlias:
 			cmd.Alias, err = d.parseStringList()
 			sort.Strings(cmd.Alias)
@@ -578,11 +587,16 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 		if d.curr().Type == BegScript {
 			break
 		}
+		optional := d.curr().Type == Ignore
+		if optional {
+			d.next()
+		}
 		if d.curr().Type != Ident {
 			return d.unexpected()
 		}
 		dep := Dep{
-			Name: d.curr().Literal,
+			Name:     d.curr().Literal,
+			Optional: optional,
 		}
 		if _, ok := seen[dep.Name]; ok {
 			return fmt.Errorf("%s: duplicate dependency", dep.Name)
