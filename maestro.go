@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -246,10 +247,10 @@ func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error 
 		cmd.SetOut(pout.W)
 		cmd.SetErr(perr.W)
 
-		prefix := fmt.Sprintf("%s:%s", addr, cmd.Command())
+		prefix := fmt.Sprintf("%s;%s;%s", m.MetaSSH.User, addr, cmd.Command())
 
-		go toStd(prefix, stdout, pout.R)
-		go toStd(prefix, stderr, perr.R)
+		go toStd(prefix, stdout, createLine(pout.R))
+		go toStd(prefix, stderr, createLine(perr.R))
 
 		defer sess.Close()
 		sess.Stdout = pout.W
@@ -574,6 +575,24 @@ func createPrefix(prefix string, w io.Writer) io.Writer {
 func (w *prefixWriter) Write(b []byte) (int, error) {
 	io.WriteString(w.inner, w.prefix)
 	return w.inner.Write(b)
+}
+
+type lineReader struct {
+	scan *bufio.Scanner
+}
+
+func createLine(r io.Reader) io.Reader {
+	return &lineReader{
+		scan: bufio.NewScanner(r),
+	}
+}
+
+func (r *lineReader) Read(b []byte) (int, error) {
+	if !r.scan.Scan() {
+		return 0, io.EOF
+	}
+	x := r.scan.Bytes()
+	return copy(b, append(x, '\n')), r.scan.Err()
 }
 
 type lockedWriter struct {
