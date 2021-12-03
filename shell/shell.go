@@ -494,7 +494,12 @@ func (s *Shell) setContext(name string, args []string) {
 }
 
 func (s *Shell) updateContext(cmd Command) {
-	pid, code := cmd.Exit()
+	var pid, code int
+	if cmd == nil {
+		code = 255
+	} else {
+		pid, code = cmd.Exit()
+	}
 	s.context.pid = pid
 	s.context.code = code
 }

@@ -85,6 +85,9 @@ func (c *StdCmd) SetErr(w io.Writer) {
 }
 
 func (c *StdCmd) Exit() (int, int) {
+	if c == nil || c.Cmd == nil || c.Cmd.ProcessState == nil {
+		return 0, 255
+	}
 	var (
 		pid  = c.ProcessState.Pid()
 		code = c.ProcessState.ExitCode()

@@ -61,6 +61,9 @@
   - version: 0.1.0
   - author: midbel
 
+* <shell(execute): nil pointer dereference
+  panic occur when calling StdCmd.Exit when trying a command that does not exist
+
 # NICE TO HAVE
 
 * <maestro(command,decoder,execute): marks dependencies as "optional"
