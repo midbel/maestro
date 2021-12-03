@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -91,7 +92,12 @@ func (m *Maestro) Load(file string) error {
 }
 
 func (m *Maestro) ListenAndServe() error {
+	// TODO: to be implemented
 	return nil
+}
+
+func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// TODO: to be implemented
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
@@ -220,13 +226,16 @@ func (m *Maestro) executeRemote(cmd Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	sg, ok := cmd.(*Single)
-	if !ok {
-		return nil
-	}
-	var grp errgroup.Group
-	for i := range sg.Hosts {
-		host := sg.Hosts[i]
+	var (
+		grp  errgroup.Group
+		seen = make(map[string]struct{})
+	)
+	for _, h := range cmd.Targets() {
+		if _, ok := seen[h]; ok {
+			continue
+		}
+		seen[h] = struct{}{}
+		host := h
 		grp.Go(func() error {
 			return m.executeHost(cmd, host, scripts)
 		})
@@ -235,16 +244,16 @@ func (m *Maestro) executeRemote(cmd Command, args []string) error {
 }
 
 func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error {
-	exec := func(sess *ssh.Session, line string) error {
-		var (
-			pout, _ = createPipe()
-			perr, _ = createPipe()
-		)
+	var (
+		pout, _ = createPipe()
+		perr, _ = createPipe()
+	)
 
-		defer func() {
-			pout.Close()
-			perr.Close()
-		}()
+	defer func() {
+		pout.Close()
+		perr.Close()
+	}()
+	exec := func(sess *ssh.Session, line string) error {
 
 		cmd.SetOut(pout.W)
 		cmd.SetErr(perr.W)
@@ -547,6 +556,21 @@ func (m MetaSSH) CheckHostKey(host string, addr net.Addr, key ssh.PublicKey) err
 	return fmt.Errorf("%s unknwon host (%s)", host, addr)
 }
 
+type MetaHttp struct {
+	CertFile string
+	KeyFile  string
+	Addr     string
+
+	// mapping of commands and http method
+	// commands not listed won't be available for execution
+	Get    []string
+	Post   []string
+	Delete []string
+	Patch  []string
+	Put    []string
+	Head   []string
+}
+
 const defaultKnownHost = "~/.ssh/known_hosts"
 
 type hostEntry struct {
@@ -559,20 +583,6 @@ func createEntry(host string, key ssh.PublicKey) hostEntry {
 		Host: host,
 		Key:  key,
 	}
-}
-
-type MetaHttp struct {
-	CertFile string
-	KeyFile  string
-	Addr     string
-
-	// mapping of commands with http method
-	Get    []string
-	Post   []string
-	Delete []string
-	Patch  []string
-	Put    []string
-	Head   []string
 }
 
 type help struct {

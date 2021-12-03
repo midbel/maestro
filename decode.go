@@ -863,7 +863,7 @@ func (d *Decoder) parseKnownHosts() ([]hostEntry, error) {
 		return nil, err
 	}
 	var list []hostEntry
-	for {
+	for len(buf) > 0 {
 		_, hosts, key, _, rest, err := ssh.ParseKnownHosts(buf)
 		if err != nil {
 			return nil, err

@@ -14,6 +14,8 @@ import (
 	"github.com/midbel/maestro/shell"
 )
 
+const DefaultSSHPort = 22
+
 const (
 	errSilent = "silent"
 	errRaise  = "raise"
@@ -32,6 +34,7 @@ type Command interface {
 	Dry([]string) error
 	Script([]string) ([]string, error)
 	Remote() bool
+	Targets() []string
 	Execute([]string) error
 	SetOut(w io.Writer)
 	SetErr(w io.Writer)
@@ -219,6 +222,10 @@ func (s *Single) can(uid string) bool {
 
 func (s *Single) Remote() bool {
 	return len(s.Hosts) > 0
+}
+
+func (s *Single) Targets() []string {
+	return s.Hosts
 }
 
 func (s *Single) Dry(args []string) error {
@@ -431,6 +438,14 @@ func (c Combined) Remote() bool {
 		}
 	}
 	return true
+}
+
+func (c Combined) Targets() []string {
+	var list []string
+	for i := range c {
+		list = append(list, c[i].Targets()...)
+	}
+	return list
 }
 
 func (c Combined) Tags() []string {
