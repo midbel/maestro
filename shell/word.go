@@ -73,6 +73,18 @@ func createAssign(ident string, ex Expander) ExecAssign {
 	}
 }
 
+type ExecFor struct {
+	Ident string
+	List  []Expander
+	Body  []Executer
+}
+
+type ExecIf struct {
+	Cond Executer
+	Csq  []Executer
+	Alt  []Executer
+}
+
 type ExecAnd struct {
 	Left  Executer
 	Right Executer

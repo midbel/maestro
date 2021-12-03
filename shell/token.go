@@ -6,6 +6,7 @@ import (
 
 const (
 	EOF = -(iota + 1)
+	Keyword
 	Blank
 	Literal
 	Quote
@@ -202,6 +203,8 @@ func (t Token) String() string {
 		prefix = "literal"
 	case Invalid:
 		prefix = "invalid"
+	case Keyword:
+		prefix = "keyword"
 	default:
 		prefix = "unknown"
 	}

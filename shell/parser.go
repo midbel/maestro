@@ -50,6 +50,9 @@ func (p *Parser) parse() (Executer, error) {
 	if err != nil {
 		return nil, err
 	}
+	if p.curr.Type == Keyword {
+		return p.parseKeyword()
+	}
 	for {
 		switch p.curr.Type {
 		case And:
@@ -169,6 +172,77 @@ func (p *Parser) parseOr(left Executer) (Executer, error) {
 	return createOr(left, right), nil
 }
 
+func (p *Parser) parseKeyword() (Executer, error) {
+	switch p.curr.Literal {
+	case kwFor:
+		return p.parseFor()
+	case kwWhile:
+		return p.parseFor()
+	case kwIf:
+		return p.parseIf()
+	default:
+		return nil, p.unexpected()
+	}
+}
+
+func (p *Parser) parseFor() (Executer, error) {
+	p.next()
+	p.skipBlank()
+	if p.curr.Type != Literal {
+		return nil, p.unexpected()
+	}
+	ex := ExecFor{
+		Ident: p.curr.Literal,
+	}
+	p.next()
+	p.skipBlank()
+	if p.curr.Type != Keyword || p.curr.Literal != kwIn {
+		return nil, p.unexpected()
+	}
+	p.next()
+	p.skipBlank()
+	for !p.done() && p.curr.Type != List {
+		e, err := p.parseWords()
+		if err != nil {
+			return nil, err
+		}
+		ex.List = append(ex.List, e)
+		p.next()
+	}
+	if p.curr.Type != List {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
+		return nil, p.unexpected()
+	}
+	p.next()
+	for !p.done() {
+		if p.curr.Type == Keyword && p.curr.Literal == kwDone {
+			break
+		}
+		e, err := p.parse()
+		if err != nil {
+			return nil, err
+		}
+		ex.Body = append(ex.Body, e)
+	}
+	if p.curr.Type != Keyword || p.curr.Literal != kwDone {
+		return nil, p.unexpected()
+	}
+	return ex, nil
+}
+
+func (p *Parser) parseWhile() (Executer, error) {
+	p.next()
+	return nil, nil
+}
+
+func (p *Parser) parseIf() (Executer, error) {
+	p.next()
+	return nil, nil
+}
+
 func (p *Parser) parseWords() (Expander, error) {
 	var list ExpandMulti
 	for !p.done() {
@@ -194,7 +268,8 @@ func (p *Parser) parseWords() (Expander, error) {
 		case BegSub:
 			next, err = p.parseSubstitution()
 		case BegBrace:
-			next, err = p.parseBraces(list.Pop())
+			return p.parseBraces(list.Pop())
+			// next, err = p.parseBraces(list.Pop())
 		default:
 			err = p.unexpected()
 		}
@@ -594,6 +669,12 @@ func (p *Parser) next() {
 
 func (p *Parser) done() bool {
 	return p.curr.Type == EOF
+}
+
+func (p *Parser) skipBlank() {
+	for p.curr.Type == Blank {
+		p.next()
+	}
 }
 
 func (p *Parser) unexpected() error {

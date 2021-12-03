@@ -42,6 +42,17 @@ const (
 	cr         = '\r'
 )
 
+const (
+	kwFor   = "for"
+	kwDo    = "do"
+	kwDone  = "done"
+	kwIn    = "in"
+	kwWhile = "while"
+	kwIf    = "if"
+	kwFi    = "fi"
+	kwThen  = "then"
+)
+
 var colonOps = map[rune]rune{
 	minus:    ValIfUnset,
 	plus:     ValIfSet,
@@ -392,6 +403,11 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	}
 	tok.Type = Literal
 	tok.Literal = s.string()
+	switch tok.Literal {
+	case kwFor, kwWhile, kwDo, kwDone, kwIf, kwFi, kwThen, kwIn:
+		tok.Type = Keyword
+	default:
+	}
 	s.skipBlankUntil(func(r rune) bool {
 		return isSequence(r) || isAssign(r) || isComment(r) || isRedirectBis(r, s.peek())
 	})

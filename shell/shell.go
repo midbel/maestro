@@ -313,6 +313,8 @@ func (s *Shell) execute(ex Executer) error {
 		err = s.execute(ex.Right)
 	case ExecPipe:
 		err = s.executePipe(ex)
+	case ExecFor:
+	case ExecIf:
 	default:
 		err = fmt.Errorf("unsupported executer type %s", ex)
 	}
