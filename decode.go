@@ -12,35 +12,36 @@ import (
 
 	"github.com/midbel/maestro/shell"
 	"github.com/midbel/maestro/shlex"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
-	metaDuplicate = "DUPLICATE"
-	metaWorkDir   = "WORKDIR"
-	metaEcho      = "ECHO"
-	metaAll       = "ALL"
-	metaDefault   = "DEFAULT"
-	metaBefore    = "BEFORE"
-	metaAfter     = "AFTER"
-	metaError     = "ERROR"
-	metaSuccess   = "SUCCESS"
-	metaAuthor    = "AUTHOR"
-	metaEmail     = "EMAIL"
-	metaVersion   = "VERSION"
-	metaUsage     = "USAGE"
-	metaHelp      = "HELP"
-	metaUser      = "SSH_USER"
-	metaPass      = "SSH_PASSWORD"
-	metaPrivKey   = "SSH_PRIVATE_KEY"
-	metaPubKey    = "SSH_PUBLIC_KEY"
-	metaCertFile  = "HTTP_CERT_FILE"
-	metaKeyFile   = "HTTP_CERT_KEY"
-	metaHttpGet   = "HTTP_GET"
-	metaHttpPost  = "HTTP_POST"
-	metaHttpPut   = "HTTP_PUT"
-	metaHttpDel   = "HTTP_DELETE"
-	metaHttpPatch = "HTTP_PATCH"
-	metaHttpHead  = "HTTP_HEAD"
+	metaDuplicate  = "DUPLICATE"
+	metaWorkDir    = "WORKDIR"
+	metaEcho       = "ECHO"
+	metaAll        = "ALL"
+	metaDefault    = "DEFAULT"
+	metaBefore     = "BEFORE"
+	metaAfter      = "AFTER"
+	metaError      = "ERROR"
+	metaSuccess    = "SUCCESS"
+	metaAuthor     = "AUTHOR"
+	metaEmail      = "EMAIL"
+	metaVersion    = "VERSION"
+	metaUsage      = "USAGE"
+	metaHelp       = "HELP"
+	metaUser       = "SSH_USER"
+	metaPass       = "SSH_PASSWORD"
+	metaPubKey     = "SSH_PUBLIC_KEY"
+	metaKnownHosts = "SSH_KNOWN_HOSTS"
+	metaCertFile   = "HTTP_CERT_FILE"
+	metaKeyFile    = "HTTP_CERT_KEY"
+	metaHttpGet    = "HTTP_GET"
+	metaHttpPost   = "HTTP_POST"
+	metaHttpPut    = "HTTP_PUT"
+	metaHttpDel    = "HTTP_DELETE"
+	metaHttpPatch  = "HTTP_PATCH"
+	metaHttpHead   = "HTTP_HEAD"
 )
 
 const (
@@ -780,8 +781,10 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		mst.MetaSSH.User, err = d.parseString()
 	case metaPass:
 		mst.MetaSSH.Pass, err = d.parseString()
-	case metaPrivKey:
 	case metaPubKey:
+		mst.MetaSSH.Key, err = d.parseSignerSSH()
+	case metaKnownHosts:
+		mst.MetaSSH.Hosts, err = d.parseKnownHosts()
 	case metaCertFile:
 		mst.MetaHttp.CertFile, err = d.parseString()
 	case metaKeyFile:
@@ -845,6 +848,47 @@ func (d *Decoder) parseString() (string, error) {
 		}
 	}
 	return str, nil
+}
+
+func (d *Decoder) parseKnownHosts() ([]hostEntry, error) {
+	file, err := d.parseString()
+	if err != nil {
+		return nil, err
+	}
+	if file == "default" || file == "" {
+		file = defaultKnownHost
+	}
+	buf, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	var list []hostEntry
+	for {
+		_, hosts, key, _, rest, err := ssh.ParseKnownHosts(buf)
+		if err != nil {
+			return nil, err
+		}
+		for i := range hosts {
+			list = append(list, createEntry(hosts[i], key))
+		}
+		buf = rest
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Host < list[j].Host
+	})
+	return list, nil
+}
+
+func (d *Decoder) parseSignerSSH() (ssh.Signer, error) {
+	file, err := d.parseString()
+	if err != nil {
+		return nil, err
+	}
+	buf, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	return ssh.ParsePrivateKey(buf)
 }
 
 func (d *Decoder) parseBool() (bool, error) {

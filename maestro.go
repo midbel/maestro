@@ -2,9 +2,11 @@ package maestro
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -261,11 +263,9 @@ func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error 
 		})
 	}
 	config := ssh.ClientConfig{
-		User: m.MetaSSH.User,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(m.MetaSSH.Pass),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		User:            m.MetaSSH.User,
+		Auth:            m.MetaSSH.AuthMethod(),
+		HostKeyCallback: m.CheckHostKey, //ssh.InsecureIgnoreHostKey(),
 	}
 	client, err := ssh.Dial("tcp", addr, &config)
 	if err != nil {
@@ -513,10 +513,52 @@ type MetaAbout struct {
 }
 
 type MetaSSH struct {
-	User       string
-	Pass       string
-	PublicKey  string
-	PrivateKey string
+	User  string
+	Pass  string
+	Key   ssh.Signer
+	Hosts []hostEntry
+}
+
+func (m MetaSSH) AuthMethod() []ssh.AuthMethod {
+	var list []ssh.AuthMethod
+	if m.Pass != "" {
+		list = append(list, ssh.Password(m.Pass))
+	}
+	if m.Key != nil {
+		list = append(list, ssh.PublicKeys(m.Key))
+	}
+	return list
+}
+
+func (m MetaSSH) CheckHostKey(host string, addr net.Addr, key ssh.PublicKey) error {
+	if len(m.Hosts) == 0 {
+		return nil
+	}
+	i := sort.Search(len(m.Hosts), func(i int) bool {
+		return host <= m.Hosts[i].Host
+	})
+	if i < len(m.Hosts) && m.Hosts[i].Host == host {
+		ok := bytes.Equal(m.Hosts[i].Key.Marshal(), key.Marshal())
+		if ok {
+			return nil
+		}
+		return fmt.Errorf("%s: public key mismatched", host)
+	}
+	return fmt.Errorf("%s unknwon host (%s)", host, addr)
+}
+
+const defaultKnownHost = "~/.ssh/known_hosts"
+
+type hostEntry struct {
+	Host string
+	Key  ssh.PublicKey
+}
+
+func createEntry(host string, key ssh.PublicKey) hostEntry {
+	return hostEntry{
+		Host: host,
+		Key:  key,
+	}
 }
 
 type MetaHttp struct {
