@@ -201,18 +201,17 @@ func (p *Parser) parseFor() (Executer, error) {
 	}
 	p.next()
 	p.skipBlank()
-	for !p.done() && p.curr.Type != List {
+	for !p.done() {
 		e, err := p.parseWords()
 		if err != nil {
 			return nil, err
 		}
 		ex.List = append(ex.List, e)
 		p.next()
+		if p.curr.Type == Keyword && p.curr.Literal == kwDo {
+			break
+		}
 	}
-	if p.curr.Type != List {
-		return nil, p.unexpected()
-	}
-	p.next()
 	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
 		return nil, p.unexpected()
 	}
@@ -226,6 +225,12 @@ func (p *Parser) parseFor() (Executer, error) {
 			return nil, err
 		}
 		ex.Body = append(ex.Body, e)
+		switch p.curr.Type {
+		case List, Comment:
+			p.next()
+		default:
+			return nil, p.unexpected()
+		}
 	}
 	if p.curr.Type != Keyword || p.curr.Literal != kwDone {
 		return nil, p.unexpected()
@@ -268,8 +273,8 @@ func (p *Parser) parseWords() (Expander, error) {
 		case BegSub:
 			next, err = p.parseSubstitution()
 		case BegBrace:
-			return p.parseBraces(list.Pop())
-			// next, err = p.parseBraces(list.Pop())
+			// return p.parseBraces(list.Pop())
+			next, err = p.parseBraces(list.Pop())
 		default:
 			err = p.unexpected()
 		}

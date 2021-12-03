@@ -406,6 +406,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	switch tok.Literal {
 	case kwFor, kwWhile, kwDo, kwDone, kwIf, kwFi, kwThen, kwIn:
 		tok.Type = Keyword
+		s.skipBlank()
 	default:
 	}
 	s.skipBlankUntil(func(r rune) bool {
