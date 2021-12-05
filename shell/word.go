@@ -77,6 +77,13 @@ type ExecFor struct {
 	Ident string
 	List  []Expander
 	Body  []Executer
+	Alt   []Executer
+}
+
+type ExecWhile struct {
+	Cond Executer
+	Body []Executer
+	Alt  []Executer
 }
 
 type ExecIf struct {

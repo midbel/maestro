@@ -314,11 +314,42 @@ func (s *Shell) execute(ex Executer) error {
 	case ExecPipe:
 		err = s.executePipe(ex)
 	case ExecFor:
+		err = s.executeFor(ex)
+	case ExecWhile:
+		err = s.executeWhile(ex)
 	case ExecIf:
+		err = s.executeIf(ex)
 	default:
 		err = fmt.Errorf("unsupported executer type %s", ex)
 	}
 	return err
+}
+
+func (s *Shell) executeFor(ex ExecFor) error {
+	for _, e := range ex.List {
+		str, err := e.Expand(s, true)
+		if err != nil {
+			return err
+		}
+		for i := range str {
+			sub, _ := s.Subshell()
+			sub.Define(ex.Ident, []string{str[i]})
+			for i := range ex.Body {
+				if err := s.execute(ex.Body[i]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Shell) executeWhile(ex ExecWhile) error {
+	return nil
+}
+
+func (s *Shell) executeIf(ex ExecIf) error {
+	return nil
 }
 
 func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
