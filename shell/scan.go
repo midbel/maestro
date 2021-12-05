@@ -51,6 +51,7 @@ const (
 	kwIf    = "if"
 	kwFi    = "fi"
 	kwThen  = "then"
+	kwElse  = "else"
 )
 
 var colonOps = map[rune]rune{
@@ -404,7 +405,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	tok.Type = Literal
 	tok.Literal = s.string()
 	switch tok.Literal {
-	case kwFor, kwWhile, kwDo, kwDone, kwIf, kwFi, kwThen, kwIn:
+	case kwFor, kwWhile, kwDo, kwDone, kwIf, kwFi, kwThen, kwIn, kwElse:
 		tok.Type = Keyword
 		s.skipBlank()
 	default:
