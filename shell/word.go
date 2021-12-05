@@ -92,6 +92,10 @@ type ExecIf struct {
 	Alt  []Executer
 }
 
+// type ExecCase struct {
+//
+// }
+
 type ExecAnd struct {
 	Left  Executer
 	Right Executer

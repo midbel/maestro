@@ -46,12 +46,12 @@ func (p *Parser) parse() (Executer, error) {
 	if p.peek.Type == Assign {
 		return p.parseAssignment()
 	}
+	if p.curr.Type == Keyword {
+		return p.parseKeyword()
+	}
 	ex, err := p.parseSimple()
 	if err != nil {
 		return nil, err
-	}
-	if p.curr.Type == Keyword {
-		return p.parseKeyword()
 	}
 	for {
 		switch p.curr.Type {
@@ -185,6 +185,16 @@ func (p *Parser) parseKeyword() (Executer, error) {
 	}
 }
 
+func (p *Parser) parseWhile() (Executer, error) {
+	p.next()
+	return nil, nil
+}
+
+func (p *Parser) parseIf() (Executer, error) {
+	p.next()
+	return nil, nil
+}
+
 func (p *Parser) parseFor() (Executer, error) {
 	p.next()
 	p.skipBlank()
@@ -215,37 +225,46 @@ func (p *Parser) parseFor() (Executer, error) {
 	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
 		return nil, p.unexpected()
 	}
-	p.next()
-	for !p.done() {
-		if p.curr.Type == Keyword && p.curr.Literal == kwDone {
-			break
+	list, err := p.parseBody(func(kw string) bool { return kw == kwElse || kw == kwDone })
+	if err != nil {
+		return nil, err
+	}
+	ex.Body = append(ex.Body, list...)
+	if p.curr.Literal == kwElse {
+		list, err = p.parseBody(func(kw string) bool { return kw == kwDone })
+		if err != nil {
+			return nil, err
 		}
+		ex.Alt = append(ex.Alt, list...)
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseBody(stop func(kw string) bool) ([]Executer, error) {
+	var list []Executer
+	p.next()
+	for !p.done() && !stop(p.curr.Literal) {
 		e, err := p.parse()
 		if err != nil {
 			return nil, err
 		}
-		ex.Body = append(ex.Body, e)
+		list = append(list, e)
 		switch p.curr.Type {
 		case List, Comment:
 			p.next()
+		case Keyword:
+			if !stop(p.curr.Literal) {
+				return nil, p.unexpected()
+			}
 		default:
 			return nil, p.unexpected()
 		}
 	}
-	if p.curr.Type != Keyword || p.curr.Literal != kwDone {
+	if p.curr.Type != Keyword || !stop(p.curr.Literal) {
 		return nil, p.unexpected()
 	}
-	return ex, nil
-}
-
-func (p *Parser) parseWhile() (Executer, error) {
-	p.next()
-	return nil, nil
-}
-
-func (p *Parser) parseIf() (Executer, error) {
-	p.next()
-	return nil, nil
+	return list, nil
 }
 
 func (p *Parser) parseWords() (Expander, error) {
@@ -273,7 +292,6 @@ func (p *Parser) parseWords() (Expander, error) {
 		case BegSub:
 			next, err = p.parseSubstitution()
 		case BegBrace:
-			// return p.parseBraces(list.Pop())
 			next, err = p.parseBraces(list.Pop())
 		default:
 			err = p.unexpected()
