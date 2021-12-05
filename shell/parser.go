@@ -173,24 +173,122 @@ func (p *Parser) parseOr(left Executer) (Executer, error) {
 }
 
 func (p *Parser) parseKeyword() (Executer, error) {
+	var (
+		ex Executer
+		err error
+	)
 	switch p.curr.Literal {
 	case kwFor:
-		return p.parseFor()
+		ex, err = p.parseFor()
 	case kwWhile:
-		return p.parseFor()
+		ex, err = p.parseWhile()
+	case kwUntil:
+		ex, err = p.parseUntil()
 	case kwIf:
-		return p.parseIf()
+		ex, err = p.parseIf()
+	case kwCase:
+		ex, err = p.parseCase()
 	default:
-		return nil, p.unexpected()
+		err = p.unexpected()
 	}
+	return ex, err
 }
 
 func (p *Parser) parseWhile() (Executer, error) {
 	p.next()
-	return nil, nil
+	p.skipBlank()
+	var (
+		ex  ExecWhile
+		err error
+	)
+	if ex.Cond, err = p.parse(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != List {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
+		return nil, p.unexpected()
+	}
+	ex.Body, err = p.parseBody(func(kw string) bool { return kw == kwElse || kw == kwDone })
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type == Keyword && p.curr.Literal == kwElse {
+		ex.Alt, err = p.parseBody(func(kw string) bool { return kw == kwDone })
+		if err != nil {
+			return nil, err
+		}
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseUntil() (Executer, error) {
+	p.next()
+	p.skipBlank()
+	var (
+		ex  ExecUntil
+		err error
+	)
+	if ex.Cond, err = p.parse(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != List {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
+		return nil, p.unexpected()
+	}
+	ex.Body, err = p.parseBody(func(kw string) bool { return kw == kwElse || kw == kwDone })
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type == Keyword && p.curr.Literal == kwElse {
+		ex.Alt, err = p.parseBody(func(kw string) bool { return kw == kwDone })
+		if err != nil {
+			return nil, err
+		}
+	}
+	p.next()
+	return ex, nil
 }
 
 func (p *Parser) parseIf() (Executer, error) {
+	p.next()
+	p.skipBlank()
+
+	var (
+		ex  ExecIf
+		err error
+	)
+	if ex.Cond, err = p.parse(); err != nil {
+		return nil, err
+	}
+	if p.curr.Type != List {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if p.curr.Type != Keyword || p.curr.Literal != kwThen {
+		return nil, p.unexpected()
+	}
+	ex.Csq, err = p.parseBody(func(kw string) bool { return kw == kwElse || kw == kwFi })
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type == Keyword && p.curr.Literal == kwElse {
+		ex.Alt, err = p.parseBody(func(kw string) bool { return kw == kwFi })
+		if err != nil {
+			return nil, err
+		}
+	}
+	p.next()
+	return ex, nil
+}
+
+func (p *Parser) parseCase() (Executer, error) {
 	p.next()
 	return nil, nil
 }
@@ -225,24 +323,23 @@ func (p *Parser) parseFor() (Executer, error) {
 	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
 		return nil, p.unexpected()
 	}
-	list, err := p.parseBody(func(kw string) bool { return kw == kwElse || kw == kwDone })
+	var err error
+	ex.Body, err = p.parseBody(func(kw string) bool { return kw == kwElse || kw == kwDone })
 	if err != nil {
 		return nil, err
 	}
-	ex.Body = append(ex.Body, list...)
-	if p.curr.Literal == kwElse {
-		list, err = p.parseBody(func(kw string) bool { return kw == kwDone })
+	if p.curr.Type == Keyword && p.curr.Literal == kwElse {
+		ex.Alt, err = p.parseBody(func(kw string) bool { return kw == kwDone })
 		if err != nil {
 			return nil, err
 		}
-		ex.Alt = append(ex.Alt, list...)
 	}
 	p.next()
 	return ex, nil
 }
 
-func (p *Parser) parseBody(stop func(kw string) bool) ([]Executer, error) {
-	var list []Executer
+func (p *Parser) parseBody(stop func(kw string) bool) (Executer, error) {
+	var list ExecList
 	p.next()
 	for !p.done() && !stop(p.curr.Literal) {
 		e, err := p.parse()
@@ -264,7 +361,7 @@ func (p *Parser) parseBody(stop func(kw string) bool) ([]Executer, error) {
 	if p.curr.Type != Keyword || !stop(p.curr.Literal) {
 		return nil, p.unexpected()
 	}
-	return list, nil
+	return list.Executer(), nil
 }
 
 func (p *Parser) parseWords() (Expander, error) {

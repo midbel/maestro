@@ -40,7 +40,7 @@ var list = []struct {
 	},
 	{
 		Input: `echo pre-{1..5}-post`,
-		Len: 1,
+		Len:   1,
 	},
 	{
 		Input: `echo ${lower,,} && cat ${upper^^} || echo ${#foobar} `,
@@ -52,15 +52,31 @@ var list = []struct {
 	},
 	{
 		Input: `for ident in {1..5}; do echo $ident done`,
-		Len: 1,
+		Len:   1,
 	},
 	{
 		Input: `for ident in $(seq 1 5 10); do echo $ident done`,
-		Len: 1,
+		Len:   1,
 	},
 	{
 		Input: `for ident in {1..5}; do echo $ident else echo zero; done`,
-		Len: 1,
+		Len:   1,
+	},
+	{
+		Input: `while true; do echo foo; done`,
+		Len:   1,
+	},
+	{
+		Input: `until true; do echo foo; done`,
+		Len:   1,
+	},
+	// {
+	// 	Input: `if $foo; then echo foo; fi`,
+	// 	Len:   1,
+	// },
+	{
+		Input: `if $foo; then echo foo; else if $bar; then echo bar; else echo foobar; fi`,
+		Len:   1,
 	},
 }
 

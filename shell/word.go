@@ -76,20 +76,35 @@ func createAssign(ident string, ex Expander) ExecAssign {
 type ExecFor struct {
 	Ident string
 	List  []Expander
-	Body  []Executer
-	Alt   []Executer
+	Body  Executer
+	Alt   Executer
 }
 
 type ExecWhile struct {
 	Cond Executer
-	Body []Executer
-	Alt  []Executer
+	Body Executer
+	Alt  Executer
+}
+
+type ExecUntil struct {
+	Cond Executer
+	Body Executer
+	Alt  Executer
 }
 
 type ExecIf struct {
 	Cond Executer
-	Csq  []Executer
-	Alt  []Executer
+	Csq  Executer
+	Alt  Executer
+}
+
+type ExecList []Executer
+
+func (e ExecList) Executer() Executer {
+	if len(e) == 1 {
+		return e[0]
+	}
+	return e
 }
 
 // type ExecCase struct {

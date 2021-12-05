@@ -48,10 +48,13 @@ const (
 	kwDone     = "done"
 	kwIn       = "in"
 	kwWhile    = "while"
+	kwUntil    = "until"
 	kwIf       = "if"
 	kwFi       = "fi"
 	kwThen     = "then"
 	kwElse     = "else"
+	kwCase     = "case"
+	kwEsac     = "esac"
 	kwBreak    = "break"
 	kwContinue = "continue"
 )
@@ -407,7 +410,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	tok.Type = Literal
 	tok.Literal = s.string()
 	switch tok.Literal {
-	case kwFor, kwWhile, kwDo, kwDone, kwIf, kwFi, kwThen, kwIn, kwElse:
+	case kwFor, kwWhile, kwUntil, kwIf, kwCase, kwDo, kwDone, kwFi, kwThen, kwIn, kwElse, kwEsac:
 		tok.Type = Keyword
 		s.skipBlank()
 	default:

@@ -326,25 +326,24 @@ func (s *Shell) execute(ex Executer) error {
 }
 
 func (s *Shell) executeFor(ex ExecFor) error {
-	for _, e := range ex.List {
-		str, err := e.Expand(s, true)
-		if err != nil {
-			return err
-		}
-		for i := range str {
-			sub, _ := s.Subshell()
-			sub.Define(ex.Ident, []string{str[i]})
-			for i := range ex.Body {
-				if err := s.execute(ex.Body[i]); err != nil {
-					return err
-				}
-			}
-		}
-	}
+	// for _, e := range ex.List {
+	// 	str, err := e.Expand(s, true)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	for i := range str {
+	// 		sub, _ := s.Subshell()
+	// 		sub.Define(ex.Ident, []string{str[i]})
+	// 	}
+	// }
 	return nil
 }
 
 func (s *Shell) executeWhile(ex ExecWhile) error {
+	return nil
+}
+
+func (s *Shell) executeUntil(ex ExecWhile) error {
 	return nil
 }
 
