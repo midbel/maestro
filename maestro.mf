@@ -131,15 +131,3 @@ list(
 %tidy {
 	go mod tidy
 }
-
-heredoc(
-	short = "demo of heredoc in script",
-	tag   = demo,
-): {
-	echo heredoc
-
-	for ident in {1..10}; do
-		echo $ident
-	done
-	
-}

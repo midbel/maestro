@@ -43,15 +43,17 @@ const (
 )
 
 const (
-	kwFor   = "for"
-	kwDo    = "do"
-	kwDone  = "done"
-	kwIn    = "in"
-	kwWhile = "while"
-	kwIf    = "if"
-	kwFi    = "fi"
-	kwThen  = "then"
-	kwElse  = "else"
+	kwFor      = "for"
+	kwDo       = "do"
+	kwDone     = "done"
+	kwIn       = "in"
+	kwWhile    = "while"
+	kwIf       = "if"
+	kwFi       = "fi"
+	kwThen     = "then"
+	kwElse     = "else"
+	kwBreak    = "break"
+	kwContinue = "continue"
 )
 
 var colonOps = map[rune]rune{
