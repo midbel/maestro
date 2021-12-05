@@ -17,7 +17,7 @@
   - version: 0.1.0
   - author: midbel
 
-* >maestro(feature): implements ssh remote execution
+* <maestro(feature): implements ssh remote execution
   - date: 2021-11-30
   - version: 0.1.0
   - author: midbel

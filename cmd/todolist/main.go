@@ -25,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 	for i, t := range list {
-		fmt.Printf("% 3d | %-10s | %-10s | %s", i+1, t.Section, t.State, t.Title)
+		fmt.Printf("% 3d | %-8s | %-10s | %-10s | %s", i+1, t.Section, t.Version(), t.State, t.Title)
 		fmt.Println()
 	}
 }

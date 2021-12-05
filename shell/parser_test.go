@@ -23,6 +23,10 @@ var list = []struct {
 		Len:   1,
 	},
 	{
+		Input: `echo pre-"foobar"-post`,
+		Len:   1,
+	},
+	{
 		Input: `foobar="foo"; echo $foobar`,
 		Len:   2,
 	},
@@ -35,12 +39,28 @@ var list = []struct {
 		Len:   1,
 	},
 	{
+		Input: `echo pre-{1..5}-post`,
+		Len: 1,
+	},
+	{
 		Input: `echo ${lower,,} && cat ${upper^^} || echo ${#foobar} `,
 		Len:   1,
 	},
 	{
 		Input: `echo $(cat $(echo ${file##.txt}))`,
 		Len:   1,
+	},
+	{
+		Input: `for ident in {1..5}; do echo $ident done`,
+		Len: 1,
+	},
+	{
+		Input: `for ident in $(seq 1 5 10); do echo $ident done`,
+		Len: 1,
+	},
+	{
+		Input: `for ident in {1..5}; do echo $ident else echo zero; done`,
+		Len: 1,
 	},
 }
 

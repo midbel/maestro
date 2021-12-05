@@ -38,6 +38,11 @@ func (s Status) String() string {
 	}
 }
 
+const (
+	propVersion = "version"
+	propAuthor  = "author"
+)
+
 type Todo struct {
 	Category string // eg: todos, bugs, improvements,...
 	Section  string
@@ -46,6 +51,14 @@ type Todo struct {
 	State    Status
 	Tags     []string
 	Props    map[string][]string
+}
+
+func (t Todo) Version() string {
+	str, ok := t.Props[propVersion]
+	if ok && len(str) > 0 {
+		return str[0]
+	}
+	return "-"
 }
 
 type Parser struct {
