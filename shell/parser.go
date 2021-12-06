@@ -174,7 +174,7 @@ func (p *Parser) parseOr(left Executer) (Executer, error) {
 
 func (p *Parser) parseKeyword() (Executer, error) {
 	var (
-		ex Executer
+		ex  Executer
 		err error
 	)
 	switch p.curr.Literal {
@@ -279,7 +279,8 @@ func (p *Parser) parseIf() (Executer, error) {
 		return nil, err
 	}
 	if p.curr.Type == Keyword && p.curr.Literal == kwElse {
-		ex.Alt, err = p.parseBody(func(kw string) bool { return kw == kwFi })
+		p.next()
+		ex.Alt, err = p.parse()
 		if err != nil {
 			return nil, err
 		}

@@ -19,11 +19,23 @@ var list = []struct {
 		Len:   1,
 	},
 	{
+		Input: `cat foo | grep -v bar > foobar.out 2> foobar.err`,
+		Len:   1,
+	},
+	{
 		Input: `echo "foobar"`,
 		Len:   1,
 	},
 	{
+		Input: `echo "${#foobar} - $(cat foo | grep bar)"`,
+		Len:   1,
+	},
+	{
 		Input: `echo pre-"foobar"-post`,
+		Len:   1,
+	},
+	{
+		Input: `echo pre-"$foobar"-post`,
 		Len:   1,
 	},
 	{
@@ -45,6 +57,14 @@ var list = []struct {
 	{
 		Input: `echo ${lower,,} && cat ${upper^^} || echo ${#foobar} `,
 		Len:   1,
+	},
+	{
+		Input: `echo ${foobar:2:5}; echo ${foobar#pre}; echo ${foobar%post}`,
+		Len:   3,
+	},
+	{
+		Input: `echo ${foobar//foo/bar}; echo ${foobar:<0:2}; echo ${foobar:> :2}`,
+		Len:   3,
 	},
 	{
 		Input: `echo $(cat $(echo ${file##.txt}))`,
