@@ -81,15 +81,14 @@ type Scanner struct {
 	next  int
 
 	str      bytes.Buffer
-	quoted   bool
-	expanded bool
-	braced   int
+	state stack
 }
 
 func Scan(r io.Reader) *Scanner {
 	buf, _ := io.ReadAll(r)
 	s := Scanner{
 		input: buf,
+		state: defaultStack(),
 	}
 	s.read()
 	return &s
@@ -103,20 +102,20 @@ func (s *Scanner) Scan() Token {
 		return tok
 	}
 	switch {
-	case isBraces(s.char) && (!s.quoted && !s.expanded):
+	case isBraces(s.char) && s.state.AcceptBraces():
 		s.scanBraces(&tok)
-	case isList(s.char) && s.isBrace():
+	case isList(s.char) && s.state.Braces():
 		s.scanList(&tok)
-	case isOperator(s.char) && s.expanded:
+	case isOperator(s.char) && s.state.Expansion():
 		s.scanOperator(&tok)
-	case isBlank(s.char) && !s.quoted:
+	case isBlank(s.char) && !s.state.Quoted():
 		tok.Type = Blank
 		s.skipBlank()
-	case isSequence(s.char) && !s.quoted:
+	case isSequence(s.char) && !s.state.Quoted():
 		s.scanSequence(&tok)
-	case isRedirectBis(s.char, s.peek()) && !s.quoted:
+	case isRedirectBis(s.char, s.peek()) && !s.state.Quoted():
 		s.scanRedirect(&tok)
-	case isAssign(s.char) && !s.quoted:
+	case isAssign(s.char) && !s.state.Quoted():
 		s.scanAssignment(&tok)
 	case isDouble(s.char):
 		s.scanQuote(&tok)
@@ -135,8 +134,8 @@ func (s *Scanner) Scan() Token {
 func (s *Scanner) scanQuote(tok *Token) {
 	tok.Type = Quote
 	s.read()
-	s.toggleQuote()
-	if s.quoted {
+	s.state.ToggleQuote()
+	if s.state.Quoted() {
 		return
 	}
 	s.skipBlankUntil(func(r rune) bool {
@@ -148,10 +147,10 @@ func (s *Scanner) scanBraces(tok *Token) {
 	switch k := s.peek(); {
 	case s.char == rcurly:
 		tok.Type = EndBrace
-		s.leaveBrace()
+		s.state.LeaveBrace()
 	case s.char == lcurly && k != rcurly:
 		tok.Type = BegBrace
-		s.enterBrace()
+		s.state.EnterBrace()
 	default:
 		s.scanLiteral(tok)
 		return
@@ -272,7 +271,7 @@ func (s *Scanner) scanOperator(tok *Token) {
 	switch s.char {
 	case rcurly:
 		tok.Type = EndExp
-		s.expanded = false
+		s.state.LeaveExpansion()
 	case colon:
 		tok.Type = Slice
 		if t, ok := colonOps[s.peek()]; ok {
@@ -319,7 +318,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 	s.read()
 	if s.char == lcurly {
 		tok.Type = BegExp
-		s.expanded = true
+		s.state.EnterExpansion()
 		s.read()
 		return
 	}
@@ -396,7 +395,7 @@ func (s *Scanner) scanString(tok *Token) {
 }
 
 func (s *Scanner) scanLiteral(tok *Token) {
-	if s.quoted {
+	if s.state.Quoted() {
 		s.scanQuotedLiteral(tok)
 		return
 	}
@@ -425,7 +424,7 @@ func (s *Scanner) scanQuotedLiteral(tok *Token) {
 		if isDouble(s.char) || isVariable(s.char) {
 			break
 		}
-		if s.expanded && isOperator(s.char) {
+		if s.state.Expansion() && isOperator(s.char) {
 			break
 		}
 		s.write()
@@ -433,10 +432,6 @@ func (s *Scanner) scanQuotedLiteral(tok *Token) {
 	}
 	tok.Type = Literal
 	tok.Literal = s.string()
-}
-
-func (s *Scanner) toggleQuote() {
-	s.quoted = !s.quoted
 }
 
 func (s *Scanner) reset() {
@@ -502,10 +497,10 @@ func (s *Scanner) skipBlankUntil(fn func(rune) bool) {
 }
 
 func (s *Scanner) stopLiteral(r rune) bool {
-	if s.isBrace() && (s.char == dot || s.char == comma || s.char == rcurly) {
+	if s.state.Braces() && (s.char == dot || s.char == comma || s.char == rcurly) {
 		return true
 	}
-	if s.expanded && isOperator(r) {
+	if s.state.Expansion() && isOperator(r) {
 		return true
 	}
 	if s.char == lcurly {
@@ -514,18 +509,6 @@ func (s *Scanner) stopLiteral(r rune) bool {
 	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) ||
 		isVariable(s.char) || isAssign(s.char)
 	return ok
-}
-
-func (s *Scanner) isBrace() bool {
-	return s.braced > 0
-}
-
-func (s *Scanner) enterBrace() {
-	s.braced++
-}
-
-func (s *Scanner) leaveBrace() {
-	s.braced++
 }
 
 func canEscape(r rune) bool {
@@ -609,4 +592,129 @@ func isList(r rune) bool {
 
 func isNL(r rune) bool {
 	return r == cr || r == nl
+}
+
+type scanState int8
+
+const (
+	scanDefault scanState = iota
+	scanQuote
+	scanSub
+	scanExp
+	scanBrace
+)
+
+func (s scanState) String() string {
+	switch s {
+	default:
+		return "unknown"
+	case scanDefault:
+		return "default"
+	case scanQuote:
+		return "quote"
+	case scanSub:
+		return "substitution"
+	case scanExp:
+		return "expansion"
+	case scanBrace:
+		return "braces"
+	}
+}
+
+type stack []scanState
+
+func defaultStack() stack {
+	var s stack
+	s.Push(scanDefault)
+	return s
+}
+
+func (s *stack) Quoted() bool {
+	return s.Curr() == scanQuote
+}
+
+func (s *stack) ToggleQuote() {
+	if s.Quoted() {
+		s.Pop()
+		return
+	}
+	s.Push(scanQuote)
+}
+
+func (s *stack) Expansion() bool {
+	return s.Curr() == scanExp
+}
+
+func (s *stack) EnterExpansion() {
+	s.Push(scanExp)
+}
+
+func (s *stack) LeaveExpansion() {
+	if s.Expansion() {
+		s.Pop()
+	}
+}
+
+func (s *stack) Substitution() bool {
+	return s.Curr() == scanSub
+}
+
+func (s *stack) Braces() bool {
+	return s.Curr() == scanBrace
+}
+
+func (s *stack) AcceptBraces() bool {
+	return !s.Quoted() && !s.Expansion()
+}
+
+func (s *stack) EnterBrace() {
+	s.Push(scanBrace)
+}
+
+func (s *stack) LeaveBrace() {
+	if s.Braces() {
+		s.Pop()
+	}
+}
+
+func (s *stack) Default() bool {
+	return s.Curr() == scanDefault
+}
+
+func (s *stack) Pop() {
+	n := s.Len()
+	if n == 0 {
+		return
+	}
+	n--
+	if n >= 0 {
+		*s = (*s)[:n]
+	}
+}
+
+func (s *stack) Push(st scanState) {
+	*s = append(*s, st)
+}
+
+func (s *stack) Len() int {
+	return len(*s)
+}
+
+func (s *stack) Curr() scanState {
+	n := s.Len()
+	if n == 0 {
+		return scanDefault
+	}
+	n--
+	return (*s)[n]
+}
+
+func (s *stack) Prev() scanState {
+	n := s.Len()
+	n--
+	n--
+	if n >= 0 {
+		return (*s)[n]
+	}
+	return scanDefault
 }

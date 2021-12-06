@@ -406,10 +406,7 @@ func (p *Parser) parseSubstitution() (Expander, error) {
 	var ex ExpandSub
 	ex.Quoted = p.quoted
 	p.next()
-	for !p.done() {
-		if p.curr.Type == EndSub {
-			break
-		}
+	for !p.done() && p.curr.Type != EndSub {
 		next, err := p.parse()
 		if err != nil {
 			return nil, err
@@ -428,10 +425,7 @@ func (p *Parser) parseQuote() (Expander, error) {
 	p.next()
 
 	var list ExpandMulti
-	for !p.done() {
-		if p.curr.Type == Quote {
-			break
-		}
+	for !p.done() && p.curr.Type != Quote {
 		var (
 			next Expander
 			err  error
@@ -618,6 +612,9 @@ func (p *Parser) parsePadding(ident Token) (Expander, error) {
 	switch p.curr.Type {
 	case Literal:
 		e.With = p.curr.Literal
+		p.next()
+	case Blank:
+		e.With = " "
 		p.next()
 	case Slice:
 	default:
