@@ -80,7 +80,7 @@ type Scanner struct {
 	curr  int
 	next  int
 
-	str      bytes.Buffer
+	str   bytes.Buffer
 	state stack
 }
 
@@ -255,6 +255,7 @@ func (s *Scanner) scanSequence(tok *Token) {
 		tok.Type = Pipe
 	case s.char == rparen:
 		tok.Type = EndSub
+		s.state.LeaveSubstitution()
 	default:
 		tok.Type = Invalid
 	}
@@ -324,6 +325,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 	}
 	if s.char == lparen {
 		tok.Type = BegSub
+		s.state.EnterSubstitution()
 		s.read()
 		return
 	}
@@ -659,6 +661,16 @@ func (s *stack) Substitution() bool {
 	return s.Curr() == scanSub
 }
 
+func (s *stack) EnterSubstitution() {
+	s.Push(scanSub)
+}
+
+func (s *stack) LeaveSubstitution() {
+	if s.Substitution() {
+		s.Pop()
+	}
+}
+
 func (s *stack) Braces() bool {
 	return s.Curr() == scanBrace
 }
@@ -678,7 +690,8 @@ func (s *stack) LeaveBrace() {
 }
 
 func (s *stack) Default() bool {
-	return s.Curr() == scanDefault
+	curr := s.Curr()
+	return curr == scanDefault || curr == scanSub
 }
 
 func (s *stack) Pop() {
