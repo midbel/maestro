@@ -31,8 +31,14 @@ func TestExpr(t *testing.T) {
 			Expr: createBinary(createNumber("1"), createNumber("1"), shell.Mul),
 			Want: 1,
 		},
+		{
+			Expr: createBinary(createVariable("sum1"), createVariable("sum2"), shell.Add),
+			Want: 2,
+		},
 	}
 	env := shell.EmptyEnv()
+	env.Define("sum1", []string{"1"})
+	env.Define("sum2", []string{"1"})
 	for _, d := range data {
 		got, err := d.Expr.Eval(env)
 		if err != nil {
@@ -63,5 +69,11 @@ func createBinary(left, right shell.Expr, op rune) shell.Expr {
 		Left:  left,
 		Right: right,
 		Op:    op,
+	}
+}
+
+func createVariable(ident string) shell.Expr {
+	return shell.ExpandVar{
+		Ident: ident,
 	}
 }
