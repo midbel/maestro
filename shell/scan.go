@@ -101,6 +101,10 @@ func (s *Scanner) Scan() Token {
 		tok.Type = EOF
 		return tok
 	}
+	if s.state.Arithmetic() {
+		s.scanArithmetic(&tok)
+		return tok
+	}
 	switch {
 	case isBraces(s.char) && s.state.AcceptBraces():
 		s.scanBraces(&tok)
@@ -129,6 +133,103 @@ func (s *Scanner) Scan() Token {
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanArithmetic(tok *Token) {
+	s.skipBlank()
+	switch {
+	case isMath(s.char):
+		s.scanMath(tok)
+	case isDigit(s.char):
+		s.scanDigit(tok)
+	case isLetter(s.char):
+		s.scanLiteral(tok)
+		tok.Type = Variable
+	default:
+		tok.Type = Invalid
+	}
+}
+
+func (s *Scanner) scanDigit(tok *Token) {
+	for isDigit(s.char) {
+		s.write()
+		s.read()
+	}
+	if s.char == dot {
+		s.write()
+		s.read()
+		for isDigit(s.char) {
+			s.write()
+			s.read()
+		}
+	}
+	tok.Literal = s.string()
+	tok.Type = Number
+}
+
+func (s *Scanner) scanMath(tok *Token) {
+	switch s.char {
+	case semicolon:
+		tok.Type = List
+	case bang:
+		tok.Type = Not
+	case plus:
+		tok.Type = Add
+		if s.peek() == s.char {
+			tok.Type = Inc
+			s.read()
+		}
+	case minus:
+		tok.Type = Sub
+		if s.peek() == s.char {
+			tok.Type = Dec
+			s.read()
+		}
+	case star:
+		tok.Type = Mul
+		if s.peek() == s.char {
+			tok.Type = Pow
+			s.read()
+		}
+	case slash:
+		tok.Type = Div
+	case percent:
+		tok.Type = Mod
+	case lparen:
+		tok.Type = BegMath
+		s.state.EnterArithmetic()
+	case rparen:
+		tok.Type = EndMath
+		s.state.LeaveArithmetic()
+		if s.state.Depth() == 0 && s.peek() == s.char {
+			s.read()
+		}
+	case pipe:
+		tok.Type = BitOr
+		if s.peek() == s.char {
+			tok.Type = Or
+			s.read()
+		}
+	case ampersand:
+		tok.Type = BitAnd
+		if s.peek() == s.char {
+			tok.Type = And
+			s.read()
+		}
+	case langle:
+		if s.peek() == s.char {
+			s.read()
+			tok.Type = LeftShift
+		}
+	case rangle:
+		if s.peek() == s.char {
+			s.read()
+			tok.Type = RightShift
+		}
+	default:
+		tok.Type = Invalid
+	}
+	s.read()
 }
 
 func (s *Scanner) scanQuote(tok *Token) {
@@ -321,6 +422,13 @@ func (s *Scanner) scanVariable(tok *Token) {
 		tok.Type = BegExp
 		s.state.EnterExpansion()
 		s.read()
+		return
+	}
+	if s.char == lparen && s.peek() == lparen {
+		s.read()
+		s.read()
+		tok.Type = BegMath
+		s.state.EnterArithmetic()
 		return
 	}
 	if s.char == lparen {
@@ -596,6 +704,15 @@ func isNL(r rune) bool {
 	return r == cr || r == nl
 }
 
+func isMath(r rune) bool {
+	switch r {
+	case lparen, rparen, plus, minus, star, slash, percent, langle, rangle, equal, bang, ampersand, pipe, question, caret, semicolon:
+		return true
+	default:
+		return false
+	}
+}
+
 type scanState int8
 
 const (
@@ -604,6 +721,7 @@ const (
 	scanSub
 	scanExp
 	scanBrace
+	scanMath
 )
 
 func (s scanState) String() string {
@@ -620,6 +738,8 @@ func (s scanState) String() string {
 		return "expansion"
 	case scanBrace:
 		return "braces"
+	case scanMath:
+		return "arithmetic"
 	}
 }
 
@@ -653,6 +773,31 @@ func (s *stack) EnterExpansion() {
 
 func (s *stack) LeaveExpansion() {
 	if s.Expansion() {
+		s.Pop()
+	}
+}
+
+func (s *stack) Arithmetic() bool {
+	return s.Curr() == scanMath
+}
+
+func (s *stack) Depth() int {
+	var depth int
+	for i := len(*s) - 1; i >= 1; i-- {
+		if (*s)[i] != scanMath || ((*s)[i] == scanMath && (*s)[i-1] != scanMath) {
+			break
+		}
+		depth++
+	}
+	return depth
+}
+
+func (s *stack) EnterArithmetic() {
+	s.Push(scanMath)
+}
+
+func (s *stack) LeaveArithmetic() {
+	if s.Arithmetic() {
 		s.Pop()
 	}
 }

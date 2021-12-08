@@ -9,6 +9,7 @@ const (
 	Keyword
 	Blank
 	Literal
+	Number
 	Quote
 	Comment
 	Variable
@@ -21,6 +22,23 @@ const (
 	List
 	Pipe
 	PipeBoth
+	BegMath
+	EndMath
+	Not
+	Rev
+	Add
+	Sub
+	Mod
+	Div
+	Mul
+	Pow
+	Inc
+	Dec
+	LeftShift
+	RightShift
+	BitAnd
+	BitOr
+	BitNot
 	BegSub
 	EndSub
 	And
@@ -127,6 +145,40 @@ func (t Token) String() string {
 		return "<beg-expansion>"
 	case EndExp:
 		return "<end-expansion>"
+	case BegMath:
+		return "<beg-arithmetic>"
+	case EndMath:
+		return "<end-arithmetic>"
+	case Not:
+		return "<not>"
+	case Rev:
+		return "<rev>"
+	case Add:
+		return "<add>"
+	case Sub:
+		return "<sub>"
+	case Mod:
+		return "<mod>"
+	case Div:
+		return "<div>"
+	case Mul:
+		return "<mul>"
+	case Pow:
+		return "<pow>"
+	case Inc:
+		return "<inc>"
+	case Dec:
+		return "<dec>"
+	case LeftShift:
+		return "<left-shift>"
+	case RightShift:
+		return "<right-shift>"
+	case BitAnd:
+		return "<bit-and>"
+	case BitOr:
+		return "<bit-or>"
+	case BitNot:
+		return "<bit-not>"
 	case BegBrace:
 		return "<beg-brace>"
 	case EndBrace:
@@ -201,6 +253,8 @@ func (t Token) String() string {
 		prefix = "comment"
 	case Literal:
 		prefix = "literal"
+	case Number:
+		prefix = "number"
 	case Invalid:
 		prefix = "invalid"
 	case Keyword:
