@@ -40,6 +40,7 @@ const (
 	bang       = '!'
 	nl         = '\n'
 	cr         = '\r'
+	tilde      = '~'
 )
 
 const (
@@ -210,8 +211,16 @@ func (s *Scanner) scanMath(tok *Token) {
 	switch s.char {
 	case semicolon:
 		tok.Type = List
+	case caret:
+		tok.Type = BitXor
+	case tilde:
+		tok.Type = BitNot
 	case bang:
 		tok.Type = Not
+		if s.peek() == equal {
+			tok.Type = Ne
+			s.read()
+		}
 	case plus:
 		tok.Type = Add
 		if s.peek() == s.char {
@@ -255,16 +264,38 @@ func (s *Scanner) scanMath(tok *Token) {
 			tok.Type = And
 			s.read()
 		}
+	case equal:
+		tok.Type = Assign
+		if s.peek() == s.char {
+			s.read()
+			tok.Type = Eq
+		}
 	case langle:
+		tok.Type = Lt
+		if s.peek() == equal {
+			s.read()
+			tok.Type = Le
+			break
+		}
 		if s.peek() == s.char {
 			s.read()
 			tok.Type = LeftShift
 		}
 	case rangle:
+		tok.Type = Gt
+		if s.peek() == equal {
+			s.read()
+			tok.Type = Ge
+			break
+		}
 		if s.peek() == s.char {
 			s.read()
 			tok.Type = RightShift
 		}
+	case question:
+		tok.Type = Cond
+	case colon:
+		tok.Type = Alt
 	default:
 		tok.Type = Invalid
 	}
@@ -709,7 +740,7 @@ func isNL(r rune) bool {
 
 func isMath(r rune) bool {
 	switch r {
-	case lparen, rparen, plus, minus, star, slash, percent, langle, rangle, equal, bang, ampersand, pipe, question, caret, semicolon:
+	case lparen, rparen, plus, minus, star, slash, percent, langle, rangle, equal, bang, ampersand, pipe, question, colon, caret, semicolon, tilde:
 		return true
 	default:
 		return false

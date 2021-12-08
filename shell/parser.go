@@ -22,12 +22,14 @@ func NewParser(r io.Reader) *Parser {
 	p.scan = Scan(r)
 
 	p.prefix = map[rune]func() (Expr, error){
-		Sub:      p.parseUnary,
 		BegMath:  p.parseUnary,
 		Numeric:  p.parseUnary,
 		Variable: p.parseUnary,
+		Sub:      p.parseUnary,
 		Inc:      p.parseUnary,
 		Dec:      p.parseUnary,
+		BitNot:   p.parseUnary,
+		Not:      p.parseUnary,
 	}
 	p.infix = map[rune]func(Expr) (Expr, error){
 		Add:        p.parseBinary,
@@ -37,6 +39,10 @@ func NewParser(r io.Reader) *Parser {
 		Pow:        p.parseBinary,
 		LeftShift:  p.parseBinary,
 		RightShift: p.parseBinary,
+		BitAnd:     p.parseBinary,
+		BitOr:      p.parseBinary,
+		BitNot:     p.parseBinary,
+		Cond:       p.parseTernary,
 	}
 
 	p.next()
@@ -477,7 +483,7 @@ func (p *Parser) parseUnary() (Expr, error) {
 		err error
 	)
 	switch p.curr.Type {
-	case Sub, Inc, Dec:
+	case Sub, Inc, Dec, Not, BitNot:
 		p.next()
 		ex, err = p.parseExpression(bindPrefix)
 		if err != nil {
@@ -520,6 +526,10 @@ func (p *Parser) parseBinary(left Expr) (Expr, error) {
 		b.Right = right
 	}
 	return b, nil
+}
+
+func (p *Parser) parseTernary(left Expr) (Expr, error) {
+	return nil, nil
 }
 
 func (p *Parser) parseSubstitution() (Expander, error) {

@@ -25,6 +25,16 @@ const (
 	BegMath
 	EndMath
 	Not
+	And
+	Or
+	Cond
+	Alt
+	Eq
+	Ne
+	Lt
+	Le
+	Gt
+	Ge
 	Add
 	Sub
 	Mod
@@ -38,10 +48,9 @@ const (
 	BitAnd
 	BitOr
 	BitNot
+	BitXor
 	BegSub
 	EndSub
-	And
-	Or
 	Assign
 	RedirectIn     // < | 0<
 	RedirectOut    // > | 1>
@@ -148,6 +157,10 @@ func (t Token) String() string {
 		return "<beg-arithmetic>"
 	case EndMath:
 		return "<end-arithmetic>"
+	case Cond:
+		return "<ternary>"
+	case Alt:
+		return "<ternary-alt>"
 	case Not:
 		return "<not>"
 	case Add:

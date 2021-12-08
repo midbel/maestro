@@ -1,10 +1,13 @@
 package shell
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 )
+
+var ErrZero = errors.New("division by zero")
 
 type Expr interface {
 	Eval(Environment) (float64, error)
@@ -52,6 +55,7 @@ func (u Unary) Eval(env Environment) (float64, error) {
 		ret = ret + 1
 	case Dec:
 		ret = ret - 1
+	case BitNot:
 	default:
 		return 0, fmt.Errorf("unsupported operator")
 	}
@@ -80,7 +84,15 @@ func (b Binary) Eval(env Environment) (float64, error) {
 		left -= right
 	case Mul:
 		left *= right
+	case Div:
+		if right == 0 {
+			return 0, ErrZero
+		}
+		left /= right
 	case Mod:
+		if right == 0 {
+			return 0, ErrZero
+		}
 		left = math.Mod(left, right)
 	case Pow:
 		left = math.Pow(left, right)
@@ -90,17 +102,47 @@ func (b Binary) Eval(env Environment) (float64, error) {
 	case RightShift:
 		x := int64(left) >> int64(right)
 		left = float64(x)
+	case BitAnd:
+	case BitOr:
+	case BitXor:
+	case Eq:
+	case Ne:
+	case Lt:
+	case Le:
+	case Gt:
+	case Ge:
 	default:
 		return 0, fmt.Errorf("unsupported operator")
 	}
 	return left, nil
 }
 
+type Ternary struct {
+	Cond  Expr
+	Left  Expr
+	Right Expr
+}
+
+func (t Ternary) Eval(env Environment) (float64, error) {
+	cdt, err := t.Cond.Eval(env)
+	if err != nil {
+		return cdt, err
+	}
+	if cdt == 0 {
+		return t.Right.Eval(env)
+	}
+	return t.Left.Eval(env)
+}
+
 type bind int8
 
 const (
 	bindLowest bind = iota
+	bindBit
 	bindShift
+	bindTernary
+	bindEq
+	bindCmp
 	bindLogical
 	bindAdd
 	bindMul
@@ -109,6 +151,9 @@ const (
 )
 
 var bindings = map[rune]bind{
+	BitAnd:     bindBit,
+	BitOr:      bindBit,
+	BitXor:     bindBit,
 	Add:        bindAdd,
 	Sub:        bindAdd,
 	Mul:        bindMul,
@@ -119,6 +164,13 @@ var bindings = map[rune]bind{
 	RightShift: bindShift,
 	And:        bindLogical,
 	Or:         bindLogical,
+	Eq:         bindEq,
+	Ne:         bindEq,
+	Lt:         bindCmp,
+	Le:         bindCmp,
+	Gt:         bindCmp,
+	Ge:         bindCmp,
+	Cond:       bindTernary,
 }
 
 func bindPower(tok Token) bind {

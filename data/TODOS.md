@@ -38,7 +38,7 @@
   - version: 0.1.0
   - author: midbel
 
-* shell(feature): implements for loop and if statement
+* <shell(feature): implements for loop and if statement
   - date: 2021-12-02
   - author: midbel
 
@@ -93,7 +93,7 @@
 * shell(expansion): escaped character
   check if special character has been escaped before performing any expansion
 
-* >maestro(feature): prefix output with the name of the command being executed
+* <maestro(feature): prefix output with the name of the command being executed
   revise type and mechanism used to output the results of the commands
 
 * command(feature): improve formatting of help command
