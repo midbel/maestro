@@ -90,12 +90,32 @@ var list = []struct {
 		Input: `until true; do echo foo; done`,
 		Len:   1,
 	},
-	// {
-	// 	Input: `if $foo; then echo foo; fi`,
-	// 	Len:   1,
-	// },
+	{
+		Input: `if $foo; then echo foo; fi`,
+		Len:   1,
+	},
 	{
 		Input: `if $foo; then echo foo; else if $bar; then echo bar; else echo foobar; fi`,
+		Len:   1,
+	},
+	{
+		Input: `echo $((1+1))`,
+		Len:   1,
+	},
+	{
+		Input: `echo "$((1+1))"`,
+		Len:   1,
+	},
+	{
+		Input: `echo $((-1+(1*5)))`,
+		Len:   1,
+	},
+	{
+		Input: `echo $((-foo+(1*5)))`,
+		Len:   1,
+	},
+	{
+		Input: `echo $((1+1; 2**2))`,
 		Len:   1,
 	},
 }

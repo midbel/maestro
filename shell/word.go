@@ -275,6 +275,30 @@ func (m ExpandMulti) Expander() Expander {
 	return m
 }
 
+type ExpandMath struct {
+	List   []Expr
+	Quoted bool
+}
+
+func (e ExpandMath) Expand(env Environment, _ bool) ([]string, error) {
+	var (
+		ret float64
+		err error
+	)
+	for i := range e.List {
+		ret, err = e.List[i].Eval(env)
+		if err != nil {
+			return nil, err
+		}
+	}
+	str := strconv.FormatFloat(ret, 'f', -1, 64)
+	return []string{str}, nil
+}
+
+func (e ExpandMath) IsQuoted() bool {
+	return e.Quoted
+}
+
 type ExpandWord struct {
 	Literal string
 	Quoted  bool
@@ -444,6 +468,17 @@ func (v ExpandVar) Expand(env Environment, _ bool) ([]string, error) {
 		str = str[:1]
 	}
 	return str, nil
+}
+
+func (v ExpandVar) Eval(env Environment) (float64, error) {
+	str, err := v.Expand(env, false)
+	if err != nil {
+		return 0, err
+	}
+	if len(str) != 1 {
+		return 0, fmt.Errorf("expansion returns too many words")
+	}
+	return strconv.ParseFloat(str[0], 64)
 }
 
 type ExpandLength struct {

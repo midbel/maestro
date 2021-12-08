@@ -9,7 +9,7 @@ const (
 	Keyword
 	Blank
 	Literal
-	Number
+	Numeric
 	Quote
 	Comment
 	Variable
@@ -25,7 +25,6 @@ const (
 	BegMath
 	EndMath
 	Not
-	Rev
 	Add
 	Sub
 	Mod
@@ -151,8 +150,6 @@ func (t Token) String() string {
 		return "<end-arithmetic>"
 	case Not:
 		return "<not>"
-	case Rev:
-		return "<rev>"
 	case Add:
 		return "<add>"
 	case Sub:
@@ -253,8 +250,8 @@ func (t Token) String() string {
 		prefix = "comment"
 	case Literal:
 		prefix = "literal"
-	case Number:
-		prefix = "number"
+	case Numeric:
+		prefix = "numeric"
 	case Invalid:
 		prefix = "invalid"
 	case Keyword:

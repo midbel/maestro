@@ -13,12 +13,32 @@ type Parser struct {
 	peek Token
 
 	quoted bool
+	prefix map[rune]func() (Expr, error)
+	infix  map[rune]func(Expr) (Expr, error)
 }
 
 func NewParser(r io.Reader) *Parser {
-	p := Parser{
-		scan: Scan(r),
+	var p Parser
+	p.scan = Scan(r)
+
+	p.prefix = map[rune]func() (Expr, error){
+		Sub:      p.parseUnary,
+		BegMath:  p.parseUnary,
+		Numeric:  p.parseUnary,
+		Variable: p.parseUnary,
+		Inc:      p.parseUnary,
+		Dec:      p.parseUnary,
 	}
+	p.infix = map[rune]func(Expr) (Expr, error){
+		Add:        p.parseBinary,
+		Sub:        p.parseBinary,
+		Mul:        p.parseBinary,
+		Div:        p.parseBinary,
+		Pow:        p.parseBinary,
+		LeftShift:  p.parseBinary,
+		RightShift: p.parseBinary,
+	}
+
 	p.next()
 	p.next()
 
@@ -77,7 +97,7 @@ func (p *Parser) parseSimple() (Executer, error) {
 	)
 	for {
 		switch p.curr.Type {
-		case Literal, Quote, Variable, BegExp, BegBrace, BegSub:
+		case Literal, Quote, Variable, BegExp, BegBrace, BegSub, BegMath:
 			next, err := p.parseWords()
 			if err != nil {
 				return nil, err
@@ -389,6 +409,8 @@ func (p *Parser) parseWords() (Expander, error) {
 			next, err = p.parseExpansion()
 		case BegSub:
 			next, err = p.parseSubstitution()
+		case BegMath:
+			next, err = p.parseArithmetic()
 		case BegBrace:
 			next, err = p.parseBraces(list.Pop())
 		default:
@@ -400,6 +422,104 @@ func (p *Parser) parseWords() (Expander, error) {
 		list.List = append(list.List, next)
 	}
 	return list.Expander(), nil
+}
+
+func (p *Parser) parseArithmetic() (Expander, error) {
+	p.next()
+	var list ExpandMath
+	list.Quoted = p.quoted
+	for !p.done() && p.curr.Type != EndMath {
+		next, err := p.parseExpression(bindLowest)
+		if err != nil {
+			return nil, err
+		}
+		switch p.curr.Type {
+		case List:
+			p.next()
+		case EndMath:
+		default:
+			return nil, p.unexpected()
+		}
+		list.List = append(list.List, next)
+	}
+	if p.curr.Type != EndMath {
+		return nil, p.unexpected()
+	}
+	p.next()
+	return list, nil
+}
+
+func (p *Parser) parseExpression(pow bind) (Expr, error) {
+	fn, ok := p.prefix[p.curr.Type]
+	if !ok {
+		return nil, p.unexpected()
+	}
+	left, err := fn()
+	if err != nil {
+		return nil, err
+	}
+	for (p.curr.Type != EndMath && p.curr.Type != List) && pow < bindPower(p.curr) {
+		fn, ok := p.infix[p.curr.Type]
+		if !ok {
+			return nil, p.unexpected()
+		}
+		left, err = fn(left)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return left, nil
+}
+
+func (p *Parser) parseUnary() (Expr, error) {
+	var (
+		ex  Expr
+		err error
+	)
+	switch p.curr.Type {
+	case Sub, Inc, Dec:
+		p.next()
+		ex, err = p.parseExpression(bindPrefix)
+		if err != nil {
+			break
+		}
+		ex = createUnary(ex, Sub)
+	case BegMath:
+		p.next()
+		ex, err = p.parseExpression(bindLowest)
+		if err != nil {
+			break
+		}
+		if p.curr.Type != EndMath {
+			err = p.unexpected()
+			break
+		}
+		p.next()
+	case Numeric:
+		ex = createNumber(p.curr.Literal)
+		p.next()
+	case Variable:
+		ex = createVariable(p.curr.Literal, false)
+		p.next()
+	default:
+		return nil, p.unexpected()
+	}
+	return ex, err
+}
+
+func (p *Parser) parseBinary(left Expr) (Expr, error) {
+	b := Binary{
+		Left: left,
+		Op:   p.curr.Type,
+	}
+	w := bindPower(p.curr)
+	p.next()
+
+	right, err := p.parseExpression(w)
+	if err == nil {
+		b.Right = right
+	}
+	return b, nil
 }
 
 func (p *Parser) parseSubstitution() (Expander, error) {
@@ -439,6 +559,8 @@ func (p *Parser) parseQuote() (Expander, error) {
 			next, err = p.parseExpansion()
 		case BegSub:
 			next, err = p.parseSubstitution()
+		case BegMath:
+			next, err = p.parseArithmetic()
 		default:
 			err = p.unexpected()
 		}

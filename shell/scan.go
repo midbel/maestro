@@ -128,7 +128,7 @@ func (s *Scanner) Scan() Token {
 	case isComment(s.char):
 		s.scanComment(&tok)
 	case isVariable(s.char):
-		s.scanVariable(&tok)
+		s.scanDollar(&tok)
 	default:
 		s.scanLiteral(&tok)
 	}
@@ -143,10 +143,49 @@ func (s *Scanner) scanArithmetic(tok *Token) {
 	case isDigit(s.char):
 		s.scanDigit(tok)
 	case isLetter(s.char):
-		s.scanLiteral(tok)
-		tok.Type = Variable
+		s.scanVariable(tok)
 	default:
 		tok.Type = Invalid
+	}
+}
+
+func (s *Scanner) scanVariable(tok *Token) {
+	tok.Type = Variable
+	switch {
+	case s.char == dollar:
+		tok.Literal = "$"
+		s.read()
+	case s.char == pound:
+		tok.Literal = "#"
+		s.read()
+	case s.char == question:
+		tok.Literal = "?"
+		s.read()
+	case s.char == star:
+		tok.Literal = "*"
+		s.read()
+	case s.char == arobase:
+		tok.Literal = "@"
+		s.read()
+	case s.char == bang:
+		tok.Literal = "!"
+		s.read()
+	case isDigit(s.char):
+		for isDigit(s.char) {
+			s.write()
+			s.read()
+		}
+		tok.Literal = s.string()
+	default:
+		if !isLetter(s.char) {
+			tok.Type = Invalid
+			return
+		}
+		for isIdent(s.char) {
+			s.write()
+			s.read()
+		}
+		tok.Literal = s.string()
 	}
 }
 
@@ -164,7 +203,7 @@ func (s *Scanner) scanDigit(tok *Token) {
 		}
 	}
 	tok.Literal = s.string()
-	tok.Type = Number
+	tok.Type = Numeric
 }
 
 func (s *Scanner) scanMath(tok *Token) {
@@ -416,7 +455,7 @@ func (s *Scanner) scanOperator(tok *Token) {
 	s.read()
 }
 
-func (s *Scanner) scanVariable(tok *Token) {
+func (s *Scanner) scanDollar(tok *Token) {
 	s.read()
 	if s.char == lcurly {
 		tok.Type = BegExp
@@ -437,43 +476,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 		s.read()
 		return
 	}
-	tok.Type = Variable
-	switch {
-	case s.char == dollar:
-		tok.Literal = "$"
-		s.read()
-	case s.char == pound:
-		tok.Literal = "#"
-		s.read()
-	case s.char == question:
-		tok.Literal = "?"
-		s.read()
-	case s.char == star:
-		tok.Literal = "*"
-		s.read()
-	case s.char == arobase:
-		tok.Literal = "@"
-		s.read()
-	case s.char == bang:
-		tok.Literal = "!"
-		s.read()
-	case isDigit(s.char):
-		for isDigit(s.char) {
-			s.write()
-			s.read()
-		}
-		tok.Literal = s.string()
-	default:
-		if !isLetter(s.char) {
-			tok.Type = Invalid
-			return
-		}
-		for isIdent(s.char) {
-			s.write()
-			s.read()
-		}
-		tok.Literal = s.string()
-	}
+	s.scanVariable(tok)
 }
 
 func (s *Scanner) scanComment(tok *Token) {
