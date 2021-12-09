@@ -59,8 +59,8 @@ func createNumber(str string) shell.Expr {
 
 func createUnary(ex shell.Expr, op rune) shell.Expr {
 	return shell.Unary{
-		Op:    op,
-		Right: ex,
+		Op:   op,
+		Expr: ex,
 	}
 }
 

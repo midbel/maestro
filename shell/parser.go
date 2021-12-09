@@ -52,6 +52,7 @@ func NewParser(r io.Reader) *Parser {
 		And:        p.parseBinary,
 		Or:         p.parseBinary,
 		Cond:       p.parseTernary,
+		Assign:     p.parseAssign,
 	}
 
 	p.next()
@@ -493,12 +494,13 @@ func (p *Parser) parseUnary() (Expr, error) {
 	)
 	switch p.curr.Type {
 	case Sub, Inc, Dec, Not, BitNot:
+		op := p.curr.Type
 		p.next()
 		ex, err = p.parseExpression(bindPrefix)
 		if err != nil {
 			break
 		}
-		ex = createUnary(ex, Sub)
+		ex = createUnary(ex, op)
 	case BegMath:
 		p.next()
 		ex, err = p.parseExpression(bindLowest)
@@ -535,6 +537,24 @@ func (p *Parser) parseBinary(left Expr) (Expr, error) {
 		b.Right = right
 	}
 	return b, nil
+}
+
+func (p *Parser) parseAssign(left Expr) (Expr, error) {
+	var as Assignment
+	switch v := left.(type) {
+	case ExpandVar:
+		as.Ident = v.Ident
+	default:
+		return nil, p.unexpected()
+	}
+	p.next()
+
+	expr, err := p.parseExpression(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	as.Expr = expr
+	return as, nil
 }
 
 func (p *Parser) parseTernary(left Expr) (Expr, error) {

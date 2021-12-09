@@ -696,7 +696,12 @@ func isDigit(r rune) bool {
 }
 
 func isOperator(r rune) bool {
-	return r == caret || r == pound || r == colon || r == slash || r == percent || r == comma || r == rcurly
+	switch r {
+	case caret, pound, colon, slash, percent, comma, rcurly:
+		return true
+	default:
+		return false
+	}
 }
 
 func isSequence(r rune) bool {

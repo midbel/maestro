@@ -28,19 +28,19 @@ func (n Number) Eval(_ Environment) (float64, error) {
 }
 
 type Unary struct {
-	Op    rune
-	Right Expr
+	Op rune
+	Expr
 }
 
 func createUnary(ex Expr, op rune) Expr {
 	return Unary{
-		Op:    op,
-		Right: ex,
+		Op:   op,
+		Expr: ex,
 	}
 }
 
 func (u Unary) Eval(env Environment) (float64, error) {
-	ret, err := u.Right.Eval(env)
+	ret, err := u.Expr.Eval(env)
 	if err != nil {
 		return ret, err
 	}
@@ -104,10 +104,25 @@ func (t Ternary) Eval(env Environment) (float64, error) {
 	return t.Left.Eval(env)
 }
 
+type Assignment struct {
+	Ident string
+	Expr
+}
+
+func (a Assignment) Eval(env Environment) (float64, error) {
+	ret, err := a.Expr.Eval(env)
+	if err != nil {
+		return ret, err
+	}
+	str := strconv.FormatFloat(ret, 'f', -1, 64)
+	return ret, env.Define(a.Ident, []string{str})
+}
+
 type bind int8
 
 const (
 	bindLowest bind = iota
+	bindAssign
 	bindBit
 	bindShift
 	bindTernary
@@ -142,6 +157,7 @@ var bindings = map[rune]bind{
 	Ge:         bindCmp,
 	Cond:       bindTernary,
 	Alt:        bindTernary,
+	Assign:     bindAssign,
 }
 
 func bindPower(tok Token) bind {
