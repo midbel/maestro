@@ -77,44 +77,11 @@ func (b Binary) Eval(env Environment) (float64, error) {
 	if err != nil {
 		return right, err
 	}
-	switch b.Op {
-	case Add:
-		left += right
-	case Sub:
-		left -= right
-	case Mul:
-		left *= right
-	case Div:
-		if right == 0 {
-			return 0, ErrZero
-		}
-		left /= right
-	case Mod:
-		if right == 0 {
-			return 0, ErrZero
-		}
-		left = math.Mod(left, right)
-	case Pow:
-		left = math.Pow(left, right)
-	case LeftShift:
-		x := int64(left) << int64(right)
-		left = float64(x)
-	case RightShift:
-		x := int64(left) >> int64(right)
-		left = float64(x)
-	case BitAnd:
-	case BitOr:
-	case BitXor:
-	case Eq:
-	case Ne:
-	case Lt:
-	case Le:
-	case Gt:
-	case Ge:
-	default:
+	do, ok := binaries[b.Op]
+	if !ok {
 		return 0, fmt.Errorf("unsupported operator")
 	}
-	return left, nil
+	return do(left, right)
 }
 
 type Ternary struct {
@@ -179,4 +146,140 @@ func bindPower(tok Token) bind {
 		pow = bindLowest
 	}
 	return pow
+}
+
+var binaries = map[rune]func(float64, float64) (float64, error){
+	Add:        doAdd,
+	Sub:        doSub,
+	Mul:        doMul,
+	Div:        doDiv,
+	Mod:        doMod,
+	Pow:        doPow,
+	LeftShift:  doLeft,
+	RightShift: doRight,
+	Eq:         doEq,
+	Ne:         doNe,
+	Lt:         doLt,
+	Le:         doLe,
+	Gt:         doGt,
+	Ge:         doGe,
+	And:        doAnd,
+	Or:         doOr,
+	BitAnd:     doBitAnd,
+	BitOr:      doBitOr,
+	BitXor:     doBitXor,
+}
+
+func doAdd(left, right float64) (float64, error) {
+	return left + right
+}
+
+func doSub(left, right float64) (float64, error) {
+	return left - right
+}
+
+func doMul(left, right float64) (float64, error) {
+	return left * right
+}
+
+func doPow(left, right float64) (float64, error) {
+	return math.Pow(left, right)
+}
+
+func doDiv(left, right float64) (float64, error) {
+	if right == 0 {
+		return right, ErrZero
+	}
+	return left / right
+}
+
+func doMod(left, right float64) (float64, error) {
+	if right == 0 {
+		return right, ErrZero
+	}
+	return math.Mod(left, right)
+}
+
+func doLeft(left, right float64) (float64, error) {
+	if left < 0 {
+		return 0, nil
+	}
+	x := int64(left) << int64(right)
+	return float64(x), nil
+}
+
+func doRight(left, right float64) (float64, error) {
+	if left < 0 {
+		return 0, nil
+	}
+	x := int64(left) >> int64(right)
+	return float64(x), nil
+}
+
+func doEq(left, right float64) (float64, error) {
+	if left == right {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doNe(left, right float64) (float64, error) {
+	if left != right {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doLt(left, right float64) (float64, error) {
+	if left < right {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doLe(left, right float64) (float64, error) {
+	if left <= right {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doGt(left, right float64) (float64, error) {
+	if left > right {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doGe(left, right float64) (float64, error) {
+	if left >= right {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doAnd(left, right float64) (float64, error) {
+	if left == 0 && right == 0 {
+		return left, nil
+	}
+	return 1, nil
+}
+
+func doOr(left, right float64) (float64, error) {
+	if left == 0 || right == 0 {
+		return 0, nil
+	}
+	return 1, nil
+}
+
+func doBitAnd(left, right float64) (float64, error) {
+	return 1, nil
+}
+
+func doBitOr(left, right float64) (float64, error) {
+	return 1, nil
+}
+
+func doBitOr(left, right float64) (float64, error) {
+	return 1, nil
 }
