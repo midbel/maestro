@@ -14,7 +14,7 @@
 * maestro(feature): implements the ListenAndServe
   stdout/stderr of Command.Shell should be set to the http.ResponseWriter given in the http.Handler
   - date: 2021-11-30
-  - version: 0.1.0
+  - version: 0.2.0
   - author: midbel
 
 * <maestro(feature): implements ssh remote execution
@@ -44,7 +44,7 @@
 
 # BUGS
 
-* maestro(feature,command): cancel command execution
+* <maestro(feature,command): cancel command execution
   once a signal is sent to maestro, all commands being executed and the following one
   should be discarded/cancelled properly
   better use of context.Context and cancel
@@ -81,6 +81,9 @@
 * maestro(feature): remote maestro file hosted on a web server
   use -f to retrieve a maestro file located on a remote web server
   commands retrieved from the remote file have to be executed on the remote server
+  - date: 2021-12-08
+  - version: 0.2.0
+  - author: midbel
 
 # ENHANCEMENTS/IMPROVEMENTS
 

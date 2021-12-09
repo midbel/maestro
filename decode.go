@@ -2,6 +2,7 @@ package maestro
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -375,7 +376,7 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 		}
 		sh, _ = shell.New(opts...)
 	)
-	if err := sh.Execute(line, "", nil); err != nil {
+	if err := sh.Execute(context.TODO(), line, "", nil); err != nil {
 		return nil, err
 	}
 	return shlex.Split(&buf)

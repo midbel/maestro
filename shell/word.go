@@ -2,6 +2,7 @@ package shell
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -190,7 +191,7 @@ func (e ExpandSub) Expand(env Environment, top bool) ([]string, error) {
 	sh.SetOut(&buf)
 
 	for i := range e.List {
-		if err = sh.execute(e.List[i]); err != nil {
+		if err = sh.execute(context.TODO(), e.List[i]); err != nil {
 			return nil, err
 		}
 	}

@@ -3,12 +3,14 @@ package maestro
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -127,24 +129,35 @@ func (m *Maestro) Execute(name string, args []string) error {
 		return m.executeRemote(cmd, args)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+		<-sig
+		cancel()
+		close(sig)
+	}()
+
 	if !m.NoDeps {
-		if err := m.executeDependencies(cmd); err != nil {
+		if err := m.executeDependencies(ctx, cmd); err != nil {
 			return err
 		}
 	}
-	m.executeList(m.MetaExec.Before)
-	defer m.executeList(m.MetaExec.After)
+	m.executeList(ctx, m.MetaExec.Before)
+	defer m.executeList(ctx, m.MetaExec.After)
 
-	err = m.executeCommand(cmd, args)
+	err = m.executeCommand(ctx, cmd, args)
 
-	next := m.MetaExec.Success
-	if err != nil {
-		next = m.MetaExec.Error
-	}
-	for _, cmd := range next {
-		c, err := m.lookup(cmd)
-		if err == nil {
-			c.Execute(nil)
+	if err := ctx.Done(); err == nil {
+		next := m.MetaExec.Success
+		if err != nil {
+			next = m.MetaExec.Error
+		}
+		for _, cmd := range next {
+			c, err := m.lookup(cmd)
+			if err == nil {
+				c.Execute(ctx, nil)
+			}
 		}
 	}
 	return err
@@ -293,13 +306,13 @@ func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error 
 	return nil
 }
 
-func (m *Maestro) executeList(list []string) {
+func (m *Maestro) executeList(ctx context.Context, list []string) {
 	for i := range list {
 		cmd, err := m.lookup(list[i])
 		if err != nil {
 			continue
 		}
-		m.executeCommand(cmd, nil)
+		m.executeCommand(ctx, cmd, nil)
 	}
 }
 
@@ -344,7 +357,7 @@ func (m *Maestro) canExecute(cmd Command) error {
 	return nil
 }
 
-func (m *Maestro) executeCommand(cmd Command, args []string) error {
+func (m *Maestro) executeCommand(ctx context.Context, cmd Command, args []string) error {
 	var (
 		pout, _ = createPipe()
 		perr, _ = createPipe()
@@ -362,11 +375,11 @@ func (m *Maestro) executeCommand(cmd Command, args []string) error {
 	go toStd(cmd.Command(), stderr, perr.R)
 
 	return m.TraceTime(cmd, args, func() error {
-		return cmd.Execute(args)
+		return cmd.Execute(ctx, args)
 	})
 }
 
-func (m *Maestro) executeDependencies(cmd Command) error {
+func (m *Maestro) executeDependencies(ctx context.Context, cmd Command) error {
 	deps, err := m.resolveDependencies(cmd)
 	if err != nil {
 		return err
@@ -390,14 +403,14 @@ func (m *Maestro) executeDependencies(cmd Command) error {
 		}
 		if d := deps[i]; d.Bg {
 			grp.Go(func() error {
-				if err := m.executeDependencies(cmd); err != nil {
+				if err := m.executeDependencies(ctx, cmd); err != nil {
 					return err
 				}
-				m.executeCommand(cmd, d.Args)
+				m.executeCommand(ctx, cmd, d.Args)
 				return nil
 			})
 		} else {
-			err := m.executeCommand(cmd, d.Args)
+			err := m.executeCommand(ctx, cmd, d.Args)
 			if err != nil && !deps[i].Optional {
 				return err
 			}

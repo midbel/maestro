@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"os/signal"
 	"os/user"
 	"strconv"
 	"strings"
@@ -275,7 +274,7 @@ func (s *Shell) Register(list ...Command) {
 	}
 }
 
-func (s *Shell) Execute(str, cmd string, args []string) error {
+func (s *Shell) Execute(ctx context.Context, str, cmd string, args []string) error {
 	s.setContext(cmd, args)
 	defer s.clearContext()
 	var (
@@ -290,81 +289,63 @@ func (s *Shell) Execute(str, cmd string, args []string) error {
 			}
 			return err
 		}
-		ret = s.execute(ex)
+		ret = s.execute(ctx, ex)
 	}
 }
 
-func (s *Shell) execute(ex Executer) error {
+func (s *Shell) execute(ctx context.Context, ex Executer) error {
 	var err error
 	switch ex := ex.(type) {
 	case ExecSimple:
-		err = s.executeSingle(ex.Expander, ex.Redirect)
+		err = s.executeSingle(ctx, ex.Expander, ex.Redirect)
 	case ExecAssign:
 		err = s.executeAssign(ex)
 	case ExecAnd:
-		if err = s.execute(ex.Left); err != nil {
+		if err = s.execute(ctx, ex.Left); err != nil {
 			break
 		}
-		err = s.execute(ex.Right)
+		err = s.execute(ctx, ex.Right)
 	case ExecOr:
-		if err = s.execute(ex.Left); err == nil {
+		if err = s.execute(ctx, ex.Left); err == nil {
 			break
 		}
-		err = s.execute(ex.Right)
+		err = s.execute(ctx, ex.Right)
 	case ExecPipe:
-		err = s.executePipe(ex)
+		err = s.executePipe(ctx, ex)
 	case ExecFor:
-		err = s.executeFor(ex)
+		err = s.executeFor(ctx, ex)
 	case ExecWhile:
-		err = s.executeWhile(ex)
+		err = s.executeWhile(ctx, ex)
 	case ExecIf:
-		err = s.executeIf(ex)
+		err = s.executeIf(ctx, ex)
 	default:
 		err = fmt.Errorf("unsupported executer type %s", ex)
 	}
 	return err
 }
 
-func (s *Shell) executeFor(ex ExecFor) error {
-	// for _, e := range ex.List {
-	// 	str, err := e.Expand(s, true)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	for i := range str {
-	// 		sub, _ := s.Subshell()
-	// 		sub.Define(ex.Ident, []string{str[i]})
-	// 	}
-	// }
+func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 	return nil
 }
 
-func (s *Shell) executeWhile(ex ExecWhile) error {
+func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
 	return nil
 }
 
-func (s *Shell) executeUntil(ex ExecWhile) error {
+func (s *Shell) executeUntil(ctx context.Context, ex ExecWhile) error {
 	return nil
 }
 
-func (s *Shell) executeIf(ex ExecIf) error {
+func (s *Shell) executeIf(ctx context.Context, ex ExecIf) error {
 	return nil
 }
 
-func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
+func (s *Shell) executeSingle(ctx context.Context, ex Expander, redirect []ExpandRedirect) error {
 	str, err := s.expand(ex)
 	if err != nil {
 		return err
 	}
 	s.trace(str)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		defer cancel()
-
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Kill, os.Interrupt)
-		<-sig
-	}()
 	cmd := s.resolveCommand(ctx, str)
 
 	rd, err := s.setupRedirect(redirect, false)
@@ -382,17 +363,8 @@ func (s *Shell) executeSingle(ex Expander, redirect []ExpandRedirect) error {
 	return err
 }
 
-func (s *Shell) executePipe(ex ExecPipe) error {
-	var (
-		cs          []Command
-		ctx, cancel = context.WithCancel(context.Background())
-	)
-	go func() {
-		defer cancel()
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Kill, os.Interrupt)
-		<-sig
-	}()
+func (s *Shell) executePipe(ctx context.Context, ex ExecPipe) error {
+	var cs []Command
 	for i := range ex.List {
 		sex, ok := ex.List[i].Executer.(ExecSimple)
 		if !ok {

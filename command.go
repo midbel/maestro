@@ -1,6 +1,8 @@
 package maestro
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -35,7 +37,7 @@ type Command interface {
 	Script([]string) ([]string, error)
 	Remote() bool
 	Targets() []string
-	Execute([]string) error
+	Execute(context.Context, []string) error
 	SetOut(w io.Writer)
 	SetErr(w io.Writer)
 }
@@ -265,7 +267,7 @@ func (s *Single) SetErr(w io.Writer) {
 	s.shell.SetErr(w)
 }
 
-func (s *Single) Execute(args []string) error {
+func (s *Single) Execute(ctx context.Context, args []string) error {
 	if s.executed {
 		return nil
 	}
@@ -280,17 +282,26 @@ func (s *Single) Execute(args []string) error {
 	if retry <= 0 {
 		retry = 1
 	}
+	sub := ctx
+	if s.Timeout > 0 {
+		c, cancel := context.WithTimeout(ctx, s.Timeout)
+		defer cancel()
+		sub = c
+	}
 	for i := int64(0); i < retry; i++ {
-		err = s.execute(args)
+		err = s.execute(sub, args)
 		if err == nil {
 			break
 		}
 	}
 	s.executed = true
+	if err := sub.Err(); errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
 	return err
 }
 
-func (s *Single) execute(args []string) error {
+func (s *Single) execute(ctx context.Context, args []string) error {
 	for _, cmd := range s.Scripts {
 		sh := s.shell
 		if cmd.Subshell {
@@ -300,7 +311,7 @@ func (s *Single) execute(args []string) error {
 			sh.Export(k, v)
 		}
 		sh.SetEcho(cmd.Echo)
-		err := sh.Execute(cmd.Line, s.Name, args)
+		err := sh.Execute(ctx, cmd.Line, s.Name, args)
 		if cmd.Reverse {
 			if err == nil {
 				err = fmt.Errorf("command succeed")
@@ -492,9 +503,9 @@ func (c Combined) Can() bool {
 	return true
 }
 
-func (c Combined) Execute(args []string) error {
+func (c Combined) Execute(ctx context.Context, args []string) error {
 	for i := range c {
-		if err := c[i].Execute(args); err != nil {
+		if err := c[i].Execute(ctx, args); err != nil {
 			return err
 		}
 	}

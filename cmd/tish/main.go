@@ -1,15 +1,25 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/midbel/maestro/shell"
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+		<-sig
+		cancel()
+		close(sig)
+	}()
 	var (
 		cwd  = flag.String("c", ".", "set working directory")
 		name = flag.String("n", "tish", "script name")
@@ -44,7 +54,7 @@ func main() {
 		args = flag.Args()
 		args = args[1:]
 	}
-	if err := sh.Execute(flag.Arg(0), *name, args); err != nil {
+	if err := sh.Execute(ctx, flag.Arg(0), *name, args); err != nil {
 		fmt.Fprintf(os.Stderr, "fail to execute command: %s => %s", flag.Arg(0), err)
 		fmt.Fprintln(os.Stderr)
 	}
