@@ -346,18 +346,18 @@ func (p *Parser) parseFor() (Executer, error) {
 	}
 	p.next()
 	p.skipBlank()
-	for !p.done() {
+	for !p.done() && p.curr.Type != List {
 		e, err := p.parseWords()
 		if err != nil {
 			return nil, err
 		}
 		ex.List = append(ex.List, e)
-		p.next()
-		if p.curr.Type == Keyword && p.curr.Literal == kwDo {
-			break
-		}
 	}
-	if p.curr.Type != Keyword || p.curr.Literal != kwDo {
+	if p.curr.Type != List {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if p.curr.Type != Keyword && p.curr.Literal != kwDo {
 		return nil, p.unexpected()
 	}
 	var err error
@@ -975,5 +975,5 @@ func (p *Parser) skipBlank() {
 }
 
 func (p *Parser) unexpected() error {
-	return fmt.Errorf("unexpected token %s", p.curr)
+	return fmt.Errorf("shell: unexpected token %s", p.curr)
 }

@@ -325,6 +325,18 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 }
 
 func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
+	list, err := ex.Expand(s, false)
+	if err != nil || len(list) == 0 {
+		return s.execute(ctx, ex.Alt)
+	}
+	for i := range list {
+		if err := s.Define(ex.Ident, []string{list[i]}); err != nil {
+			return err
+		}
+		if err := s.execute(ctx, ex.Body); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

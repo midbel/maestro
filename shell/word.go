@@ -81,6 +81,18 @@ type ExecFor struct {
 	Alt   Executer
 }
 
+func (e ExecFor) Expand(env Environment, _ bool) ([]string, error) {
+	var list []string
+	for i := range e.List {
+		str, err := e.List[i].Expand(env, false)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, str...)
+	}
+	return list, nil
+}
+
 type ExecWhile struct {
 	Cond Executer
 	Body Executer

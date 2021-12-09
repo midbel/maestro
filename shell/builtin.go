@@ -143,6 +143,7 @@ type Builtin struct {
 	args     []string
 	shell    *Shell
 	finished bool
+	code     int
 	done     chan error
 
 	stdout io.Writer
@@ -171,7 +172,7 @@ func (b *Builtin) IsEnabled() bool {
 }
 
 func (b *Builtin) Exit() (int, int) {
-	return 0, 0
+	return 0, b.code
 }
 
 func (b *Builtin) Type() CommandType {
@@ -198,7 +199,7 @@ func (b *Builtin) Start() error {
 		}
 	}
 	if len(b.copies) > 0 {
-		b.errch = make(chan error)
+		b.errch = make(chan error, 3)
 		for _, fn := range b.copies {
 			go func(fn func() error) {
 				b.errch <- fn()
@@ -219,23 +220,23 @@ func (b *Builtin) Wait() error {
 	if b.finished {
 		return fmt.Errorf("builtin already finished")
 	}
-	defer func() {
-		close(b.done)
-		b.closeDescriptors()
-	}()
 	b.finished = true
 
 	var (
 		errex = <-b.done
 		errcp error
 	)
+	defer close(b.done)
+	b.closeDescriptors()
 	for range b.copies {
 		e := <-b.errch
 		if errcp == nil && e != nil {
+			b.code = 2
 			errcp = e
 		}
 	}
 	if errex != nil {
+		b.code = 1
 		return errex
 	}
 	return errcp
@@ -330,7 +331,7 @@ func (b *Builtin) setStdin() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	b.closes = append(b.closes, pr, pw)
+	b.closes = append(b.closes, pw)
 	b.copies = append(b.copies, func() error {
 		defer pw.Close()
 		_, err := io.Copy(pw, b.stdin)
@@ -364,13 +365,14 @@ func (b *Builtin) openFile(w io.Writer) (*os.File, error) {
 		if ok {
 			return f, nil
 		}
+	default:
 	}
 
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	b.closes = append(b.closes, pr, pw)
+	b.closes = append(b.closes, pw)
 	b.copies = append(b.copies, func() error {
 		defer pr.Close()
 		_, err := io.Copy(w, pr)
