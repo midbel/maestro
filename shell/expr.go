@@ -141,6 +141,7 @@ var bindings = map[rune]bind{
 	Gt:         bindCmp,
 	Ge:         bindCmp,
 	Cond:       bindTernary,
+	Alt:        bindTernary,
 }
 
 func bindPower(tok Token) bind {

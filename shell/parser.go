@@ -41,7 +41,7 @@ func NewParser(r io.Reader) *Parser {
 		RightShift: p.parseBinary,
 		BitAnd:     p.parseBinary,
 		BitOr:      p.parseBinary,
-		BitXor:      p.parseBinary,
+		BitXor:     p.parseBinary,
 		BitNot:     p.parseBinary,
 		Eq:         p.parseBinary,
 		Ne:         p.parseBinary,
@@ -49,7 +49,7 @@ func NewParser(r io.Reader) *Parser {
 		Le:         p.parseBinary,
 		Gt:         p.parseBinary,
 		Ge:         p.parseBinary,
-		And:         p.parseBinary,
+		And:        p.parseBinary,
 		Or:         p.parseBinary,
 		Cond:       p.parseTernary,
 	}
@@ -538,7 +538,25 @@ func (p *Parser) parseBinary(left Expr) (Expr, error) {
 }
 
 func (p *Parser) parseTernary(left Expr) (Expr, error) {
-	return nil, nil
+	p.next()
+	ter := Ternary{
+		Cond: left,
+	}
+	left, err := p.parseExpression(bindTernary)
+	if err != nil {
+		return nil, err
+	}
+	ter.Left = left
+	if p.curr.Type != Alt {
+		return nil, p.unexpected()
+	}
+	p.next()
+	right, err := p.parseExpression(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	ter.Right = right
+	return ter, nil
 }
 
 func (p *Parser) parseSubstitution() (Expander, error) {
