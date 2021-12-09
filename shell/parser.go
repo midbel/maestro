@@ -41,7 +41,16 @@ func NewParser(r io.Reader) *Parser {
 		RightShift: p.parseBinary,
 		BitAnd:     p.parseBinary,
 		BitOr:      p.parseBinary,
+		BitXor:      p.parseBinary,
 		BitNot:     p.parseBinary,
+		Eq:         p.parseBinary,
+		Ne:         p.parseBinary,
+		Lt:         p.parseBinary,
+		Le:         p.parseBinary,
+		Gt:         p.parseBinary,
+		Ge:         p.parseBinary,
+		And:         p.parseBinary,
+		Or:         p.parseBinary,
 		Cond:       p.parseTernary,
 	}
 

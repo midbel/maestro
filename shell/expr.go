@@ -49,6 +49,7 @@ func (u Unary) Eval(env Environment) (float64, error) {
 		if ret != 0 {
 			ret = 1
 		}
+		ret = 0
 	case Sub:
 		ret = -ret
 	case Inc:
@@ -56,6 +57,8 @@ func (u Unary) Eval(env Environment) (float64, error) {
 	case Dec:
 		ret = ret - 1
 	case BitNot:
+		x := ^int64(ret)
+		ret = float64(x)
 	default:
 		return 0, fmt.Errorf("unsupported operator")
 	}
@@ -171,33 +174,33 @@ var binaries = map[rune]func(float64, float64) (float64, error){
 }
 
 func doAdd(left, right float64) (float64, error) {
-	return left + right
+	return left + right, nil
 }
 
 func doSub(left, right float64) (float64, error) {
-	return left - right
+	return left - right, nil
 }
 
 func doMul(left, right float64) (float64, error) {
-	return left * right
+	return left * right, nil
 }
 
 func doPow(left, right float64) (float64, error) {
-	return math.Pow(left, right)
+	return math.Pow(left, right), nil
 }
 
 func doDiv(left, right float64) (float64, error) {
 	if right == 0 {
 		return right, ErrZero
 	}
-	return left / right
+	return left / right, nil
 }
 
 func doMod(left, right float64) (float64, error) {
 	if right == 0 {
 		return right, ErrZero
 	}
-	return math.Mod(left, right)
+	return math.Mod(left, right), nil
 }
 
 func doLeft(left, right float64) (float64, error) {
@@ -218,44 +221,44 @@ func doRight(left, right float64) (float64, error) {
 
 func doEq(left, right float64) (float64, error) {
 	if left == right {
-		return 0, nil
+		return 1, nil
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func doNe(left, right float64) (float64, error) {
 	if left != right {
-		return 0, nil
+		return 1, nil
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func doLt(left, right float64) (float64, error) {
 	if left < right {
-		return 0, nil
+		return 1, nil
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func doLe(left, right float64) (float64, error) {
 	if left <= right {
-		return 0, nil
+		return 1, nil
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func doGt(left, right float64) (float64, error) {
 	if left > right {
-		return 0, nil
+		return 1, nil
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func doGe(left, right float64) (float64, error) {
 	if left >= right {
-		return 0, nil
+		return 1, nil
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func doAnd(left, right float64) (float64, error) {
@@ -273,13 +276,16 @@ func doOr(left, right float64) (float64, error) {
 }
 
 func doBitAnd(left, right float64) (float64, error) {
-	return 1, nil
+	x := int64(left) & int64(right)
+	return float64(x), nil
 }
 
 func doBitOr(left, right float64) (float64, error) {
-	return 1, nil
+	x := int64(left) | int64(right)
+	return float64(x), nil
 }
 
-func doBitOr(left, right float64) (float64, error) {
-	return 1, nil
+func doBitXor(left, right float64) (float64, error) {
+	x := int64(left) ^ int64(right)
+	return float64(x), nil
 }
