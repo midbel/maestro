@@ -37,11 +37,12 @@ deploy(
 }
 
 build(
-	short = "build binaries",
+	short = "build the binaries of the project",
 	tag   = build,
 	alias = compile,
 	hosts = "127.0.0.1:22",
 ): tidy, gofmt, test, verify {
+	# build the maestro binary and the tish shell
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
 
@@ -59,12 +60,15 @@ verify(
 	tag   = build verify,
 	alias = vet,
 ): gofmt {
+	# run "go vet" on each package(s) in the project.
 	echo "run vet on $package"
 	@go vet $package
 	echo "run vet on $package/shell"
 	@go vet "$package/shell"
 	echo "run vet on $package/shlex"
 	@go vet "$package/shlex"
+	echo "run vet on $package/wrap"
+	@go vet "$package/wrap"
 }
 
 commit(
@@ -78,6 +82,8 @@ commit(
 		help  = "push committed changes to remote repository",
 	)
 ): gofmt {
+	# commit changes in the project and optionally push them to the remote
+	# repository.
 	git commit -am $1
 	$push && git push
 }
@@ -88,6 +94,26 @@ commit(
 ): {
 	total = $(find -type f -name "*.go" -exec cat {} \; | egrep -v '^$' | wc -l)
 	echo "${total:>:5} LoC"
+}
+
+.SSH_USER     = test
+.SSH_PASSWORD = usertest
+
+seq(
+	short = "demo multiline for loop",
+	tag   = "demo",
+): {
+	for id in {1..10..3}; do
+		echo $id
+	done
+}
+
+%gofmt {
+	gofmt -w -s .
+}
+
+%tidy {
+	go mod tidy
 }
 
 %todo(
@@ -105,43 +131,11 @@ commit(
 	$show && grep 'TODO' *go shlex/*go shell/*go | cut -f 3 -d : | awk '{$1=$1};1'
 }
 
-.SSH_USER     = test
-.SSH_PASSWORD = usertest
-
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
 ): gofmt {
+	# reports the number of lines and remaining todos in the project
 	<loc
 	<todo
-}
-
-seq(
-	short = "demo multiline for loop",
-	tag   = "demo",
-): {
-	# this comment will become the help of the command.
-	# multiple line can be used to give more information
-	#
-	# blank lines are allow in the command doc but will
-	# be merged into a single blank line
-	#
-	# there is no need for the comment to give a full
-	# description of the options and arguments because
-	# they are automatically generated from the options
-	# and the arguments properties of the command.
-	#
-	# the help property is kept and will be used if the
-	# command has not this multiline help
-	for id in {1..10..3}; do
-		echo $id
-	done
-}
-
-%gofmt {
-	gofmt -w -s .
-}
-
-%tidy {
-	go mod tidy
 }

@@ -3,6 +3,8 @@ package maestro
 import (
 	"strings"
 	"text/template"
+
+	"github.com/midbel/maestro/wrap"
 )
 
 const helptext = `
@@ -16,33 +18,29 @@ Available commands:
 {{repeat "-" $k}}-
 {{- range $cs}}
   - {{printf "%-20s %s" .Name .Short -}}
-{{end}}
+{{end -}}
 {{end}}
 
-use "maestro -f {{.File}} help <command>" for more information
-on one of the available command(s)
+{{wrap (printf "use \"maestro -f %s help <command>\" for more information on the available command(s)" .File)}}
 `
 
 const cmdhelp = `
-{{.Command}}
+{{.Command}}{{if .About }}: {{.About}}{{end}}
 
-{{if .About -}}
-{{.About}}
+{{if .Desc -}}{{wrap .Desc}}
 {{end}}
-{{if .Desc -}}
-{{.Desc}}
-{{end}}
-{{- if .Options -}}
+
+{{- with .Options}}
 Options:
-{{- range .Options}}
-  {{if .Short}}-{{.Short}}{{end}}{{if and .Long .Short}}, {{end}}{{if .Long}}--{{.Long}}{{end}}  {{.Help}}
+{{range . }}
+  {{if .Short}}-{{.Short}}{{end}}{{if and .Long .Short}}, {{end}}{{if .Long}}--{{.Long}}{{end}}{{if .Help}}  {{.Help}}{{end}}
 {{- end}}
-{{- end}}
-
+{{end}}
 usage: {{.Usage}}
-
-{{if .Alias}}alias: {{join .Alias ", "}}{{end}}
-{{if .Tags}}tags:  {{join .Tags ", "}}{{end}}
+{{if .Alias}}alias: {{join .Alias ", "}}
+{{end -}}
+{{if .Tags}}tags:  {{join .Tags ", "}}
+{{end -}}
 `
 
 func renderTemplate(name string, ctx interface{}) (string, error) {
@@ -59,7 +57,7 @@ func renderTemplate(name string, ctx interface{}) (string, error) {
 
 var funcmap = template.FuncMap{
 	"repeat": repeat,
-	"wrap":   wrap,
+	"wrap":   wrap.Wrap,
 	"join":   strings.Join,
 }
 
@@ -74,8 +72,4 @@ func repeat(char string, value interface{}) string {
 		return ""
 	}
 	return strings.Repeat(char, n)
-}
-
-func wrap(in string) (string, error) {
-	return in, nil
 }
