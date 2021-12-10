@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/midbel/maestro/shell"
@@ -647,8 +648,31 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	return nil
 }
 
+func (d *Decoder) decodeCommandHelp(cmd *Single) error {
+	var (
+		help strings.Builder
+		prev string
+	)
+	for i := 0; !d.done() && d.curr().Type == Comment; i++ {
+		str := d.curr().Literal
+		if str == "" && prev == "" {
+			d.next()
+			continue
+		}
+		help.WriteString(strings.TrimSpace(str))
+		help.WriteString("\n")
+		prev = str
+		d.next()
+	}
+	cmd.Desc = strings.TrimSpace(help.String())
+	return nil
+}
+
 func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 	d.next()
+	if err := d.decodeCommandHelp(cmd); err != nil {
+		return err
+	}
 	for !d.done() {
 		if d.curr().Type == EndScript {
 			break
@@ -960,11 +984,11 @@ func (d *Decoder) unexpected() error {
 	if str == "" {
 		str = curr.String()
 	}
-	return fmt.Errorf("%w %s at %d:%d", errUnexpected, str, curr.Line, curr.Column)
+	return fmt.Errorf("maestro: %w %s at %d:%d", errUnexpected, str, curr.Line, curr.Column)
 }
 
 func (d *Decoder) undefined() error {
-	return fmt.Errorf("%s: %w", d.curr().Literal, errUndefined)
+	return fmt.Errorf("maestro: %s: %w", d.curr().Literal, errUndefined)
 }
 
 func (d *Decoder) push(r io.Reader) error {

@@ -116,12 +116,26 @@ count(
 	<todo
 }
 
-list(
-	short = "list files on remote system",
-	tag   = info,
-	hosts = "127.0.0.1:22" "192.168.1.56:22",
+seq(
+	short = "demo multiline for loop",
+	tag   = "demo",
 ): {
-	ls -l
+	# this comment will become the help of the command.
+	# multiple line can be used to give more information
+	#
+	# blank lines are allow in the command doc but will
+	# be merged into a single blank line
+	#
+	# there is no need for the comment to give a full
+	# description of the options and arguments because
+	# they are automatically generated from the options
+	# and the arguments properties of the command.
+	#
+	# the help property is kept and will be used if the
+	# command has not this multiline help
+	for id in {1..10..3}; do
+		echo $id
+	done
 }
 
 %gofmt {
