@@ -99,15 +99,6 @@ commit(
 .SSH_USER     = test
 .SSH_PASSWORD = usertest
 
-seq(
-	short = "demo multiline for loop",
-	tag   = "demo",
-): {
-	for id in {1..10..3}; do
-		echo $id
-	done
-}
-
 %gofmt {
 	gofmt -w -s .
 }
