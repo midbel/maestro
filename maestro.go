@@ -50,6 +50,7 @@ type Maestro struct {
 	MetaSSH
 	MetaHttp
 
+	Includes  Dirs
 	Duplicate string
 	Commands  map[string]Command
 	Alias     map[string]string
@@ -375,7 +376,11 @@ func (m *Maestro) executeCommand(ctx context.Context, cmd Command, args []string
 	go toStd(cmd.Command(), stderr, perr.R)
 
 	return m.TraceTime(cmd, args, func() error {
-		return cmd.Execute(ctx, args)
+		err := cmd.Execute(ctx, args)
+		if err != nil && m.MetaExec.Ignore {
+			err = nil
+		}
+		return err
 	})
 }
 
@@ -474,6 +479,7 @@ func (m *Maestro) lookup(name string) (Command, error) {
 type MetaExec struct {
 	WorkDir string
 	Dry     bool
+	Ignore  bool
 
 	Echo bool
 

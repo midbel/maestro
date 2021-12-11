@@ -6,11 +6,27 @@ import (
 	"os"
 
 	"github.com/midbel/maestro"
+	// "github.com/midbel/maestro/wrap"
 )
 
 const MaestroEnv = "MAESTRO_FILE"
 
-const help = "maestro command help"
+const help = `maestro
+
+Options:
+
+  -d
+	-f
+	-e
+	-i
+	-k
+	-r
+	-I
+
+Predefined commands
+
+usage: maestro [options] [<command> [comand options...] [command arguments]]
+`
 
 func main() {
 	flag.Usage = func() {
@@ -25,7 +41,9 @@ func main() {
 		file = str
 	}
 
+	flag.Var(&mst.Includes, "I", "include directories")
 	flag.BoolVar(&mst.MetaExec.Dry, "d", false, "run dry")
+	flag.BoolVar(&mst.MetaExec.Ignore, "i", false, "ignore errors from command")
 	flag.StringVar(&file, "f", file, "maestro file to use")
 	flag.BoolVar(&mst.MetaExec.Echo, "e", false, "echo")
 	flag.BoolVar(&mst.NoDeps, "k", false, "skip dependencies")

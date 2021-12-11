@@ -24,10 +24,10 @@
 * ERROR:
 * SUCCESS:
 
-* USER:
-* PASSWORD:
-* PRIVATEKEY:
-* PUBLICKEY:
+* SSH_USER:
+* SSH_PASSWORD:
+* SSH_PUBKEY:
+* SSH_KNOWN_HOSTS:
 
 #### variables
 
@@ -59,6 +59,7 @@ general syntax:
 * retry:
 * timeout:
 * error:
+
 * user:
 * group:
 
@@ -67,7 +68,11 @@ general syntax:
 
 * hosts:
 
+##### command options and arguments
+
 ##### command dependencies
+
+##### command help
 
 ##### command script
 
@@ -91,6 +96,7 @@ test(
 	short = "run test in current directory",
 	tag   = build test,
 ): {
+  # run go test
 	go clean -testcache
 	@go test -cover $package
 	@go test -cover "$package/shlex"

@@ -34,7 +34,7 @@ const (
 	metaHelp       = "HELP"
 	metaUser       = "SSH_USER"
 	metaPass       = "SSH_PASSWORD"
-	metaPubKey     = "SSH_PUBLIC_KEY"
+	metaPubKey     = "SSH_PUBKEY"
 	metaKnownHosts = "SSH_KNOWN_HOSTS"
 	metaCertFile   = "HTTP_CERT_FILE"
 	metaKeyFile    = "HTTP_CERT_KEY"
@@ -132,7 +132,7 @@ func (d *Decoder) decode(mst *Maestro) error {
 func (d *Decoder) decodeKeyword(mst *Maestro) error {
 	switch d.curr().Literal {
 	case kwInclude:
-		return d.decodeInclude()
+		return d.decodeInclude(mst)
 	case kwExport:
 		return d.decodeExport(mst)
 	case kwDelete:
@@ -144,7 +144,7 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 	return nil
 }
 
-func (d *Decoder) decodeInclude() error {
+func (d *Decoder) decodeInclude(mst *Maestro) error {
 	type include struct {
 		file     string
 		optional bool
@@ -194,7 +194,14 @@ func (d *Decoder) decodeInclude() error {
 		return err
 	}
 	for i := range list {
-		if err := d.decodeFile(list[i].file); err != nil {
+		file, ok := mst.Includes.Exists(list[i].file)
+		if !ok {
+			if list[i].optional {
+				continue
+			}
+			return fmt.Errorf("%s: file does not exists in %s", file, mst.Includes)
+		}
+		if err := d.decodeFile(file); err != nil {
 			if list[i].optional {
 				continue
 			}
