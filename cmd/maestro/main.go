@@ -6,26 +6,31 @@ import (
 	"os"
 
 	"github.com/midbel/maestro"
-	// "github.com/midbel/maestro/wrap"
 )
+
+var CmdVersion = "0.1.0"
 
 const MaestroEnv = "MAESTRO_FILE"
 
-const help = `maestro
+const help = `usage: maestro [options] [<command> [options] [<arguments>]]
 
 Options:
 
-  -d
-	-f
-	-e
-	-i
-	-k
-	-r
-	-I
+  -d, --dry                 dry run
+  -e, --echo                echo
+  -f FILE, --file FILE      read FILE as a maestro file
+  -i, --ignore              ignore all errors from command
+  -I DIR, --includes DIR    search DIR for included maestro files
+  -k, --skip-dep            skip dependencies
+  -r, --remote              execute commands on remote server
+  -v, --version             print maestro version and exit
 
-Predefined commands
+Predefined commands:
 
-usage: maestro [options] [<command> [comand options...] [command arguments]]
+default
+all
+help
+version
 `
 
 func main() {
@@ -36,6 +41,7 @@ func main() {
 	var (
 		file = maestro.DefaultFile
 		mst  = maestro.New()
+		version bool
 	)
 	if str, ok := os.LookupEnv(MaestroEnv); ok && str != "" {
 		file = str
@@ -49,7 +55,14 @@ func main() {
 	flag.BoolVar(&mst.NoDeps, "k", false, "skip dependencies")
 	flag.BoolVar(&mst.Remote, "r", false, "remote")
 	flag.StringVar(&mst.MetaHttp.Addr, "a", mst.MetaHttp.Addr, "address")
+	flag.BoolVar(&version, "v", false, "print maestro version and exit")
 	flag.Parse()
+
+	if version {
+		fmt.Printf("maestro %s", CmdVersion)
+		fmt.Println()
+		return
+	}
 
 	err := mst.Load(file)
 	if err != nil {
