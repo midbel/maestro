@@ -1,6 +1,7 @@
 package wrap
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -69,12 +70,15 @@ const (
 // func (w Wrapper) Wrap(str string) string {
 // 	return str
 // }
-//
-// func Shorten(str string, n int) string {
-//   str := advnace(str, n)
-//   return fmt.Sprintf("%s...", str)
-// }
-//
+
+func Shorten(str string, n int) string {
+	if n <= 0 || n >= len(str) {
+		return str
+	}
+	str, _ = advance(str, n)
+	return fmt.Sprintf("%s...", str)
+}
+
 // func Indent(str string) string {
 //   return str
 // }
@@ -88,6 +92,9 @@ func Wrap(str string) string {
 }
 
 func WrapN(str string, n int) string {
+	if n <= 0 {
+		return str
+	}
 	var (
 		ws  strings.Builder
 		ptr int
@@ -135,6 +142,8 @@ func advance(str string, n int) (string, int) {
 			}
 			prev = curr
 		}
+		// if r != utf8.RuneError {
+		// }
 		ws.WriteRune(r)
 	}
 	str = ws.String()

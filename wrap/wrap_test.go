@@ -8,6 +8,36 @@ import (
 	"github.com/midbel/maestro/wrap"
 )
 
+func TestShorten(t *testing.T) {
+	data := []struct {
+		Input string
+		Want  string
+		Len   int
+	}{
+		{
+			Input: "the quick brown fox jumps over the lazy dog",
+			Want:  "the quick brown...",
+			Len:   15,
+		},
+		{
+			Input: "the quick brown fox jumps over the lazy dog",
+			Want:  "the quick brown fox...",
+			Len:   18,
+		},
+		{
+			Input: "the quick brown fox jumps over the lazy dog",
+			Want: "the quick brown fox jumps over the lazy dog",
+			Len:   100,
+		},
+	}
+	for _, d := range data {
+		got := wrap.Shorten(d.Input, d.Len)
+		if d.Want != got {
+			t.Errorf("strings mismatched! want %s, got %s", d.Want, got)
+		}
+	}
+}
+
 func TestWrapN(t *testing.T) {
 	data := []struct {
 		Input string
