@@ -69,6 +69,19 @@ const (
 // func (w Wrapper) Wrap(str string) string {
 // 	return str
 // }
+// 
+// func Shorten(str string, n int) string {
+//   str := advnace(str, n)
+//   return fmt.Sprintf("%s...", str)
+// }
+//
+// func Indent(str string) string {
+//   return str
+// }
+//
+// func Dedent(str string) string {
+//   return str
+// }
 
 func Wrap(str string) string {
 	return WrapN(str, DefaultLength)

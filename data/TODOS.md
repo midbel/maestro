@@ -99,4 +99,4 @@
 * <maestro(feature): prefix output with the name of the command being executed
   revise type and mechanism used to output the results of the commands
 
-* command(feature): improve formatting of help command
+* <command(feature): improve formatting of help command
