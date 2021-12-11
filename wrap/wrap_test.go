@@ -14,6 +14,10 @@ func TestWrapN(t *testing.T) {
 		Len   int
 	}{
 		{
+			Input: "the quick brown\n\n\nfox jumps   over the lazy dog",
+			Len:   70,
+		},
+		{
 			Input: "the quick brown fox jumps over the lazy dog",
 			Len:   15,
 		},
@@ -44,10 +48,11 @@ project such as number of remaining todos, line of codes and others.`,
 			t.Errorf("nothing has been wrapped!")
 			continue
 		}
+		want := d.Len + wrap.DefaultThreshold
 		for scan.Scan() {
 			str := scan.Text()
-			if len(str) > d.Len {
-				t.Errorf("%s: longer than expected! want %d, got %d", str, d.Len, len(str))
+			if len(str) > d.Len+wrap.DefaultThreshold {
+				t.Errorf("%s: longer than expected! want %d, got %d", str, want, len(str))
 				break
 			}
 			t.Logf("%2d(%d): %s", len(str), d.Len, str)

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	DefaultLength = 70
-	DefaultOffset = 5
+	DefaultLength    = 70
+	DefaultThreshold = 2
 )
 
 const (
@@ -69,7 +69,7 @@ const (
 // func (w Wrapper) Wrap(str string) string {
 // 	return str
 // }
-// 
+//
 // func Shorten(str string, n int) string {
 //   str := advnace(str, n)
 //   return fmt.Sprintf("%s...", str)
@@ -88,9 +88,6 @@ func Wrap(str string) string {
 }
 
 func WrapN(str string, n int) string {
-	if len(str) < n {
-		return str
-	}
 	var (
 		ws  strings.Builder
 		ptr int
@@ -99,11 +96,11 @@ func WrapN(str string, n int) string {
 		if i > 0 {
 			ws.WriteRune(nl)
 		}
-		_, x := advance(str[ptr:], n)
+		next, x := advance(str[ptr:], n)
 		if x == 0 {
 			break
 		}
-		ws.WriteString(strings.TrimSpace(str[ptr : ptr+x]))
+		ws.WriteString(strings.TrimSpace(next))
 		ptr += x
 	}
 	return ws.String()
@@ -120,19 +117,19 @@ func advance(str string, n int) (string, int) {
 	)
 	for {
 		r, z := utf8.DecodeRuneInString(str[curr:])
-		if r == utf8.RuneError {
-			break
+		if r != utf8.RuneError {
+			curr += z
 		}
-		curr += z
 		if isNL(r) {
-			// skip(str[curr:], isNL)
+			ws.WriteRune(nl)
+			curr += skip(str[curr:], isNL)
 			break
 		}
-		if isBlank(r) {
-			// skip(str[curr:], isBlank)
-			if curr == n || (curr > n && curr-n <= DefaultOffset) {
+		if isBlank(r) || r == utf8.RuneError {
+			curr += skip(str[curr:], isBlank)
+			if z := ws.Len(); z == n || (z > n && z-n < DefaultThreshold) {
 				break
-			} else if curr > n && curr-n > DefaultOffset {
+			} else if z > n && z-n > DefaultThreshold {
 				curr = prev
 				break
 			}
@@ -140,7 +137,11 @@ func advance(str string, n int) (string, int) {
 		}
 		ws.WriteRune(r)
 	}
-	return ws.String(), curr
+	str = ws.String()
+	if z := len(str); z > curr {
+		str = str[:curr]
+	}
+	return str, curr
 }
 
 func skip(str string, fn func(rune) bool) int {
