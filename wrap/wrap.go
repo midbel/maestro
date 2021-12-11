@@ -142,8 +142,9 @@ func advance(str string, n int) (string, int) {
 			}
 			prev = curr
 		}
-		// if r != utf8.RuneError {
-		// }
+		if r == utf8.RuneError {
+			break
+		}
 		ws.WriteRune(r)
 	}
 	str = ws.String()

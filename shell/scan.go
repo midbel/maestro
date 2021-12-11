@@ -410,6 +410,9 @@ func (s *Scanner) scanSequence(tok *Token) {
 	switch k := s.peek(); {
 	case s.char == semicolon:
 		tok.Type = List
+	case s.char == nl:
+		tok.Type = List
+		s.skipNL()
 	case s.char == ampersand && k == s.char:
 		tok.Type = And
 		s.read()
@@ -617,6 +620,12 @@ func (s *Scanner) done() bool {
 	return s.char == zero || s.char == utf8.RuneError
 }
 
+func (s *Scanner) skipNL() {
+	for isNL(s.char) {
+		s.read()
+	}
+}
+
 func (s *Scanner) skipBlank() {
 	for isBlank(s.char) {
 		s.read()
@@ -705,7 +714,7 @@ func isOperator(r rune) bool {
 }
 
 func isSequence(r rune) bool {
-	return r == ampersand || r == pipe || r == semicolon || r == rparen
+	return r == ampersand || r == pipe || r == semicolon || r == rparen || r == nl
 }
 
 func isAssign(r rune) bool {

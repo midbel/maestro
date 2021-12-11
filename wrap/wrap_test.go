@@ -26,7 +26,7 @@ func TestShorten(t *testing.T) {
 		},
 		{
 			Input: "the quick brown fox jumps over the lazy dog",
-			Want: "the quick brown fox jumps over the lazy dog",
+			Want:  "the quick brown fox jumps over the lazy dog",
 			Len:   100,
 		},
 	}

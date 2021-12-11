@@ -118,6 +118,10 @@ var list = []struct {
 		Input: `echo $((1+1; 2**2))`,
 		Len:   1,
 	},
+	{
+		Input: "echo foo\necho bar",
+		Len:   2,
+	},
 }
 
 func TestParse(t *testing.T) {
