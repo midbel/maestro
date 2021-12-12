@@ -8,28 +8,28 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 #### meta
 
-* .AUTHOR: author of the maestro file
-* .EMAIL: e-mail of the author of the maestro file
-* .VERSION; current version of the maestro file
-* .USAGE; short help message of the maestro file
-* .HELP; longer description of the maestro file and description of its commands/usage
-* .DUPLICATE; behaviour of maestro when it encounters a command with a name already registered. The possible values are:
-   - error: throw an error if a command with the same name is already registered
-   - replace: replace the previous definition of a command by the new one
-   - append:  make the two commands as one
-* .TRACE: enable/disabled tracing information
-* .WORKDIR: set the working directory of maestro to the given path
-* .ALL: list of commands that will be executed when calling `maestro all`
-* .DEFAULT: name of the command that will be executed when calling `maestro` without argument or by calling `maestro default`
-* .BEFORE: list of commands that will always be executed before the called command and its dependencies
-* .AFTER: list of commands that will always be executed after the called command has finished whatever its exit status
-* .ERROR: list of commands that will be executed after the called command has finished and its exit status is non zero (failure)
+* `.AUTHOR`: author of the maestro file
+* `.EMAIL`: e-mail of the author of the maestro file
+* `.VERSION`: current version of the maestro file
+* `.USAGE`: short help message of the maestro file
+* `.HELP`: longer description of the maestro file and description of its commands/usage
+* `.DUPLICATE`: behaviour of maestro when it encounters a command with a name already registered. The possible values are:
+  - error: throw an error if a command with the same name is already registered
+  - replace: replace the previous definition of a command by the new one
+  - append:  make the two commands as one
+* `.TRACE`: enable/disabled tracing information
+* `.WORKDIR`: set the working directory of maestro to the given path
+* `.ALL`: list of commands that will be executed when calling `maestro all`
+* `.DEFAULT`: name of the command that will be executed when calling `maestro` without argument or by calling `maestro default`
+* `.BEFORE`: list of commands that will always be executed before the called command and its dependencies
+* `.AFTER`: list of commands that will always be executed after the called command has finished whatever its exit status
+* `.ERROR`: list of commands that will be executed after the called command has finished and its exit status is non zero (failure)
 * SUCCESS: list of commands that will be executed after the called command has finished and its exit status is zero (success)
-* .SSH_USER: username to use when executing command to remote server(s) via SSH
-* .SSH_PASSWORD: password to use when executing command to remote server(s) via SSH
-* .SSH_PARALLEL: number of instance of a command that will be executed simultaneously
-* .SSH_PUBKEY: public key file to use when executing command to remote server(s) via SSH
-* .SSH_KNOWN_HOSTS: known_hosts file to use to validate remote server(s) key
+* `.SSH_USER`: username to use when executing command to remote server(s) via SSH
+* `.SSH_PASSWORD`: password to use when executing command to remote server(s) via SSH
+* `.SSH_PARALLEL`: number of instance of a command that will be executed simultaneously
+* `.SSH_PUBKEY`: public key file to use when executing command to remote server(s) via SSH
+* `.SSH_KNOWN_HOSTS`: known_hosts file to use to validate remote server(s) key
 
 #### variables
 
@@ -59,21 +59,36 @@ general syntax:
 
 ##### command properties
 
-* short: short description of a command
-* help: longer description of a command.
-* tag:  list of tags to help categorize a command in comparison with other
-* alias: list of alternative name of a command
-* workdir: set working directory for the command
-* retry: number of attempts to run a command
-* timeout: maximum time given to a command in order to fully complete
-* error: behavior of maestro when the command encounters an error
-* user: list of users allowed to run a command
-* group: list of groups allowed to run a command
-* options: list of objects that describes the options accepted by a command
-* args: list of names that describes the arguments required by a command
-* hosts: list of remote servers where a command can be executed
+* `short`: short description of a command
+* `help`: longer description of a command.
+* `tag`:  list of tags to help categorize a command in comparison with other
+* `alias`: list of alternative name of a command
+* `workdir`: set working directory for the command
+* `retry`: number of attempts to run a command
+* `timeout`: maximum time given to a command in order to fully complete
+* `error`: behavior of maestro when the command encounters an error. The possible values are:
+  - silent: ignore all error
+  - error: return the first error encounters
+* `user`: list of users allowed to run a command
+* `group`: list of groups allowed to run a command
+* `options`: list of list that describes the options accepted by a command
+* `args`: list of names that describes the arguments required by a command
+* `hosts`: list of remote servers where a command can be executed. The expected syntax is host:port
 
 ##### command options and arguments
+
+maestro allows to define the options and/or arguments that a command can accept. In the properties section of a command, there is only needs to specify the `options` and/or the `args` properties.
+
+The options property accept a list of list with the following property:
+
+* `short`: short option
+* `long`: long option
+* `desc`: description of the option
+* `flag`: wheter the option is a flag or is expecting a value
+* `required`: wheter a value should be provided
+* `default`: default value to use if the option is not set
+
+For the args property, only a list of name is needed. The command when executed will expect that the number of arguments given matched the number of arguments given in the list. If the `args` property is not defined then any given arguments will be given to the command without checking its number.
 
 ##### command dependencies
 
@@ -83,7 +98,51 @@ general syntax:
 
 ###### modifiers
 
-###### macros
+a script modifier is a way to attach specific behaviour to the script when it is executed or after it has finished:
+
+* `-`: ignore errors if script ends with a non-zero exit code
+* `!`: reverse the exit code of a command. If the exit code is zero then a non zero value is returned
+* `@`: print on stdout the command being executed
+* `<`: copy the full script of a command defined elsewhere in the maestro file
+
+multiple operators can be used simultaneously. except for the copy modifier that can only be used alone
+
+examples:
+
+```
+!-echo foobar
+@echo foobar
+<copy
+```
+
+###### repeat macro
+
+```
+.repeat(foo bar) {
+  echo <iter> <var>
+}
+```
+will be transform by maestro into
+```
+echo 1 foo
+echo 2 bar
+```
+
+###### sequence macro
+
+the sequence macro can be used to transformed a multiline sequence of a command as a single command made of a list of command.
+
+eg:
+```
+.sequence {
+  echo foo
+  echo bar
+}
+```
+will be transformed into:
+```
+echo foo; echo bar;
+```
 
 #### example
 
@@ -114,3 +173,7 @@ test(
 ```
 
 ### maestro shell
+
+### local command execution
+
+### remote command execution

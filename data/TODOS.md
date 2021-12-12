@@ -42,6 +42,13 @@
   - date: 2021-12-02
   - author: midbel
 
+* command(feature): extend the command options by providing a way to validate the given value
+  add a type and/or a validate property to the list of properties supported by the options properties.
+  moreover, provides a list of "predefined" function to validate the function (eg: isFile, isDir,...)
+  - date: 2021-12-12
+  - version: 0.2.0
+  - author: midbel
+
 # BUGS
 
 * <maestro(feature,command): cancel command execution
@@ -70,9 +77,13 @@
   errors returned by these commands are ignored and execution can continue
   syntax: !dep-name
 
-* ?maestro(command,decoder,execute): conditionally executing dependendies and/or commands
+* maestro(command,decoder,execute): conditionally executing dependendies and/or commands
+  - version: 0.2.0
+  - author: midbel
 
-* ?maestro(decoder,environment): predefined functions to "transform" value(s)
+* maestro(decoder,environment): predefined functions to "transform" value(s)
+  - version: 0.2.0
+  - author: midbel
 
 * <maestro(macro): expand operator in repeat macro
   variable to be considered as a list of values
