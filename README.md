@@ -17,8 +17,8 @@ maestro helps to organize all the tasks and/or commands that need to be performe
    - error: throw an error if a command with the same name is already registered
    - replace: replace the previous definition of a command by the new one
    - append:  make the two commands as one
-* .TRACE:
-* .WORKDIR:
+* .TRACE: enable/disabled tracing information
+* .WORKDIR: set the working directory of maestro to the given path
 * .ALL: list of commands that will be executed when calling `maestro all`
 * .DEFAULT: name of the command that will be executed when calling `maestro` without argument or by calling `maestro default`
 * .BEFORE: list of commands that will always be executed before the called command and its dependencies
