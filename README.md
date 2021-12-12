@@ -6,6 +6,25 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 #### comment
 
+a hash symbol marks the rest of the line as a comment (except when inside of a string).
+
+```
+# a comment
+ident = value # another comment
+```
+
+inside command scripts, comments are written in the same way as elsewhere in the document.
+
+#### variables
+
+```
+mode = dev # single value variable
+package = shell shlex wrap # multi values variable
+bindir = $bin # set value of variable bin to bindir
+
+expansion = $(echo foo bar)
+```
+
 #### meta
 
 * `.AUTHOR`: author of the maestro file
@@ -30,8 +49,6 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 * `.SSH_PARALLEL`: number of instance of a command that will be executed simultaneously
 * `.SSH_PUBKEY`: public key file to use when executing command to remote server(s) via SSH
 * `.SSH_KNOWN_HOSTS`: known_hosts file to use to validate remote server(s) key
-
-#### variables
 
 #### instructions
 
@@ -79,7 +96,7 @@ general syntax:
 
 maestro allows to define the options and/or arguments that a command can accept. In the properties section of a command, there is only needs to specify the `options` and/or the `args` properties.
 
-The options property accept a list of list with the following property:
+The `options` property accept a list of list with the following property:
 
 * `short`: short option
 * `long`: long option
@@ -88,7 +105,26 @@ The options property accept a list of list with the following property:
 * `required`: wheter a value should be provided
 * `default`: default value to use if the option is not set
 
-For the args property, only a list of name is needed. The command when executed will expect that the number of arguments given matched the number of arguments given in the list. If the `args` property is not defined then any given arguments will be given to the command without checking its number.
+For the `args` property, only a list of name is needed. The command when executed will expect that the number of arguments given matched the number of arguments given in the list. If the `args` property is not defined then any given arguments will be given to the command without checking its number.
+
+example
+```
+action(
+	short   = "sample action", # inline comment
+	tag     = example,
+	options = (
+		short    = "a",
+		long     = "all",
+		flag     = true,
+	), (
+		short    = "b",
+		long     = "bind",
+    required = true,
+	)
+): {
+	script...
+}
+```
 
 ##### command dependencies
 
