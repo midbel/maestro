@@ -1,5 +1,7 @@
 # maestro
 
+maestro helps to organize all the tasks and/or commands that need to be performed regularly in a project whatever its nature. It could be the development of a program, administration of a single server or a set of virtual machines,...
+
 ### maestro file
 
 #### comment

@@ -108,7 +108,7 @@ func (m *Maestro) Dry(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	m.Trace(cmd, args)
+	m.TraceCommand(cmd, args)
 	return cmd.Dry(args)
 }
 
@@ -481,7 +481,7 @@ type MetaExec struct {
 	Dry     bool
 	Ignore  bool
 
-	Echo bool
+	Trace bool
 
 	All     []string
 	Default string
@@ -504,12 +504,12 @@ func (m MetaExec) TraceTime(cmd Command, args []string, run func() error) error 
 	return err
 }
 
-func (m MetaExec) Trace(cmd Command, args []string) {
+func (m MetaExec) TraceCommand(cmd Command, args []string) {
 	m.traceStart(cmd, args)
 }
 
 func (m MetaExec) traceEnd(cmd Command, err error, elapsed time.Duration) {
-	if !m.Echo {
+	if !m.Trace {
 		return
 	}
 	if err != nil {
@@ -521,7 +521,7 @@ func (m MetaExec) traceEnd(cmd Command, err error, elapsed time.Duration) {
 }
 
 func (m MetaExec) traceStart(cmd Command, args []string) {
-	if !m.Echo {
+	if !m.Trace {
 		return
 	}
 	fmt.Printf("[maestro] %s", cmd.Command())
