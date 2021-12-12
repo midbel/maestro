@@ -8,15 +8,18 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 #### meta
 
-* AUTHOR;
-* EMAIL;
-* VERSION;
-* USAGE;
-* HELP;
+* AUTHOR:  author of the maestro file
+* EMAIL:   e-mail of the author of the maestro file
+* VERSION; current version of the maestro file
+* USAGE;   short help message of the maestro file
+* HELP;    longer description of the maestro file and description of its commands/usage
 
-* DUPLICATE;
+* DUPLICATE; behaviour of maestro when it encounters a command with a name already registered. The possible values are:
+   - error: throw an error if a command with the same name is already registered
+   - replace: replace the previous definition of a command by the new one
+   - append:  make the two commands as one
 
-* ECHO:
+* TRACE:
 * WORKDIR:
 
 * ALL:
