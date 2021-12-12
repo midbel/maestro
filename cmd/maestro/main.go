@@ -38,14 +38,15 @@ version: print the version of the maestro file defined via the meta .VERSION
 
 Options:
 
-  -d, --dry                 only print commands that will be executed
-  -f FILE, --file FILE      read FILE as a maestro file
-  -i, --ignore              ignore all errors from command
-  -I DIR, --includes DIR    search DIR for included maestro files
-  -k, --skip-dep            don't execute command's dependencies
-  -r, --remote              execute commands on remote server
-  -t, --trace               add tracing information with command execution
-  -v, --version             print maestro version and exit
+  -d, --dry                               only print commands that will be executed
+  -D NAME[=VALUE], --define NAME[=VALUE]  define NAME with optional value
+  -f FILE, --file FILE                    read FILE as a maestro file
+  -i, --ignore                            ignore all errors from command
+  -I DIR, --includes DIR                  search DIR for included maestro files
+  -k, --skip-dep                          don't execute command's dependencies
+  -r, --remote                            execute commands on remote server
+  -t, --trace                             add tracing information with command execution
+  -v, --version                           print maestro version and exit
 `
 
 func main() {
@@ -71,6 +72,7 @@ func main() {
 		{Short: "r", Long: "remote", Desc: "execute command on remote server(s)", Ptr: &mst.Remote},
 		{Short: "t", Long: "trace", Desc: "add tracing information command execution", Ptr: &mst.MetaExec.Trace},
 		{Short: "v", Long: "version", Desc: "print maestro version and exit", Ptr: &version},
+		{Short: "D", Long: "define", Desc: "set variables", Ptr: &mst.Locals},
 	}
 
 	parseArgs(options)

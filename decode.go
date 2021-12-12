@@ -87,8 +87,15 @@ func Decode(r io.Reader) (*Maestro, error) {
 }
 
 func NewDecoder(r io.Reader) (*Decoder, error) {
+	return NewDecoderWithEnv(r, EmptyEnv())
+}
+
+func NewDecoderWithEnv(r io.Reader, env *Env) (*Decoder, error) {
+	if env == nil {
+		env = EmptyEnv()
+	}
 	d := Decoder{
-		locals: EmptyEnv(),
+		locals: env,
 		env:    make(map[string]string),
 	}
 	if err := d.push(r); err != nil {

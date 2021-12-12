@@ -1,5 +1,10 @@
 package maestro
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Env struct {
 	parent *Env
 	locals map[string][]string
@@ -14,6 +19,23 @@ func EnclosedEnv(parent *Env) *Env {
 		parent: parent,
 		locals: make(map[string][]string),
 	}
+}
+
+func (e *Env) Set(str string) error {
+	if len(str) == 0 {
+		return fmt.Errorf("no ident provided")
+	}
+	x := strings.Index(str, "=")
+	if x < 0 {
+		e.Define(str, nil)
+	} else {
+		e.Define(str[:x], []string{str[x+1:]})
+	}
+	return nil
+}
+
+func (e *Env) String() string {
+	return "locals"
 }
 
 func (e *Env) Define(key string, vs []string) error {

@@ -52,6 +52,7 @@ type Maestro struct {
 	MetaHttp
 
 	Includes  Dirs
+	Locals *Env
 	Duplicate string
 	Commands  map[string]Command
 	Alias     map[string]string
@@ -69,6 +70,7 @@ func New() *Maestro {
 		Addr: DefaultHttpAddr,
 	}
 	return &Maestro{
+		Locals: EmptyEnv(),
 		MetaAbout: about,
 		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
@@ -84,7 +86,7 @@ func (m *Maestro) Load(file string) error {
 	}
 	defer r.Close()
 
-	d, err := NewDecoder(r)
+	d, err := NewDecoderWithEnv(r, m.Locals)
 	if err != nil {
 		return err
 	}
