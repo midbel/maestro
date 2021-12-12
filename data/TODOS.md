@@ -49,6 +49,21 @@
   - version: 0.2.0
   - author: midbel
 
+* maestro(decode, feature): add supports for variable expansion inside literal and literal string
+  - date: 2021-12-12
+  - version: 0.2.0
+  - author: midbel
+
+* maestro(decode, feature): improve error message when syntax error is found while decoding input file
+  - date: 2021-12-12
+  - version: 0.2.0
+  - author: midbel
+
+* maestro(decode, feature): fix comma at end of line when using multine list of properties
+  - date: 2021-12-12
+  - version: 0.1.1
+  - author: midbel
+
 # BUGS
 
 * <maestro(feature,command): cancel command execution
