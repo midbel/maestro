@@ -27,6 +27,7 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 * SUCCESS: list of commands that will be executed after the called command has finished and its exit status is zero (success)
 * .SSH_USER: username to use when executing command to remote server(s) via SSH
 * .SSH_PASSWORD: password to use when executing command to remote server(s) via SSH
+* .SSH_PARALLEL: number of instance of a command that will be executed simultaneously
 * .SSH_PUBKEY: public key file to use when executing command to remote server(s) via SSH
 * .SSH_KNOWN_HOSTS: known_hosts file to use to validate remote server(s) key
 
@@ -41,6 +42,13 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 #### Command
 
+Commands are at the heart of maestro. They are composed of four parts:
+
+* the command name that serve as uniquely identify the command
+* properties are used by maestro to generate help of a command but they are also used by maestro to control the behaviour of the commands in case of errors, long running tasks,...
+* dependendies are a list of command's name that should be executed every time before a specific command is executed
+* the command script that are the actual code that will be run by maestro
+
 general syntax:
 
 ```
@@ -51,23 +59,19 @@ general syntax:
 
 ##### command properties
 
-* short:
-* help:
-* tag:
-* alias:
-
-* workdir:
-* retry:
-* timeout:
-* error:
-
-* user:
-* group:
-
-* options:
-* args:
-
-* hosts:
+* short: short description of a command
+* help: longer description of a command.
+* tag:  list of tags to help categorize a command in comparison with other
+* alias: list of alternative name of a command
+* workdir: set working directory for the command
+* retry: number of attempts to run a command
+* timeout: maximum time given to a command in order to fully complete
+* error: behavior of maestro when the command encounters an error
+* user: list of users allowed to run a command
+* group: list of groups allowed to run a command
+* options: list of objects that describes the options accepted by a command
+* args: list of names that describes the arguments required by a command
+* hosts: list of remote servers where a command can be executed
 
 ##### command options and arguments
 
@@ -77,9 +81,13 @@ general syntax:
 
 ##### command script
 
+###### modifiers
+
+###### macros
+
 #### example
 
-```
+```makefile
 .VERSION = "0.1.0"
 .DEFAULT = test
 .ALL     = test

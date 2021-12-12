@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 var ErrDuplicate = errors.New("command already registered")
@@ -240,24 +241,41 @@ func (m *Maestro) executeRemote(cmd Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+		<-sig
+		cancel()
+	}()
+	if m.MetaSSH.Parallel <= 0 {
+		n := len(cmd.Targets())
+		m.MetaSSH.Parallel = int64(n)
+	}
 	var (
-		grp  errgroup.Group
-		seen = make(map[string]struct{})
+		grp, sub = errgroup.WithContext(ctx)
+		sema     = semaphore.NewWeighted(m.MetaSSH.Parallel)
+		seen     = make(map[string]struct{})
 	)
 	for _, h := range cmd.Targets() {
 		if _, ok := seen[h]; ok {
 			continue
 		}
 		seen[h] = struct{}{}
+		if err := sema.Acquire(ctx, 1); err != nil {
+			return err
+		}
 		host := h
 		grp.Go(func() error {
-			return m.executeHost(cmd, host, scripts)
+			defer sema.Release(1)
+			return m.executeHost(sub, cmd, host, scripts)
 		})
 	}
+	sema.Acquire(ctx, m.MetaSSH.Parallel)
 	return grp.Wait()
 }
 
-func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error {
+func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scripts []string) error {
 	var (
 		pout, _ = createPipe()
 		perr, _ = createPipe()
@@ -268,7 +286,6 @@ func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error 
 		perr.Close()
 	}()
 	exec := func(sess *ssh.Session, line string) error {
-
 		cmd.SetOut(pout.W)
 		cmd.SetErr(perr.W)
 
@@ -296,6 +313,11 @@ func (m *Maestro) executeHost(cmd Command, addr string, scripts []string) error 
 	}
 	defer client.Close()
 	for i := range scripts {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		sess, err := client.NewSession()
 		if err != nil {
 			return err
@@ -541,10 +563,11 @@ type MetaAbout struct {
 }
 
 type MetaSSH struct {
-	User  string
-	Pass  string
-	Key   ssh.Signer
-	Hosts []hostEntry
+	Parallel int64
+	User     string
+	Pass     string
+	Key      ssh.Signer
+	Hosts    []hostEntry
 }
 
 func (m MetaSSH) AuthMethod() []ssh.AuthMethod {

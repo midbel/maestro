@@ -36,6 +36,7 @@ const (
 	metaPass       = "SSH_PASSWORD"
 	metaPubKey     = "SSH_PUBKEY"
 	metaKnownHosts = "SSH_KNOWN_HOSTS"
+	metaParallel   = "SSH_PARALLEL"
 	metaCertFile   = "HTTP_CERT_FILE"
 	metaKeyFile    = "HTTP_CERT_KEY"
 	metaHttpGet    = "HTTP_GET"
@@ -817,6 +818,8 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		mst.MetaSSH.Key, err = d.parseSignerSSH()
 	case metaKnownHosts:
 		mst.MetaSSH.Hosts, err = d.parseKnownHosts()
+	case metaParallel:
+		mst.MetaSSH.Parallel, err = d.parseInt()
 	case metaCertFile:
 		mst.MetaHttp.CertFile, err = d.parseString()
 	case metaKeyFile:
