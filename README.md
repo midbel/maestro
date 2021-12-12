@@ -15,6 +15,40 @@ ident = value # another comment
 
 inside command scripts, comments are written in the same way as elsewhere in the document.
 
+#### basic types
+
+maestro supports only three different primitive types:
+
+* `literal`: a literal is a sequence of characters that start with a letter and then contains only letters (lower/uppercase), digits and/or underscore.
+* `string`: a string is a sequence of characters that starts with a single or a double quote and ends with the same opening quote. There are no differences in the way characters inside the string are process regarding of the delimiting quotes.
+* `boolean`: they are just the commons values we are used - true or false (always lowercase).
+
+However, in some circumstances, maestro expects that values written as literal and/or string can be casted to integer values and/or duration values.
+
+There is also a special case for boolean values. Indeed, depending of the context a boolean value will be considered as boolean but in some other case, the value of the boolean will be treated as a literal value.
+
+Finally, maestro supports also multiline strings by using a syntax identical to the one of heredoc string of `bash`
+
+some examples:
+```
+boolean = true
+ident   = literal
+single_quote = 'the quick brown fox jumps over the lazy dog'  
+double_quote = "the quick brown fox jumps over the lazy dog"
+heredoc = <<HELP
+the quick brown fox
+jumps over
+the lazy dog!
+HELP
+```
+
+maestro supports also a list of strings type (kind of array of string). To declare it, just provide a sequence of values separated by blank character (space or tab)
+
+example:
+```
+list = first second third
+```
+
 #### variables
 
 ```
