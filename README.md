@@ -8,31 +8,27 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 #### meta
 
-* AUTHOR:  author of the maestro file
-* EMAIL:   e-mail of the author of the maestro file
-* VERSION; current version of the maestro file
-* USAGE;   short help message of the maestro file
-* HELP;    longer description of the maestro file and description of its commands/usage
-
-* DUPLICATE; behaviour of maestro when it encounters a command with a name already registered. The possible values are:
+* .AUTHOR: author of the maestro file
+* .EMAIL: e-mail of the author of the maestro file
+* .VERSION; current version of the maestro file
+* .USAGE; short help message of the maestro file
+* .HELP; longer description of the maestro file and description of its commands/usage
+* .DUPLICATE; behaviour of maestro when it encounters a command with a name already registered. The possible values are:
    - error: throw an error if a command with the same name is already registered
    - replace: replace the previous definition of a command by the new one
    - append:  make the two commands as one
-
-* TRACE:
-* WORKDIR:
-
-* ALL:
-* DEFAULT:
-* BEFORE:
-* AFTER:
-* ERROR:
-* SUCCESS:
-
-* SSH_USER:
-* SSH_PASSWORD:
-* SSH_PUBKEY:
-* SSH_KNOWN_HOSTS:
+* .TRACE:
+* .WORKDIR:
+* .ALL: list of commands that will be executed when calling `maestro all`
+* .DEFAULT: name of the command that will be executed when calling `maestro` without argument or by calling `maestro default`
+* .BEFORE: list of commands that will always be executed before the called command and its dependencies
+* .AFTER: list of commands that will always be executed after the called command has finished whatever its exit status
+* .ERROR: list of commands that will be executed after the called command has finished and its exit status is non zero (failure)
+* SUCCESS: list of commands that will be executed after the called command has finished and its exit status is zero (success)
+* .SSH_USER: username to use when executing command to remote server(s) via SSH
+* .SSH_PASSWORD: password to use when executing command to remote server(s) via SSH
+* .SSH_PUBKEY: public key file to use when executing command to remote server(s) via SSH
+* .SSH_KNOWN_HOSTS: known_hosts file to use to validate remote server(s) key
 
 #### variables
 
