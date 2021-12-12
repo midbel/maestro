@@ -133,7 +133,7 @@ func (s *Scanner) Scan() Token {
 	return tok
 }
 
-func (s *Scanner) scanOperator(tok *Token) {
+func (s *Scanner) scanModifier(tok *Token) {
 	switch s.char {
 	case dot:
 		s.read()
@@ -171,11 +171,11 @@ func (s *Scanner) scanScript(tok *Token) {
 	switch {
 	default:
 		ok = !ok
-	case isOperator(s.char):
+	case isModifier(s.char):
 		if ok = s.char == dot && !isLetter(s.peek()); ok {
 			break
 		}
-		s.scanOperator(tok)
+		s.scanModifier(tok)
 	case isComment(s.char):
 		s.scanComment(tok)
 	}
@@ -482,7 +482,7 @@ func isDelimiter(b rune) bool {
 		b == question || b == percent || b == plus
 }
 
-func isOperator(b rune) bool {
+func isModifier(b rune) bool {
 	switch b {
 	case bang, minus, arobase, langle, tilde, dot, plus:
 		return true
