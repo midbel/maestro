@@ -21,7 +21,7 @@ maestro supports only three different primitive types:
 
 * `literal`: a literal is a sequence of characters that start with a letter and then contains only letters (lower/uppercase), digits and/or underscore.
 * `string`: a string is a sequence of characters that starts with a single or a double quote and ends with the same opening quote. There are no differences in the way characters inside the string are process regarding of the delimiting quotes.
-* `boolean`: they are just the commons values we are used - true or false (always lowercase).
+* `boolean`: they are just the commons values we are used to - `true` or `false` (always lowercase).
 
 However, in some circumstances, maestro expects that values written as literal and/or string can be casted to integer values and/or duration values.
 
@@ -87,9 +87,68 @@ expansion = $(echo foo bar)
 #### instructions
 
 ##### include
+
+the `include` instruction allows to "include" the command of other files into the set of the current one.
+
+the syntax to include file(s) is:
+```
+include "path/to/file.mf"[?]
+# or if multiple files should be included:
+include (
+  "path/to/file1.mf"[?]
+  ...
+  "path/to/file1N.mf"[?]
+)
+```
+
+the question mark modifier at the end of the filename specifies that the include is optional. In other words, if the given file can not be found, no error will be returned and the processing of the maestro file will continue.
+
+Moreover, the files will be searched relative to the paths given with -I option of the maestro command. If the file can be found, then the file will be searched relatived to the current working directory or the directory set via the `.WORKDIR` meta.
+
+There is an additional feature regarding included file that can be a little bit counter intuitive.
+
+When maestro includes a file, it creates a new state from its local state before starting decoding the included files. All variables defined into the included files will be stored into this children state and as soon as maestro gets back to the original file, this sub state is discarded and references to variables of the included files are removed.
+
+That means that variables defined in a file that should be included by maestro are  only visible to the commands defined into the included file and can not be resolved by variables and/or commands defined into the "parent" file.
+
 ##### export
+
+the `export` instruction register variables as environment variables that will be given to each command that will be executed in command scripts
+
+the syntax to `export` variable is:
+```
+export IDENT=VALUE0 ... VALUEN
+# or
+export (
+  IDENT = VALUE
+  ...
+  IDENT = VALUE
+)
+```
+
 ##### alias
+
+the `alias` instruction has the same role as defining an alias within a shell.
+
+the syntax of `alias` declaration is:
+```
+alias ident = command
+# or
+alias (
+  ident = command
+  ...
+  ident = command
+)
+```
+
 ##### delete
+
+the `delete` instruction can be used to delete from the locals state of maestro variable previously defined
+
+the syntax of `delete` declaration is:
+```
+delete ident0 ... identN
+```
 
 #### Command
 
@@ -162,9 +221,55 @@ action(
 
 ##### command dependencies
 
+for each command defined in the maestro file, it is possible to give a list of command dependencies - command that should be executed before the actual command get executed. Moreover, if one of the command dependencies failed, the command called will not be executed. A dependency is another command defined in the maestro file or one of the include file(s).
+
+the syntax to specify a dependency is:
+```
+[!]depname[(arguments...)][&]
+```
+
+where
+
+* `!`: specify that the dependency is optional and any errors returned by it will be ignored
+* `depname`: is the name of the command
+* `arguments`: a list of arguments (mix of options + their values and arguments) that should be given to the command
+* [&]: wheter the command can be run into the background and its results does not impact the result of successfull command in the list. If the command runs in background returns an error, the rest of the dependency list and the actual command won't be executed
+
 ##### command help
 
+even if there is already a `desc` property to command in order to specify the help of a command. It can be tedious to write a multiline string in the properties declaration of a command. Of course, we can use a variable and assign a heredoc string and then assign the variable to the `desc` property.
+
+However, it exists a last way to do it. This ways is inspired by python docstring. To specify the help of a command, you can use comment at the very beginning of the command scripts to generate the command help.
+
+example
+```
+action(properties...): dependencies...{
+  # this is a sample action.
+  # the first comments in the command script will be used as the description
+  # of the command
+  #
+  # blank lines will be kept in the final formatting. However, multiple blank lines
+  # will be merge as one blank line
+  script...
+}
+```
+
 ##### command script
+
+the script is at the heart of a command. it is as the name suggest the actual script that maestro should execute in order to accomplish the task.
+
+a script for maestro is a succession of line. Each line can be composed of two things: the script modifier (which are describes below) and the actual commands to be executed.
+
+maestro support also the use of predefined macros in script (see below for more information). Macros are the way for maestro to modify a script. Transformations of macro are applied to the command scripts before the command gets executed.
+
+general syntax:
+```
+[modifier]command [option] <arguments> [\]
+```
+
+if a line is too long, a backslash follow by a new line character at the end of the line forces maestro to read the next line as part of the current line.
+
+maestro executes each line of a script individually and applies if specified the modifiers to command to be executed. If a line returns an error, then maestro ends the execution of the script and exit with a non-zero exit code.
 
 ###### modifiers
 
@@ -242,8 +347,38 @@ test(
 }
 ```
 
-### maestro shell
-
 ### local command execution
 
 ### remote command execution
+
+### maestro shell
+
+in order to execute all the command and their scripts, maestro does not called an external shell such as bash or zsh... Indeed, maestro uses its own shell with its own rules, set of builtins and the rest...
+
+This section will describes the supported features of the maestro shell. This shell is also available as a separated binary called tish (tiny shell).
+
+#### general syntax
+
+#### shell expansions
+
+##### variables
+
+##### parameters expansions
+
+##### braces expansions
+
+##### arithmetic expansions
+
+##### command subsitutions
+
+#### shell commands
+
+##### simple commands
+
+##### list of commands
+
+##### pipelines
+
+##### loop constructs
+
+##### conditional constructs
