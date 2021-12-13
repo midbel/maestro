@@ -61,6 +61,8 @@ expansion = $(echo foo bar)
 
 #### meta
 
+meta are a special kind of variables that are used by maestro in order to generate the help of the input file, specify options for SSH execution, list of commands to be executed (default, all commands, before, after),...
+
 * `.AUTHOR`: author of the maestro file
 * `.EMAIL`: e-mail of the author of the maestro file
 * `.VERSION`: current version of the maestro file
@@ -347,9 +349,7 @@ test(
 }
 ```
 
-### local command execution
-
-### remote command execution
+### command execution
 
 ### maestro shell
 
