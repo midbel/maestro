@@ -71,6 +71,21 @@
   - version: 0.2.0
   - author: midbel
 
+* shell(feature): add support for the case statement
+  - date: 2021-12-13
+  - version: 0.2.0
+  - author: midbel
+
+* shell(feature): add support for the test ([[ expr ]]) statement
+  - date: 2021-12-13
+  - version: 0.2.0
+  - author: midbel
+
+* shell(feature): add support for break and continue keyword in loop
+  - date: 2021-12-13
+  - version: 0.2.0
+  - author: midbel
+
 # BUGS
 
 * <maestro(feature,command): cancel command execution

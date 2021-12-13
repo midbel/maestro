@@ -305,6 +305,12 @@ echo 1 foo
 echo 2 bar
 ```
 
+the repeat macro has three special variables that will be replaced by their actual once the macro get executed:
+
+* `<var>`: the current identifier/variable being process
+* `<iter>`: the current iteration of the repeat macro with 1 based index
+* `<iter0>`: the current iteration of the repeat macro with 0 based index
+
 ###### sequence macro
 
 the sequence macro can be used to transformed a multiline sequence of a command as a single command made of a list of command.
@@ -359,6 +365,8 @@ This section will describes the supported features of the maestro shell. This sh
 
 #### general syntax
 
+Most of the syntax of the maestro shell (aka tish) is inspired by bash. However, in comparison of bash, all the rules have been overly simplify and the maestro shell does not follow systematically and formerly the same rules of bash and other well known shells. So if you're an experienced bash/shell programmer, you can/will be regularly surprised by the behaviour of the maestro shell.
+
 #### shell expansions
 
 ##### variables
@@ -381,4 +389,79 @@ This section will describes the supported features of the maestro shell. This sh
 
 ##### loop constructs
 
+tish supports three differents looping constructs:
+
+* the `for` loop
+* the `while` loop
+* the `until` loop
+
+in addition, the maestro shell foreseen an optional `else` clause for each loop when no iteration has been performed.
+
+the `for` loop iterates throught the list of expanded words given and then executes each commands in the body of loop. If the expansion of words returned an empty list then the `else` clause of the loop is executed.
+
+when the second form is used, the `for` loop will directly iterates of the results of expanded words from the output of the command. Again, if no words are expanded, then the `else` clause is executed.
+
+```bash
+for ident in words; do
+  commands;
+else
+  alternative-commands;
+done
+# or
+for command; do
+  commands;
+else
+  alternative-commands;
+done
+```
+
+the `while` loop will executes each commands in the body of the loop while the executed command returns a zero exit code. If the command returns directly a non zero exit code, then the `else` clause will be executed.
+
+```bash
+while command; do
+  commands
+else
+  alternative-commands;
+done
+```
+
+the `until` loop is the exact opposite of the `while` loop. The body of the loop will be executed while the command returns a non-zero exit code. If the command returns directly a zero exit code, then the `else` clause is executed
+
+```bash
+until command; do
+  commands
+else
+  alternative-commands;
+done
+```
+
 ##### conditional constructs
+
+the maestro shell currently only supports the `if`. Support for the `case` constructs is forseen for a later release.
+
+```bash
+if command; then
+  commands
+elif command; then
+  commands
+else
+  commands
+fi
+```
+
+##### redirections
+
+like traditional shell, the maestro shell supports commons redirections:
+
+```bash
+$ command < file # redirect file to stdin of command
+$ command > file # redirect stdout of command to file
+$ command >> file # redirect stdout of command and append to file
+$ command 2> file # redirect stderr of command to file
+$ command 2>> file # redirect stderr of command and append to file
+$ command &> file # redirect stdout and stderr of command to file
+$ command &>> file # redirect stdout and stderr of command and append to file
+```
+
+
+##### builtins
