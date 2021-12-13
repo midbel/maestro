@@ -4,6 +4,8 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 ### maestro file
 
+this section describes the syntax and features offered by a maestro file to write and organize your commands.
+
 #### comment
 
 a hash symbol marks the rest of the line as a comment (except when inside of a string).
@@ -363,11 +365,13 @@ in order to execute all the command and their scripts, maestro does not called a
 
 This section will describes the supported features of the maestro shell. This shell is also available as a separated binary called tish (tiny shell).
 
-#### general syntax
+#### syntax
 
 Most of the syntax of the maestro shell (aka tish) is inspired by bash. However, in comparison of bash, all the rules have been overly simplify and the maestro shell does not follow systematically and formerly the same rules of bash and other well known shells. So if you're an experienced bash/shell programmer, you can/will be regularly surprised by the behaviour of the maestro shell.
 
 #### shell expansions
+
+##### literals/words
 
 ##### variables
 
@@ -377,7 +381,9 @@ Most of the syntax of the maestro shell (aka tish) is inspired by bash. However,
 
 ##### arithmetic expansions
 
-##### command subsitutions
+##### command substitutions
+
+##### filename expansions
 
 #### shell commands
 
@@ -451,7 +457,7 @@ fi
 
 ##### redirections
 
-like traditional shell, the maestro shell supports commons redirections:
+like traditional shell, the maestro shell supports redirections. However it does not support all kind of redirections supported by well known shells.
 
 ```bash
 $ command < file # redirect file to stdin of command
@@ -463,5 +469,8 @@ $ command &> file # redirect stdout and stderr of command to file
 $ command &>> file # redirect stdout and stderr of command and append to file
 ```
 
+As an additional note, the order of how redirections are written is important. Indeed, if you try to redirect twice stdout/stderr/stdin to different files, only the latest declaration will be taken into account and the previous will be discarded.
+
+Last note, if using any kind of expansions (described above) the resulting expansion should only be expanded to one and only one word otherwise an error is returned.
 
 ##### builtins
