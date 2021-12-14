@@ -367,9 +367,19 @@ maestro use the term `shell` even if its shell does not implement a compliant sh
 
 This section will describes the supported features of the maestro shell. This shell is also available as a separated binary called tish (tiny shell).
 
-#### syntax
+#### general syntax
 
 Most of the syntax of the maestro shell (aka tish) is inspired by bash. However, in comparison of bash, all the rules have been overly simplify and the maestro shell does not follow systematically and formerly the same rules of bash and other well known shells. So if you're an experienced bash/shell programmer, you can/will be regularly surprised by the behaviour of the maestro shell.
+
+the maestro shell split command lines on blank characters. Blank characters are: a space, a tab and a newline. When multiple blank characters follow each other, they are considered as one.
+
+##### quoting
+
+As traditional shells, the maestro shell has special behaviours when it encounters quotes and adapts more or less the same behaviour: disabling meaning of special character.
+
+enclosing string between single quote character keeps the literal value of each character between the quotes.
+
+enclosing string between double quote only keeps the special meaning of the dollar sign $ (variables, parameters expansion, command substitution and arithmetic expansion) and preserves the literal value of all others characters.
 
 #### shell expansions
 
