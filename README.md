@@ -367,6 +367,8 @@ maestro use the term `shell` even if its shell does not implement a compliant sh
 
 This section will describes the supported features of the maestro shell. This shell is also available as a separated binary called tish (tiny shell).
 
+To get a complete overview of the shell syntax, you can read the manual of one of the well known shell
+
 #### general syntax
 
 Most of the syntax of the maestro shell (aka tish) is inspired by bash. However, in comparison of bash, all the rules have been overly simplify and the maestro shell does not follow systematically and formerly the same rules of bash and other well known shells. So if you're an experienced bash/shell programmer, you can/will be regularly surprised by the behaviour of the maestro shell.
@@ -383,25 +385,96 @@ enclosing string between double quote only keeps the special meaning of the doll
 
 #### shell expansions
 
+the maestro shell supports 7 kind of expansions described below. It performs expansion in the order they appear in the command - from left to right. It is very different than the way traditional shells perform expansion.
+
 ##### literals/words
+
+when literal word are encountered, they are kept as is by the maestro shell except if special character are present in the literal (`*.[`). If such characters appear in the string then maestro shell will performed filename expansion at the very end if the literal is not quoted.
 
 ##### variables
 
+as any other shells and programming language, the maestro shell supports the definition and usage of variables. Variables are identifier where you can store value to be used later in your script.
+
+A variable starts with a dollar character and its name. Its name can only be composed of underscore, digits and ascii letters (lowercase and uppercase).
+
+example:
+```bash
+echo $VAR
+```
+
+to assign a value to a variable, uses the following syntax:
+
+```bash
+VAR = foobar
+```
+
 ##### parameters expansions
 
+parameters expansions can take multiple form:
+
+* length
+* replace prefix/suffix/substring/all
+* slicing
+* trim prefix/suffix
+* padding
+* lowercase and uppercase
+
+example:
+```bash
+$ ${#VAR} # length
+$ ${VAR:offset:length} # slicing offset+length
+$ ${VAR/from/to} # replace the first instance of from by to
+$ ${VAR//from/to} # replace all instances of from by to
+$ ${VAR/%from/to} # replace suffix instance of from by to
+$ ${VAR/#from/to} # replace prefix instance of from by to
+$ ${VAR%suffix} # trim suffix
+$ ${VAR%%suffix} # trim longest suffix
+$ ${VAR#prefix} # trim prefix
+$ ${VAR##prefix} # trim longest prefix
+$ ${VAR,} # set the first character of VAR to lowercase
+$ ${VAR,,} # set all characters of VAR to lowercase
+$ ${VAR^} # set the first character of VAR to uppercase
+$ ${VAR^^} # set all characters of VAR to uppercase
+$ ${VAR:<length:char} # pad left VAR with length char
+$ ${VAR:>length:char} # pad right VAR with length char
+```
+
 ##### braces expansions
+
+braces expansions is a sequence introduces by the `{}` operator and can take two forms:
+
+* as a list
+* as a range (with an optional step)
+
+example:
+```bash
+$ {foo,bar}
+$ foo bar
+$ {1..10}
+$ 1 2 3 4 5 6 7 8 9 10
+$ {1..10..3}
+$ 1 4 7 10
+```
 
 ##### arithmetic expansions
 
 ##### command substitutions
 
+command substitution is the execution of a command where everything written to stdout by the command is then splitted on blank characters.
+
 ##### filename expansions
+
+filename expansion is like any other filename expansion. After having expanded all others form of expansions, the maestro shell looks in each expanded word for special character (`*.[`). If one of these characters is found, the word is then considered as a pattern. Then, for each pattern, the maestro shell will try to find all files which their filenames match the given pattern.
 
 #### shell commands
 
 ##### simple commands
 
+a simple command is the simplest form of command understood by the maestro shell. It is composed of a list of words separated by blank characters and resulting of the expansion of each of the individual tokens of the line.
+
 ##### list of commands
+
+a list of commands is simply the concatenation of simple command on the same line. each command is separated by a semicolon character
 
 ##### pipelines
 
@@ -484,5 +557,6 @@ $ command &>> file # redirect stdout and stderr of command and append to file
 As an additional note, the order of how redirections are written is important. Indeed, if you try to redirect twice stdout/stderr/stdin to different files, only the latest declaration will be taken into account and the previous will be discarded.
 
 Last note, if using any kind of expansions (described above) the resulting expansion should only be expanded to one and only one word otherwise an error is returned.
+
 
 ##### builtins
