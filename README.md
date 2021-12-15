@@ -458,9 +458,36 @@ $ 1 4 7 10
 
 ##### arithmetic expansions
 
+the maestro shell allows arithmetric expression to be evaluated and generates one word resulting of the computation of the expression
+
+it supports most of the arithmetic expression supported by any well known shell and/or programming language.
+
+syntax:
+```bash
+$(( expression ))
+```
+operators:
+
+- `++`, `--`: increment, decrement operators
+- `+`, `-`: addition, subtraction (also unary minus)
+- `*`, `/`, `%`: multiplication, division, modulo
+- `**`: power
+- `<<`, `>>`: left and right shift
+- `&`, `|`, `~`: binary and, binary or, xor (also binary not)
+- `&&`, `||`: relational and, or
+- `==`, `!=`: equality operator
+- `<`, `<=`, `>`, `>=`: comparison operator
+- `?:` : conditional (ternary) operator
+- `()`: expression group
+
 ##### command substitutions
 
 command substitution is the execution of a command where everything written to stdout by the command is then splitted on blank characters.
+
+example:
+```bash
+echo $(echo foo bar)
+```
 
 ##### filename expansions
 
