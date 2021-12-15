@@ -4,7 +4,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/midbel/maestro/wrap"
+	"github.com/midbel/textwrap"
 )
 
 const helptext = `
@@ -57,7 +57,7 @@ func renderTemplate(name string, ctx interface{}) (string, error) {
 
 var funcmap = template.FuncMap{
 	"repeat": repeat,
-	"wrap":   wrap.Wrap,
+	"wrap":   textwrap.Wrap,
 	"join":   strings.Join,
 }
 

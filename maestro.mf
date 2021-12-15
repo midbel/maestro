@@ -67,8 +67,6 @@ verify(
 	@go vet "$package/shell"
 	echo "run vet on $package/shlex"
 	@go vet "$package/shlex"
-	echo "run vet on $package/wrap"
-	@go vet "$package/wrap"
 }
 
 commit(
