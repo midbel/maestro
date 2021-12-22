@@ -52,7 +52,7 @@ type Maestro struct {
 	MetaHttp
 
 	Includes  Dirs
-	Locals *Env
+	Locals    *Env
 	Duplicate string
 	Commands  map[string]Command
 	Alias     map[string]string
@@ -70,7 +70,7 @@ func New() *Maestro {
 		Addr: DefaultHttpAddr,
 	}
 	return &Maestro{
-		Locals: EmptyEnv(),
+		Locals:    EmptyEnv(),
 		MetaAbout: about,
 		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
