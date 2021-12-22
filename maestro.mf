@@ -112,7 +112,7 @@ commit(
 		short = s,
 		long  = show,
 		help  = "print the line with the todo",
-		flag  = true,
+		flag  = true
 	)
 ): {
 	total = $(find -type f -name "*go" -exec cat {} \; | grep 'TODO' | wc -l)

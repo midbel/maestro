@@ -497,6 +497,11 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			d.next()
 			d.skipComment()
 			d.skipNL()
+		case Eol:
+			if d.peek().Type != EndList {
+				return d.unexpected()
+			}
+			d.next()
 		case EndList:
 		default:
 			return d.unexpected()
@@ -552,6 +557,11 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			case Comma:
 				d.next()
 				d.skipNL()
+			case Eol:
+				if d.peek().Type != EndList {
+					return opt, d.unexpected()
+				}
+				d.next()
 			case EndList:
 			default:
 				return opt, d.unexpected()
