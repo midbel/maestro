@@ -329,27 +329,75 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 	if err != nil || len(list) == 0 {
 		return s.execute(ctx, ex.Alt)
 	}
+	var it int
 	for i := range list {
 		if err := s.Define(ex.Ident, []string{list[i]}); err != nil {
 			return err
 		}
+		it++
 		if err := s.execute(ctx, ex.Body); err != nil {
 			return err
 		}
+	}
+	if it == 0 {
+		return s.execute(ctx, ex.Alt)
 	}
 	return nil
 }
 
 func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
+	var it int
+	for {
+		err := s.execute(ctx, ex.Cond)
+		if err != nil {
+			return err
+		}
+		if s.context.code != 0 {
+			break
+		}
+		it++
+		err = s.execute(ctx, ex.Body)
+		if err != nil {
+			return err
+		}
+	}
+	if it == 0 {
+		return s.execute(ctx, ex.Alt)
+	}
 	return nil
 }
 
 func (s *Shell) executeUntil(ctx context.Context, ex ExecWhile) error {
+	var it int
+	for {
+		err := s.execute(ctx, ex.Cond)
+		if err != nil {
+			return err
+		}
+		if s.context.code == 0 {
+			break
+		}
+		it++
+		err = s.execute(ctx, ex.Body)
+		if err != nil {
+			return err
+		}
+	}
+	if it == 0 {
+		return s.execute(ctx, ex.Alt)
+	}
 	return nil
 }
 
 func (s *Shell) executeIf(ctx context.Context, ex ExecIf) error {
-	return nil
+	err := s.execute(ctx, ex.Cond)
+	if err != nil {
+		return err
+	}
+	if s.context.code == 0 {
+		return s.execute(ctx, ex.Csq)
+	}
+	return s.execute(ctx, ex.Alt)
 }
 
 func (s *Shell) executeSingle(ctx context.Context, ex Expander, redirect []ExpandRedirect) error {

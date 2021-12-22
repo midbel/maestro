@@ -111,6 +111,10 @@ type ExecIf struct {
 	Alt  Executer
 }
 
+// type ExecCase struct {
+//
+// }
+
 type ExecList []Executer
 
 func (e ExecList) Executer() Executer {
@@ -119,10 +123,6 @@ func (e ExecList) Executer() Executer {
 	}
 	return e
 }
-
-// type ExecCase struct {
-//
-// }
 
 type ExecAnd struct {
 	Left  Executer
