@@ -556,7 +556,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	tok.Type = Literal
 	tok.Literal = s.string()
 	switch tok.Literal {
-	case kwFor, kwWhile, kwUntil, kwIf, kwCase, kwDo, kwDone, kwFi, kwThen, kwIn, kwElse, kwEsac:
+	case kwFor, kwWhile, kwUntil, kwIf, kwCase, kwDo, kwDone, kwFi, kwThen, kwIn, kwElse, kwEsac, kwBreak, kwContinue:
 		tok.Type = Keyword
 		s.skipBlank()
 	default:

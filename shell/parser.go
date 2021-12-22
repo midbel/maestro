@@ -15,6 +15,8 @@ type Parser struct {
 	quoted bool
 	prefix map[rune]func() (Expr, error)
 	infix  map[rune]func(Expr) (Expr, error)
+
+	loop int
 }
 
 func NewParser(r io.Reader) *Parser {
@@ -214,6 +216,18 @@ func (p *Parser) parseKeyword() (Executer, error) {
 		err error
 	)
 	switch p.curr.Literal {
+	case kwBreak:
+		if !p.inLoop() {
+			return nil, p.unexpected()
+		}
+		ex = ExecBreak{}
+		p.next()
+	case kwContinue:
+		if !p.inLoop() {
+			return nil, p.unexpected()
+		}
+		ex = ExecContinue{}
+		p.next()
 	case kwFor:
 		ex, err = p.parseFor()
 	case kwWhile:
@@ -231,6 +245,9 @@ func (p *Parser) parseKeyword() (Executer, error) {
 }
 
 func (p *Parser) parseWhile() (Executer, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
 	p.next()
 	p.skipBlank()
 	var (
@@ -262,6 +279,9 @@ func (p *Parser) parseWhile() (Executer, error) {
 }
 
 func (p *Parser) parseUntil() (Executer, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
 	p.next()
 	p.skipBlank()
 	var (
@@ -331,6 +351,9 @@ func (p *Parser) parseCase() (Executer, error) {
 }
 
 func (p *Parser) parseFor() (Executer, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
 	p.next()
 	p.skipBlank()
 	if p.curr.Type != Literal {
@@ -949,6 +972,18 @@ func (p *Parser) parseVariable() (ExpandVar, error) {
 	ex := createVariable(p.curr.Literal, p.quoted)
 	p.next()
 	return ex, nil
+}
+
+func (p *Parser) enterLoop() {
+	p.loop++
+}
+
+func (p *Parser) leaveLoop() {
+	p.loop--
+}
+
+func (p *Parser) inLoop() bool {
+	return p.loop > 0
 }
 
 func (p *Parser) enterQuote() {

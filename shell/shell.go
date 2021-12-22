@@ -318,6 +318,10 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = s.executeWhile(ctx, ex)
 	case ExecIf:
 		err = s.executeIf(ctx, ex)
+	case ExecBreak:
+		err = ErrBreak
+	case ExecContinue:
+		err = ErrContinue
 	default:
 		err = fmt.Errorf("unsupported executer type %s", ex)
 	}
@@ -336,6 +340,12 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 		}
 		it++
 		if err := s.execute(ctx, ex.Body); err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
 			return err
 		}
 	}
@@ -358,6 +368,12 @@ func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
 		it++
 		err = s.execute(ctx, ex.Body)
 		if err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
 			return err
 		}
 	}
@@ -380,6 +396,12 @@ func (s *Shell) executeUntil(ctx context.Context, ex ExecWhile) error {
 		it++
 		err = s.execute(ctx, ex.Body)
 		if err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
 			return err
 		}
 	}

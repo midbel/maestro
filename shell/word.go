@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -55,6 +56,11 @@ func (e *Env) Delete(ident string) error {
 	return nil
 }
 
+var (
+	ErrBreak    = errors.New(kwBreak)
+	ErrContinue = errors.New(kwContinue)
+)
+
 type Executer interface{}
 
 type Expander interface {
@@ -92,6 +98,10 @@ func (e ExecFor) Expand(env Environment, _ bool) ([]string, error) {
 	}
 	return list, nil
 }
+
+type ExecBreak struct{}
+
+type ExecContinue struct{}
 
 type ExecWhile struct {
 	Cond Executer

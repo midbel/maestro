@@ -8,7 +8,11 @@ import (
 	"github.com/midbel/maestro"
 )
 
-var CmdVersion = "0.1.0"
+var (
+	CmdVersion = "0.1.0"
+	CmdBuild   = ""
+	CmdHash    = ""
+)
 
 const MaestroEnv = "MAESTRO_FILE"
 
