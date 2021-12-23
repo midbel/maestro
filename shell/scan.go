@@ -142,7 +142,7 @@ func (s *Scanner) Scan() Token {
 
 func (s *Scanner) scanTest(tok *Token) {
 	tok.Type = Invalid
-	switch k := s.peek();  {
+	switch k := s.peek(); {
 	case s.char == lsquare && s.char == k:
 		s.read()
 		tok.Type = BegTest

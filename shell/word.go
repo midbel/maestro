@@ -123,7 +123,24 @@ type ExecIf struct {
 
 // type ExecCase struct {}
 
-type ExecTest struct{}
+type ExecTest struct {
+	Op    rune
+	Left  Expander
+	Right Expander
+}
+
+func (e ExecTest) Test(env Environment) (bool, error) {
+	left, err := e.Left.Expand(env, true)
+	if err != nil {
+		return false, err
+	}
+	right, err := e.Right.Expand(env, true)
+	if err != nil {
+		return false, err
+	}
+	_, _ = left, right
+	return true, nil
+}
 
 type ExecList []Executer
 
