@@ -47,7 +47,8 @@ build(
 	rm -f ${bindir,,}/${tish,,}
 
 	version = $(git tag | head -n 1)
-	buildoptions = "-v" "-trimpath" "-ldflags" "-X main.CmdVersion=${version#v}"
+	build   = $(date -I)
+	buildoptions = "-v" "-trimpath" "-ldflags" "-X main.CmdVersion=${version#v} -X main.CmdBuild=${build}"
 
 	echo "build ${maestro,,} in ${bindir,,}/${maestro,,}"
 	go build ${buildoptions} -o ${bindir,,}/${maestro,,} cmd/${maestro,,}/main.go

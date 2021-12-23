@@ -121,9 +121,9 @@ type ExecIf struct {
 	Alt  Executer
 }
 
-// type ExecCase struct {
-//
-// }
+// type ExecCase struct {}
+
+type ExecTest struct{}
 
 type ExecList []Executer
 

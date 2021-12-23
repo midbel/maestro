@@ -87,6 +87,9 @@ func (p *Parser) parse() (Executer, error) {
 	if p.curr.Type == Keyword {
 		return p.parseKeyword()
 	}
+	if p.curr.Type == BegTest {
+		return p.parseTest()
+	}
 	ex, err := p.parseSimple()
 	if err != nil {
 		return nil, err
@@ -106,6 +109,17 @@ func (p *Parser) parse() (Executer, error) {
 			return ex, nil
 		}
 	}
+}
+
+func (p *Parser) parseTest() (Executer, error) {
+	p.next()
+	for !p.done() && p.curr.Type != EndTest {
+		p.next()
+	}
+	if p.curr.Type != EndTest {
+		return nil, p.unexpected()
+	}
+	return nil, nil
 }
 
 func (p *Parser) parseSimple() (Executer, error) {

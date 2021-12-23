@@ -82,7 +82,7 @@ func main() {
 	parseArgs(options)
 
 	if version {
-		fmt.Printf("maestro %s", CmdVersion)
+		fmt.Printf("maestro %s (build date: %s)", CmdVersion, CmdBuild)
 		fmt.Println()
 		return
 	}

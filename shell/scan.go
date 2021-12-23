@@ -26,6 +26,8 @@ const (
 	rcurly     = '}'
 	lparen     = '('
 	rparen     = ')'
+	lsquare    = '['
+	rsquare    = ']'
 	equal      = '='
 	caret      = '^'
 	ampersand  = '&'
@@ -130,10 +132,26 @@ func (s *Scanner) Scan() Token {
 		s.scanComment(&tok)
 	case isVariable(s.char):
 		s.scanDollar(&tok)
+	case isTest(s.char, s.peek()):
+		s.scanTest(&tok)
 	default:
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanTest(tok *Token) {
+	tok.Type = Invalid
+	switch k := s.peek();  {
+	case s.char == lsquare && s.char == k:
+		s.read()
+		tok.Type = BegTest
+	case s.char == rsquare && s.char == k:
+		s.read()
+		tok.Type = EndTest
+	default:
+	}
+	s.read()
 }
 
 func (s *Scanner) scanArithmetic(tok *Token) {
@@ -719,6 +737,10 @@ func isSequence(r rune) bool {
 
 func isAssign(r rune) bool {
 	return r == equal
+}
+
+func isTest(r, n rune) bool {
+	return (r == lsquare && r == n) || (r == rsquare && r == n)
 }
 
 func isRedirect(r rune) bool {
