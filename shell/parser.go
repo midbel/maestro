@@ -112,33 +112,33 @@ func (p *Parser) parse() (Executer, error) {
 }
 
 func (p *Parser) parseTest() (Executer, error) {
-	p.next()
-	var (
-		ex  ExecTest
-		err error
-	)
-	ex.Left, err = p.parseWords()
-	if err != nil {
-		return nil, err
-	}
-	switch p.curr.Type {
-	case Literal:
-		op, ok := testops[p.curr.Literal]
-		if !ok {
-			return nil, fmt.Errorf("unknown/unsupported test operator %s", p.curr.Literal)
-		}
-		ex.Op = op
-	default:
-		return nil, p.unexpected()
-	}
-	p.next()
-
-	if ex.Right, err = p.parseWords(); err != nil {
-		return nil, err
-	}
-	if p.curr.Type != EndTest {
-		return nil, p.unexpected()
-	}
+	// p.next()
+	// var (
+	// 	ex  ExecTest
+	// 	err error
+	// )
+	// ex.Left, err = p.parseWords()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// switch p.curr.Type {
+	// case Literal:
+	// 	op, ok := testops[p.curr.Literal]
+	// 	if !ok {
+	// 		return nil, fmt.Errorf("unknown/unsupported test operator %s", p.curr.Literal)
+	// 	}
+	// 	ex.Op = op
+	// default:
+	// 	return nil, p.unexpected()
+	// }
+	// p.next()
+	//
+	// if ex.Right, err = p.parseWords(); err != nil {
+	// 	return nil, err
+	// }
+	// if p.curr.Type != EndTest {
+	// 	return nil, p.unexpected()
+	// }
 	return nil, nil
 }
 

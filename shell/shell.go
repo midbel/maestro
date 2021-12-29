@@ -322,6 +322,8 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = ErrBreak
 	case ExecContinue:
 		err = ErrContinue
+	case ExecTest:
+		_, err = ex.Test(s)
 	default:
 		err = fmt.Errorf("unsupported executer type %s", ex)
 	}
