@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 )
 
 // ErrTest is the error value that Tester should returns when the
@@ -43,6 +44,7 @@ var testops = map[string]rune{
 // z && (x || y) => z.Test() && (x.Test() || y.Test())
 
 type Tester interface {
+	Expander
 	Test(Environment) (bool, error)
 }
 
@@ -52,7 +54,8 @@ type UnaryTest struct {
 }
 
 func (t UnaryTest) Expand(env Environment, _ bool) ([]string, error) {
-	return nil, nil
+	ok, err := t.Test(env)
+	return []string{strconv.FormatBool(ok)}, err
 }
 
 func (t UnaryTest) IsQuoted() bool {
@@ -61,6 +64,9 @@ func (t UnaryTest) IsQuoted() bool {
 
 func (t UnaryTest) Test(env Environment) (bool, error) {
 	switch t.Op {
+	case Not:
+		ok, err := testExpander(t.Right, env)
+		return !ok, err
 	case FileExists:
 		return t.fileExists(env)
 	case FileSize:
@@ -167,7 +173,8 @@ type BinaryTest struct {
 }
 
 func (t BinaryTest) Expand(env Environment, _ bool) ([]string, error) {
-	return nil, nil
+	ok, err := t.Test(env)
+	return []string{strconv.FormatBool(ok)}, err
 }
 
 func (t BinaryTest) IsQuoted() bool {
@@ -176,6 +183,21 @@ func (t BinaryTest) IsQuoted() bool {
 
 func (t BinaryTest) Test(env Environment) (bool, error) {
 	switch t.Op {
+	case And:
+		ok, err := testExpander(t.Left, env)
+		if err != nil || !ok {
+			return ok, err
+		}
+		return testExpander(t.Right, env)
+	case Or:
+		ok, err := testExpander(t.Left, env)
+		if err == nil && ok {
+			return ok, err
+		}
+		if err != nil {
+			return false, err
+		}
+		return testExpander(t.Right, env)
 	case Eq:
 		return t.compare(env, func(left, right string) bool {
 			return left == right
@@ -284,4 +306,12 @@ func expandSingle(ex Expander, env Environment) (string, error) {
 		return "", fmt.Errorf("%w: expected only 1 value to be expanded (got %dd)", ErrExpansion, len(str))
 	}
 	return str[0], nil
+}
+
+func testExpander(ex Expander, env Environment) (bool, error) {
+	tester, ok := ex.(Tester)
+	if !ok {
+		return ok, fmt.Errorf("expander is not a tester")
+	}
+	return tester.Test(env)
 }
