@@ -112,7 +112,7 @@ func (p *Parser) parse() (Executer, error) {
 }
 
 func (p *Parser) parseTest() (Executer, error) {
-	// p.next()
+	p.next()
 	// var (
 	// 	ex  ExecTest
 	// 	err error
@@ -139,6 +139,18 @@ func (p *Parser) parseTest() (Executer, error) {
 	// if p.curr.Type != EndTest {
 	// 	return nil, p.unexpected()
 	// }
+	return nil, nil
+}
+
+func (p *Parser) parseTester() (Tester, error) {
+	return nil, nil
+}
+
+func (p *Parser) parseUnaryTest() (Tester, error) {
+	return nil, nil
+}
+
+func (p *Parser) parseBinaryTest(left Tester) (Tester, error) {
 	return nil, nil
 }
 

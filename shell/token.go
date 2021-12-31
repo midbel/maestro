@@ -148,6 +148,10 @@ func (t Token) String() string {
 		return "<blank>"
 	case Quote:
 		return "<quote>"
+	case Eq:
+		return "<eq>"
+	case Ne:
+		return "<ne>"
 	case And:
 		return "<and>"
 	case Or:
