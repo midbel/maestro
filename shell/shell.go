@@ -323,9 +323,19 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 	case ExecContinue:
 		err = ErrContinue
 	case ExecTest:
-		_, err = ex.Test(s)
+		err = s.executeTest(ctx, ex)
 	default:
-		err = fmt.Errorf("unsupported executer type %s", ex)
+		err = fmt.Errorf("unsupported executer type %T", ex)
+	}
+	return err
+}
+
+func (s *Shell) executeTest(_ context.Context, ex ExecTest) error {
+	ok, err := ex.Test(s)
+	if err != nil || !ok {
+		s.context.code = 1
+	} else {
+		s.context.code = 0
 	}
 	return err
 }

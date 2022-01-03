@@ -48,6 +48,15 @@ type Tester interface {
 	Test(Environment) (bool, error)
 }
 
+type SingleTest struct {
+	Expander
+}
+
+func (t SingleTest) Test(env Environment) (bool, error) {
+	str, err := t.Expander.Expand(env, false)
+	return len(str) > 0 && err == nil, err
+}
+
 type UnaryTest struct {
 	Op    rune
 	Right Expander

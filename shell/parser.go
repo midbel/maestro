@@ -16,6 +16,9 @@ type Parser struct {
 	prefix map[rune]func() (Expr, error)
 	infix  map[rune]func(Expr) (Expr, error)
 
+	unary  map[rune]func() (Expander, error)
+	binary map[rune]func(Expander) (Expander, error)
+
 	loop int
 }
 
@@ -55,6 +58,37 @@ func NewParser(r io.Reader) *Parser {
 		Or:         p.parseBinary,
 		Cond:       p.parseTernary,
 		Assign:     p.parseAssign,
+	}
+
+	p.binary = map[rune]func(Expander) (Expander, error){
+		Eq:        p.parseBinaryTest,
+		Ne:        p.parseBinaryTest,
+		Lt:        p.parseBinaryTest,
+		Le:        p.parseBinaryTest,
+		Gt:        p.parseBinaryTest,
+		Ge:        p.parseBinaryTest,
+		And:       p.parseBinaryTest,
+		Or:        p.parseBinaryTest,
+		NewerThan: p.parseBinaryTest,
+		OlderThan: p.parseBinaryTest,
+		SameFile:  p.parseBinaryTest,
+	}
+	p.unary = map[rune]func() (Expander, error){
+		Not:         p.parseUnaryTest,
+		BegMath:     p.parseUnaryTest,
+		FileExists:  p.parseUnaryTest,
+		FileRead:    p.parseUnaryTest,
+		FileLink:    p.parseUnaryTest,
+		FileDir:     p.parseUnaryTest,
+		FileWrite:   p.parseUnaryTest,
+		FileSize:    p.parseUnaryTest,
+		FileRegular: p.parseUnaryTest,
+		FileExec:    p.parseUnaryTest,
+		StrNotEmpty: p.parseUnaryTest,
+		StrEmpty:    p.parseUnaryTest,
+		Literal:     p.parseUnaryTest,
+		Variable:    p.parseUnaryTest,
+		Quote:       p.parseUnaryTest,
 	}
 
 	p.next()
@@ -113,45 +147,107 @@ func (p *Parser) parse() (Executer, error) {
 
 func (p *Parser) parseTest() (Executer, error) {
 	p.next()
-	// var (
-	// 	ex  ExecTest
-	// 	err error
-	// )
-	// ex.Left, err = p.parseWords()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// switch p.curr.Type {
-	// case Literal:
-	// 	op, ok := testops[p.curr.Literal]
-	// 	if !ok {
-	// 		return nil, fmt.Errorf("unknown/unsupported test operator %s", p.curr.Literal)
-	// 	}
-	// 	ex.Op = op
-	// default:
-	// 	return nil, p.unexpected()
-	// }
-	// p.next()
-	//
-	// if ex.Right, err = p.parseWords(); err != nil {
-	// 	return nil, err
-	// }
-	// if p.curr.Type != EndTest {
-	// 	return nil, p.unexpected()
-	// }
-	return nil, nil
+	var (
+		ex ExecTest
+		err error
+	)
+	ex.Tester, err = p.parseTester(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != EndTest {
+		return nil, p.unexpected()
+	}
+	p.next()
+	fmt.Printf("%#v\n", ex.Tester)
+	return ex, err
 }
 
-func (p *Parser) parseTester() (Tester, error) {
-	return nil, nil
+func (p *Parser) parseTester(pow bind) (Tester, error) {
+	parse, ok := p.unary[p.curr.Type]
+	if !ok {
+		return nil, p.unexpected()
+	}
+	left, err := parse()
+	if err != nil {
+		return nil, err
+	}
+	for (p.curr.Type != EndMath && p.curr.Type != EndTest) && pow < bindPower(p.curr) {
+		parse, ok := p.binary[p.curr.Type]
+		if !ok {
+			return nil, p.unexpected()
+		}
+		left, err = parse(left)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var t Tester
+	if x, ok := left.(Tester); !ok {
+		t = SingleTest{
+			Expander: left,
+		}
+	} else {
+		t = x
+	}
+	return t, nil
 }
 
-func (p *Parser) parseUnaryTest() (Tester, error) {
-	return nil, nil
+func (p *Parser) parseUnaryTest() (Expander, error) {
+	var (
+		ex  Expander
+		err error
+	)
+	switch op := p.curr.Type; op {
+	case Variable:
+		ex, err = p.parseVariable()
+	case Literal:
+		ex, err = p.parseLiteral()
+	case Quote:
+		ex, err = p.parseQuote()
+	case BegMath:
+		p.next()
+		ex, err = p.parseTester(bindLowest)
+		if err != nil {
+			return nil, err
+		}
+		if p.curr.Type != EndMath {
+			err = p.unexpected()
+			break
+		}
+		p.next()
+	case Not, FileExists, FileRead, FileWrite, FileExec, FileSize, FileLink, FileDir, FileRegular, StrEmpty, StrNotEmpty:
+		p.next()
+		ex, err = p.parseTester(bindPrefix)
+		if err != nil {
+			break
+		}
+		ex = UnaryTest{
+			Op:    op,
+			Right: ex,
+		}
+	default:
+		err = p.unexpected()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return ex, nil
 }
 
-func (p *Parser) parseBinaryTest(left Tester) (Tester, error) {
-	return nil, nil
+func (p *Parser) parseBinaryTest(left Expander) (Expander, error) {
+	b := BinaryTest{
+		Left: left,
+		Op:   p.curr.Type,
+	}
+	w := bindPower(p.curr)
+	p.next()
+
+	right, err := p.parseTester(w)
+	if err == nil {
+		b.Right = right
+	}
+	return b, err
 }
 
 func (p *Parser) parseSimple() (Executer, error) {
@@ -605,7 +701,7 @@ func (p *Parser) parseBinary(left Expr) (Expr, error) {
 	if err == nil {
 		b.Right = right
 	}
-	return b, nil
+	return b, err
 }
 
 func (p *Parser) parseAssign(left Expr) (Expr, error) {

@@ -184,6 +184,8 @@ func (s *Scanner) scanTest(tok *Token) {
 			s.read()
 			tok.Type = Ge
 		}
+	case s.char == bang:
+		tok.Type = Not
 	case isDouble(s.char):
 		tok.Type = Quote
 		s.state.ToggleQuote()
@@ -198,6 +200,10 @@ func (s *Scanner) scanTest(tok *Token) {
 	default:
 		s.scanLiteral(tok)
 		skip = true
+
+		if k, ok := testops[tok.Literal]; ok {
+			tok.Type = k
+		}
 	}
 	if !skip {
 		s.read()
