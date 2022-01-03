@@ -147,11 +147,7 @@ func (p *Parser) parse() (Executer, error) {
 
 func (p *Parser) parseTest() (Executer, error) {
 	p.next()
-	var (
-		ex ExecTest
-		err error
-	)
-	ex.Tester, err = p.parseTester(bindLowest)
+	ex, err := p.parseTester(bindLowest)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +155,19 @@ func (p *Parser) parseTest() (Executer, error) {
 		return nil, p.unexpected()
 	}
 	p.next()
-	fmt.Printf("%#v\n", ex.Tester)
-	return ex, err
+
+	var test ExecTest
+	if x, ok := ex.(Tester); ok {
+		test.Tester = x
+	} else {
+		test.Tester = SingleTest{
+			Expander: ex,
+		}
+	}
+	return test, err
 }
 
-func (p *Parser) parseTester(pow bind) (Tester, error) {
+func (p *Parser) parseTester(pow bind) (Expander, error) {
 	parse, ok := p.unary[p.curr.Type]
 	if !ok {
 		return nil, p.unexpected()
@@ -182,15 +186,7 @@ func (p *Parser) parseTester(pow bind) (Tester, error) {
 			return nil, err
 		}
 	}
-	var t Tester
-	if x, ok := left.(Tester); !ok {
-		t = SingleTest{
-			Expander: left,
-		}
-	} else {
-		t = x
-	}
-	return t, nil
+	return left, nil
 }
 
 func (p *Parser) parseUnaryTest() (Expander, error) {
@@ -205,6 +201,7 @@ func (p *Parser) parseUnaryTest() (Expander, error) {
 		ex, err = p.parseLiteral()
 	case Quote:
 		ex, err = p.parseQuote()
+		p.skipBlank()
 	case BegMath:
 		p.next()
 		ex, err = p.parseTester(bindLowest)

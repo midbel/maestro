@@ -320,7 +320,7 @@ func expandSingle(ex Expander, env Environment) (string, error) {
 func testExpander(ex Expander, env Environment) (bool, error) {
 	tester, ok := ex.(Tester)
 	if !ok {
-		return ok, fmt.Errorf("expander is not a tester")
+		return ok, fmt.Errorf("expander is not a tester (%#v)", ex)
 	}
 	return tester.Test(env)
 }

@@ -126,9 +126,9 @@ const (
 	bindBit
 	bindShift
 	bindTernary
+	bindLogical
 	bindEq
 	bindCmp
-	bindLogical
 	bindAdd
 	bindMul
 	bindPow
