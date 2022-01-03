@@ -46,7 +46,9 @@ build(
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
 
-	buildoptions = "-v" "-trimpath"
+	version = $(git tag | head -n 1)
+	build   = $(date -I)
+	buildoptions = "-v" "-trimpath" "-ldflags" "-X main.CmdVersion=${version#v} -X main.CmdBuild=${build}"
 
 	echo "build ${maestro,,} in ${bindir,,}/${maestro,,}"
 	go build ${buildoptions} -o ${bindir,,}/${maestro,,} cmd/${maestro,,}/main.go
@@ -67,8 +69,6 @@ verify(
 	@go vet "$package/shell"
 	echo "run vet on $package/shlex"
 	@go vet "$package/shlex"
-	echo "run vet on $package/wrap"
-	@go vet "$package/wrap"
 }
 
 commit(
@@ -114,7 +114,7 @@ commit(
 		short = s,
 		long  = show,
 		help  = "print the line with the todo",
-		flag  = true,
+		flag  = true
 	)
 ): {
 	total = $(find -type f -name "*go" -exec cat {} \; | grep 'TODO' | wc -l)

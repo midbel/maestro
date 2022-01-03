@@ -26,6 +26,8 @@ const (
 	rcurly     = '}'
 	lparen     = '('
 	rparen     = ')'
+	lsquare    = '['
+	rsquare    = ']'
 	equal      = '='
 	caret      = '^'
 	ampersand  = '&'
@@ -106,6 +108,10 @@ func (s *Scanner) Scan() Token {
 		s.scanArithmetic(&tok)
 		return tok
 	}
+	if s.state.Test() {
+		s.scanTest(&tok)
+		return tok
+	}
 	switch {
 	case isBraces(s.char) && s.state.AcceptBraces():
 		s.scanBraces(&tok)
@@ -130,10 +136,81 @@ func (s *Scanner) Scan() Token {
 		s.scanComment(&tok)
 	case isVariable(s.char):
 		s.scanDollar(&tok)
+	case isTest(s.char, s.peek()):
+		s.scanTest(&tok)
 	default:
 		s.scanLiteral(&tok)
 	}
 	return tok
+}
+
+func (s *Scanner) scanTest(tok *Token) {
+	tok.Type = Invalid
+	var skip bool
+	switch k := s.peek(); {
+	case s.char == lsquare && s.char == k:
+		s.read()
+		tok.Type = BegTest
+		s.state.EnterTest()
+	case s.char == rsquare && s.char == k:
+		s.read()
+		tok.Type = EndTest
+		s.state.LeaveTest()
+	case s.char == lparen:
+		tok.Type = BegMath
+	case s.char == rparen:
+		tok.Type = EndMath
+	case s.char == ampersand && k == s.char:
+		tok.Type = And
+		s.read()
+	case s.char == pipe && k == s.char:
+		tok.Type = Or
+		s.read()
+	case s.char == equal && k == s.char:
+		tok.Type = Eq
+		s.read()
+	case s.char == bang && k == equal:
+		tok.Type = Ne
+		s.read()
+	case s.char == langle:
+		tok.Type = Lt
+		if k == equal {
+			s.read()
+			tok.Type = Le
+		}
+	case s.char == rangle:
+		tok.Type = Gt
+		if k == equal {
+			s.read()
+			tok.Type = Ge
+		}
+	case s.char == bang:
+		tok.Type = Not
+	case isDouble(s.char):
+		tok.Type = Quote
+		s.state.ToggleQuote()
+	case isSingle(s.char):
+		s.scanString(tok)
+		skip = true
+	case isVariable(s.char):
+		s.scanDollar(tok)
+		skip = true
+	case isBlank(s.char):
+		tok.Type = Blank
+	default:
+		s.scanLiteral(tok)
+		skip = true
+
+		if k, ok := testops[tok.Literal]; ok {
+			tok.Type = k
+		}
+	}
+	if !skip {
+		s.read()
+	}
+	if !s.state.Quoted() {
+		s.skipBlank()
+	}
 }
 
 func (s *Scanner) scanArithmetic(tok *Token) {
@@ -491,24 +568,26 @@ func (s *Scanner) scanOperator(tok *Token) {
 
 func (s *Scanner) scanDollar(tok *Token) {
 	s.read()
-	if s.char == lcurly {
-		tok.Type = BegExp
-		s.state.EnterExpansion()
-		s.read()
-		return
-	}
-	if s.char == lparen && s.peek() == lparen {
-		s.read()
-		s.read()
-		tok.Type = BegMath
-		s.state.EnterArithmetic()
-		return
-	}
-	if s.char == lparen {
-		tok.Type = BegSub
-		s.state.EnterSubstitution()
-		s.read()
-		return
+	if !s.state.Test() {
+		if s.char == lcurly {
+			tok.Type = BegExp
+			s.state.EnterExpansion()
+			s.read()
+			return
+		}
+		if s.char == lparen && s.peek() == lparen {
+			s.read()
+			s.read()
+			tok.Type = BegMath
+			s.state.EnterArithmetic()
+			return
+		}
+		if s.char == lparen {
+			tok.Type = BegSub
+			s.state.EnterSubstitution()
+			s.read()
+			return
+		}
 	}
 	s.scanVariable(tok)
 }
@@ -536,6 +615,9 @@ func (s *Scanner) scanString(tok *Token) {
 		tok.Type = Invalid
 	}
 	s.read()
+	if s.state.Test() {
+		return
+	}
 	s.skipBlankUntil(func(r rune) bool {
 		return isSequence(r) || isAssign(r) || isComment(r) || isRedirectBis(r, s.peek())
 	})
@@ -556,10 +638,13 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	tok.Type = Literal
 	tok.Literal = s.string()
 	switch tok.Literal {
-	case kwFor, kwWhile, kwUntil, kwIf, kwCase, kwDo, kwDone, kwFi, kwThen, kwIn, kwElse, kwEsac:
+	case kwFor, kwWhile, kwUntil, kwIf, kwCase, kwDo, kwDone, kwFi, kwThen, kwIn, kwElse, kwEsac, kwBreak, kwContinue:
 		tok.Type = Keyword
 		s.skipBlank()
 	default:
+	}
+	if s.state.Test() {
+		return
 	}
 	s.skipBlankUntil(func(r rune) bool {
 		return isSequence(r) || isAssign(r) || isComment(r) || isRedirectBis(r, s.peek())
@@ -721,6 +806,10 @@ func isAssign(r rune) bool {
 	return r == equal
 }
 
+func isTest(r, n rune) bool {
+	return (r == lsquare && r == n) || (r == rsquare && r == n)
+}
+
 func isRedirect(r rune) bool {
 	return r == langle || r == rangle
 }
@@ -770,6 +859,7 @@ const (
 	scanExp
 	scanBrace
 	scanMath
+	scanTest
 )
 
 func (s scanState) String() string {
@@ -788,6 +878,8 @@ func (s scanState) String() string {
 		return "braces"
 	case scanMath:
 		return "arithmetic"
+	case scanTest:
+		return "test"
 	}
 }
 
@@ -797,6 +889,20 @@ func defaultStack() stack {
 	var s stack
 	s.Push(scanDefault)
 	return s
+}
+
+func (s *stack) Test() bool {
+	return s.Curr() == scanTest
+}
+
+func (s *stack) EnterTest() {
+	s.Push(scanTest)
+}
+
+func (s *stack) LeaveTest() {
+	if s.Test() {
+		s.Pop()
+	}
 }
 
 func (s *stack) Quoted() bool {

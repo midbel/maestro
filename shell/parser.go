@@ -15,6 +15,11 @@ type Parser struct {
 	quoted bool
 	prefix map[rune]func() (Expr, error)
 	infix  map[rune]func(Expr) (Expr, error)
+
+	unary  map[rune]func() (Expander, error)
+	binary map[rune]func(Expander) (Expander, error)
+
+	loop int
 }
 
 func NewParser(r io.Reader) *Parser {
@@ -55,6 +60,37 @@ func NewParser(r io.Reader) *Parser {
 		Assign:     p.parseAssign,
 	}
 
+	p.binary = map[rune]func(Expander) (Expander, error){
+		Eq:        p.parseBinaryTest,
+		Ne:        p.parseBinaryTest,
+		Lt:        p.parseBinaryTest,
+		Le:        p.parseBinaryTest,
+		Gt:        p.parseBinaryTest,
+		Ge:        p.parseBinaryTest,
+		And:       p.parseBinaryTest,
+		Or:        p.parseBinaryTest,
+		NewerThan: p.parseBinaryTest,
+		OlderThan: p.parseBinaryTest,
+		SameFile:  p.parseBinaryTest,
+	}
+	p.unary = map[rune]func() (Expander, error){
+		Not:         p.parseUnaryTest,
+		BegMath:     p.parseUnaryTest,
+		FileExists:  p.parseUnaryTest,
+		FileRead:    p.parseUnaryTest,
+		FileLink:    p.parseUnaryTest,
+		FileDir:     p.parseUnaryTest,
+		FileWrite:   p.parseUnaryTest,
+		FileSize:    p.parseUnaryTest,
+		FileRegular: p.parseUnaryTest,
+		FileExec:    p.parseUnaryTest,
+		StrNotEmpty: p.parseUnaryTest,
+		StrEmpty:    p.parseUnaryTest,
+		Literal:     p.parseUnaryTest,
+		Variable:    p.parseUnaryTest,
+		Quote:       p.parseUnaryTest,
+	}
+
 	p.next()
 	p.next()
 
@@ -85,6 +121,9 @@ func (p *Parser) parse() (Executer, error) {
 	if p.curr.Type == Keyword {
 		return p.parseKeyword()
 	}
+	if p.curr.Type == BegTest {
+		return p.parseTest()
+	}
 	ex, err := p.parseSimple()
 	if err != nil {
 		return nil, err
@@ -104,6 +143,108 @@ func (p *Parser) parse() (Executer, error) {
 			return ex, nil
 		}
 	}
+}
+
+func (p *Parser) parseTest() (Executer, error) {
+	p.next()
+	ex, err := p.parseTester(bindLowest)
+	if err != nil {
+		return nil, err
+	}
+	if p.curr.Type != EndTest {
+		return nil, p.unexpected()
+	}
+	p.next()
+
+	var test ExecTest
+	if x, ok := ex.(Tester); ok {
+		test.Tester = x
+	} else {
+		test.Tester = SingleTest{
+			Expander: ex,
+		}
+	}
+	return test, err
+}
+
+func (p *Parser) parseTester(pow bind) (Expander, error) {
+	parse, ok := p.unary[p.curr.Type]
+	if !ok {
+		return nil, p.unexpected()
+	}
+	left, err := parse()
+	if err != nil {
+		return nil, err
+	}
+	for (p.curr.Type != EndMath && p.curr.Type != EndTest) && pow < bindPower(p.curr) {
+		parse, ok := p.binary[p.curr.Type]
+		if !ok {
+			return nil, p.unexpected()
+		}
+		left, err = parse(left)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return left, nil
+}
+
+func (p *Parser) parseUnaryTest() (Expander, error) {
+	var (
+		ex  Expander
+		err error
+	)
+	switch op := p.curr.Type; op {
+	case Variable:
+		ex, err = p.parseVariable()
+	case Literal:
+		ex, err = p.parseLiteral()
+	case Quote:
+		ex, err = p.parseQuote()
+		p.skipBlank()
+	case BegMath:
+		p.next()
+		ex, err = p.parseTester(bindLowest)
+		if err != nil {
+			return nil, err
+		}
+		if p.curr.Type != EndMath {
+			err = p.unexpected()
+			break
+		}
+		p.next()
+	case Not, FileExists, FileRead, FileWrite, FileExec, FileSize, FileLink, FileDir, FileRegular, StrEmpty, StrNotEmpty:
+		p.next()
+		ex, err = p.parseTester(bindPrefix)
+		if err != nil {
+			break
+		}
+		ex = UnaryTest{
+			Op:    op,
+			Right: ex,
+		}
+	default:
+		err = p.unexpected()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return ex, nil
+}
+
+func (p *Parser) parseBinaryTest(left Expander) (Expander, error) {
+	b := BinaryTest{
+		Left: left,
+		Op:   p.curr.Type,
+	}
+	w := bindPower(p.curr)
+	p.next()
+
+	right, err := p.parseTester(w)
+	if err == nil {
+		b.Right = right
+	}
+	return b, err
 }
 
 func (p *Parser) parseSimple() (Executer, error) {
@@ -214,6 +355,18 @@ func (p *Parser) parseKeyword() (Executer, error) {
 		err error
 	)
 	switch p.curr.Literal {
+	case kwBreak:
+		if !p.inLoop() {
+			return nil, p.unexpected()
+		}
+		ex = ExecBreak{}
+		p.next()
+	case kwContinue:
+		if !p.inLoop() {
+			return nil, p.unexpected()
+		}
+		ex = ExecContinue{}
+		p.next()
 	case kwFor:
 		ex, err = p.parseFor()
 	case kwWhile:
@@ -231,6 +384,9 @@ func (p *Parser) parseKeyword() (Executer, error) {
 }
 
 func (p *Parser) parseWhile() (Executer, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
 	p.next()
 	p.skipBlank()
 	var (
@@ -262,6 +418,9 @@ func (p *Parser) parseWhile() (Executer, error) {
 }
 
 func (p *Parser) parseUntil() (Executer, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
 	p.next()
 	p.skipBlank()
 	var (
@@ -331,6 +490,9 @@ func (p *Parser) parseCase() (Executer, error) {
 }
 
 func (p *Parser) parseFor() (Executer, error) {
+	p.enterLoop()
+	defer p.leaveLoop()
+
 	p.next()
 	p.skipBlank()
 	if p.curr.Type != Literal {
@@ -536,7 +698,7 @@ func (p *Parser) parseBinary(left Expr) (Expr, error) {
 	if err == nil {
 		b.Right = right
 	}
-	return b, nil
+	return b, err
 }
 
 func (p *Parser) parseAssign(left Expr) (Expr, error) {
@@ -949,6 +1111,18 @@ func (p *Parser) parseVariable() (ExpandVar, error) {
 	ex := createVariable(p.curr.Literal, p.quoted)
 	p.next()
 	return ex, nil
+}
+
+func (p *Parser) enterLoop() {
+	p.loop++
+}
+
+func (p *Parser) leaveLoop() {
+	p.loop--
+}
+
+func (p *Parser) inLoop() bool {
+	return p.loop > 0
 }
 
 func (p *Parser) enterQuote() {

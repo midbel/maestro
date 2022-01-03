@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/midbel/maestro/shlex"
 )
+
+var ErrExpansion = errors.New("bad expansion")
 
 type Environment interface {
 	Resolve(string) ([]string, error)
@@ -55,6 +58,11 @@ func (e *Env) Delete(ident string) error {
 	return nil
 }
 
+var (
+	ErrBreak    = errors.New(kwBreak)
+	ErrContinue = errors.New(kwContinue)
+)
+
 type Executer interface{}
 
 type Expander interface {
@@ -93,6 +101,10 @@ func (e ExecFor) Expand(env Environment, _ bool) ([]string, error) {
 	return list, nil
 }
 
+type ExecBreak struct{}
+
+type ExecContinue struct{}
+
 type ExecWhile struct {
 	Cond Executer
 	Body Executer
@@ -111,6 +123,12 @@ type ExecIf struct {
 	Alt  Executer
 }
 
+// type ExecCase struct {}
+
+type ExecTest struct {
+	Tester
+}
+
 type ExecList []Executer
 
 func (e ExecList) Executer() Executer {
@@ -119,10 +137,6 @@ func (e ExecList) Executer() Executer {
 	}
 	return e
 }
-
-// type ExecCase struct {
-//
-// }
 
 type ExecAnd struct {
 	Left  Executer

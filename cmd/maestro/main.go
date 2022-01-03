@@ -8,7 +8,11 @@ import (
 	"github.com/midbel/maestro"
 )
 
-var CmdVersion = "0.1.0"
+var (
+	CmdVersion = "0.1.0"
+	CmdBuild   = ""
+	CmdHash    = ""
+)
 
 const MaestroEnv = "MAESTRO_FILE"
 
@@ -78,7 +82,7 @@ func main() {
 	parseArgs(options)
 
 	if version {
-		fmt.Printf("maestro %s", CmdVersion)
+		fmt.Printf("maestro %s (build date: %s)", CmdVersion, CmdBuild)
 		fmt.Println()
 		return
 	}

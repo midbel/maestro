@@ -318,8 +318,24 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = s.executeWhile(ctx, ex)
 	case ExecIf:
 		err = s.executeIf(ctx, ex)
+	case ExecBreak:
+		err = ErrBreak
+	case ExecContinue:
+		err = ErrContinue
+	case ExecTest:
+		err = s.executeTest(ctx, ex)
 	default:
-		err = fmt.Errorf("unsupported executer type %s", ex)
+		err = fmt.Errorf("unsupported executer type %T", ex)
+	}
+	return err
+}
+
+func (s *Shell) executeTest(_ context.Context, ex ExecTest) error {
+	ok, err := ex.Test(s)
+	if err != nil || !ok {
+		s.context.code = 1
+	} else {
+		s.context.code = 0
 	}
 	return err
 }
@@ -329,27 +345,93 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 	if err != nil || len(list) == 0 {
 		return s.execute(ctx, ex.Alt)
 	}
+	var it int
 	for i := range list {
 		if err := s.Define(ex.Ident, []string{list[i]}); err != nil {
 			return err
 		}
+		it++
 		if err := s.execute(ctx, ex.Body); err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
 			return err
 		}
+	}
+	if it == 0 {
+		return s.execute(ctx, ex.Alt)
 	}
 	return nil
 }
 
 func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
+	var it int
+	for {
+		err := s.execute(ctx, ex.Cond)
+		if err != nil {
+			return err
+		}
+		if s.context.code != 0 {
+			break
+		}
+		it++
+		err = s.execute(ctx, ex.Body)
+		if err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
+			return err
+		}
+	}
+	if it == 0 {
+		return s.execute(ctx, ex.Alt)
+	}
 	return nil
 }
 
 func (s *Shell) executeUntil(ctx context.Context, ex ExecWhile) error {
+	var it int
+	for {
+		err := s.execute(ctx, ex.Cond)
+		if err != nil {
+			return err
+		}
+		if s.context.code == 0 {
+			break
+		}
+		it++
+		err = s.execute(ctx, ex.Body)
+		if err != nil {
+			if errors.Is(err, ErrBreak) {
+				break
+			}
+			if errors.Is(err, ErrContinue) {
+				continue
+			}
+			return err
+		}
+	}
+	if it == 0 {
+		return s.execute(ctx, ex.Alt)
+	}
 	return nil
 }
 
 func (s *Shell) executeIf(ctx context.Context, ex ExecIf) error {
-	return nil
+	err := s.execute(ctx, ex.Cond)
+	if err != nil {
+		return err
+	}
+	if s.context.code == 0 {
+		return s.execute(ctx, ex.Csq)
+	}
+	return s.execute(ctx, ex.Alt)
 }
 
 func (s *Shell) executeSingle(ctx context.Context, ex Expander, redirect []ExpandRedirect) error {

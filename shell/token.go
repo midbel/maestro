@@ -52,15 +52,28 @@ const (
 	BegSub
 	EndSub
 	Assign
-	RedirectIn     // < | 0<
-	RedirectOut    // > | 1>
-	RedirectErr    // 2>
-	RedirectBoth   // &>
-	AppendOut      // >> | 1>>
-	AppendErr      // 2>>
-	AppendBoth     // &>>
-	BegTest        // [[
-	EndTest        // ]]
+	RedirectIn   // < | 0<
+	RedirectOut  // > | 1>
+	RedirectErr  // 2>
+	RedirectBoth // &>
+	AppendOut    // >> | 1>>
+	AppendErr    // 2>>
+	AppendBoth   // &>>
+	BegTest      // [[
+	EndTest      // ]]
+	StrEmpty
+	StrNotEmpty
+	SameFile
+	OlderThan
+	NewerThan
+	FileExists
+	FileLink
+	FileDir
+	FileExec
+	FileRegular
+	FileRead
+	FileWrite
+	FileSize
 	Length         // ${#var}
 	Slice          // ${var:from:to}
 	Replace        // ${var/from/to}
@@ -135,6 +148,10 @@ func (t Token) String() string {
 		return "<blank>"
 	case Quote:
 		return "<quote>"
+	case Eq:
+		return "<eq>"
+	case Ne:
+		return "<ne>"
 	case And:
 		return "<and>"
 	case Or:
