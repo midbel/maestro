@@ -91,11 +91,11 @@ var list = []struct {
 		Len:   1,
 	},
 	{
-		Input: `while true; do echo foo; continue; done`,
+		Input: `while true; do echo foo; continue; else echo "else"; done`,
 		Len:   1,
 	},
 	{
-		Input: `until true; do echo foo; done`,
+		Input: `until true; do echo foo; else echo "else"; done`,
 		Len:   1,
 	},
 	{

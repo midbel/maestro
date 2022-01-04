@@ -67,20 +67,30 @@ func TestTester(t *testing.T) {
 			Input: `[[ tests_test.go -eq tests_test.go ]]`,
 			Want:  true,
 		},
-    {
-      Name: "cmp-eq",
-      Input: `[[ $foo == foo && $bar == bar ]]`,
-      Want: true,
-    },
-    {
-      Name: "cmp-ne",
-      Input: `[[ $foo != $bar && $bar != $foo ]]`,
-      Want: true,
-    },
+		{
+			Name:  "cmp-eq",
+			Input: `[[ $foo == foo && $bar == bar ]]`,
+			Want:  true,
+		},
+		{
+			Name:  "cmp-ne",
+			Input: `[[ $foo != $bar && $bar != $foo ]]`,
+			Want:  true,
+		},
+		{
+			Name:  "test",
+			Input: `[[ $foo ]]`,
+			Want:  true,
+		},
+		{
+			Name:  "test",
+			Input: `[[ $foobar ]]`,
+			Want:  false,
+		},
 	}
 	env := shell.EmptyEnv()
-  env.Define("foo", []string{"foo"})
-  env.Define("bar", []string{"bar"})
+	env.Define("foo", []string{"foo"})
+	env.Define("bar", []string{"bar"})
 	for _, d := range data {
 		t.Run(d.Name, func(t *testing.T) {
 			ex, err := shell.Parse(d.Input)
