@@ -22,6 +22,11 @@ type Parser struct {
 	loop int
 }
 
+func Parse(str string) (Executer, error) {
+	p := NewParser(strings.NewReader(str))
+	return p.Parse()
+}
+
 func NewParser(r io.Reader) *Parser {
 	var p Parser
 	p.scan = Scan(r)

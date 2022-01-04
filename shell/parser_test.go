@@ -87,6 +87,14 @@ var list = []struct {
 		Len:   1,
 	},
 	{
+		Input: `while true; do echo foo; break; done`,
+		Len:   1,
+	},
+	{
+		Input: `while true; do echo foo; continue; done`,
+		Len:   1,
+	},
+	{
 		Input: `until true; do echo foo; done`,
 		Len:   1,
 	},
@@ -111,6 +119,10 @@ var list = []struct {
 		Len:   1,
 	},
 	{
+		Input: `echo $((VAR = 10; VAR+(1*5)))`,
+		Len:   1,
+	},
+	{
 		Input: `echo $((-foo+(1*5)))`,
 		Len:   1,
 	},
@@ -121,6 +133,14 @@ var list = []struct {
 	{
 		Input: "echo foo\necho bar",
 		Len:   2,
+	},
+	{
+		Input: "[[ -z str && (file -eq other || file -ot $other)]]",
+		Len:   1,
+	},
+	{
+		Input: "[[ $var ]]",
+		Len:   1,
 	},
 }
 
