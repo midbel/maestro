@@ -126,6 +126,10 @@ func New(options ...ShellOption) (*Shell, error) {
 	return &s, nil
 }
 
+func (s *Shell) Exit() {
+	os.Exit(s.context.code)
+}
+
 func (s *Shell) SetOut(w io.Writer) {
 	s.stdout = w
 }
@@ -301,12 +305,12 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 	case ExecAssign:
 		err = s.executeAssign(ex)
 	case ExecAnd:
-		if err = s.execute(ctx, ex.Left); err != nil {
+		if err = s.execute(ctx, ex.Left); err != nil || s.context.code != 0 {
 			break
 		}
 		err = s.execute(ctx, ex.Right)
 	case ExecOr:
-		if err = s.execute(ctx, ex.Left); err == nil {
+		if err = s.execute(ctx, ex.Left); err == nil || s.context.code == 0 {
 			break
 		}
 		err = s.execute(ctx, ex.Right)

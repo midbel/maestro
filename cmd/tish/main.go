@@ -58,6 +58,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "fail to execute command: %s => %s", flag.Arg(0), err)
 		fmt.Fprintln(os.Stderr)
 	}
+	sh.Exit()
 }
 
 func scanLine(line string) {
