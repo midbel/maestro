@@ -267,6 +267,12 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 	switch ex := ex.(type) {
 	case ExecSimple:
 		err = s.executeSingle(ctx, ex.Expander, ex.Redirect)
+	case ExecList:
+		for i := range ex {
+			if err = s.execute(ctx, ex[i]); err != nil {
+				break
+			}
+		}
 	case ExecAssign:
 		err = s.executeAssign(ex)
 	case ExecAnd:
@@ -285,6 +291,8 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = s.executeFor(ctx, ex)
 	case ExecWhile:
 		err = s.executeWhile(ctx, ex)
+	case ExecUntil:
+		err = s.executeUntil(ctx, ex)
 	case ExecIf:
 		err = s.executeIf(ctx, ex)
 	case ExecBreak:
@@ -314,12 +322,10 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 	if err != nil || len(list) == 0 {
 		return s.execute(ctx, ex.Alt)
 	}
-	var it int
 	for i := range list {
 		if err := s.Define(ex.Ident, []string{list[i]}); err != nil {
 			return err
 		}
-		it++
 		if err := s.execute(ctx, ex.Body); err != nil {
 			if errors.Is(err, ErrBreak) {
 				break
@@ -329,9 +335,6 @@ func (s *Shell) executeFor(ctx context.Context, ex ExecFor) error {
 			}
 			return err
 		}
-	}
-	if it == 0 {
-		return s.execute(ctx, ex.Alt)
 	}
 	return nil
 }
@@ -364,7 +367,7 @@ func (s *Shell) executeWhile(ctx context.Context, ex ExecWhile) error {
 	return nil
 }
 
-func (s *Shell) executeUntil(ctx context.Context, ex ExecWhile) error {
+func (s *Shell) executeUntil(ctx context.Context, ex ExecUntil) error {
 	var it int
 	for {
 		err := s.execute(ctx, ex.Cond)
