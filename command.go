@@ -89,7 +89,6 @@ type Single struct {
 	Hosts   []string
 	Deps    []Dep
 	Scripts []Line
-	Env     map[string]string
 	Options []Option
 	Args    []string
 
@@ -118,7 +117,6 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 		Error:  errSilent,
 		shell:  sh,
 		locals: locals,
-		Env:    make(map[string]string),
 	}
 	return &cmd, nil
 }
@@ -306,9 +304,6 @@ func (s *Single) execute(ctx context.Context, args []string) error {
 		sh := s.shell
 		if cmd.Subshell {
 			sh, _ = sh.Subshell()
-		}
-		for k, v := range s.Env {
-			sh.Export(k, v)
 		}
 		sh.SetEcho(cmd.Echo)
 		err := sh.Execute(ctx, cmd.Line, s.Name, args)

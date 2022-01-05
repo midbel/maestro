@@ -75,6 +75,7 @@ const (
 type Decoder struct {
 	locals *Env
 	env    map[string]string
+	alias  map[string]string
 	frames []*frame
 }
 
@@ -97,6 +98,7 @@ func NewDecoderWithEnv(r io.Reader, env *Env) (*Decoder, error) {
 	d := Decoder{
 		locals: env,
 		env:    make(map[string]string),
+		alias:  make(map[string]string),
 	}
 	if err := d.push(r); err != nil {
 		return nil, err
@@ -305,7 +307,7 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 		if !d.curr().IsValue() {
 			return d.unexpected()
 		}
-		mst.Alias[ident.Literal] = d.curr().Literal
+		d.alias[ident.Literal] = d.curr().Literal
 		d.resetIdentFunc()
 		d.next()
 		return nil
@@ -400,8 +402,7 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
 	var hidden bool
-	if d.curr().Type == Hidden {
-		hidden = true
+	if hidden = d.curr().Type == Hidden; hidden {
 		d.next()
 	}
 	cmd, err := NewSingleWithLocals(d.curr().Literal, d.locals)
@@ -409,7 +410,10 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 		return err
 	}
 	for k, v := range d.env {
-		cmd.Env[k] = v
+		cmd.shell.Export(k, v)
+	}
+	for k, v := range d.alias {
+		cmd.shell.Alias(k, v)
 	}
 	cmd.Visible = !hidden
 	d.next()

@@ -55,7 +55,6 @@ type Maestro struct {
 	Locals    *Env
 	Duplicate string
 	Commands  map[string]Command
-	Alias     map[string]string
 
 	Remote bool
 	NoDeps bool
@@ -75,7 +74,6 @@ func New() *Maestro {
 		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
 		Commands:  make(map[string]Command),
-		Alias:     make(map[string]string),
 	}
 }
 
