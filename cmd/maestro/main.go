@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/midbel/maestro"
@@ -119,6 +120,7 @@ func exit(err error) {
 	}
 	fmt.Fprintln(os.Stderr, err)
 	if err, ok := err.(maestro.SuggestionError); ok {
+		sort.Strings(err.Others)
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "similar command(s): %s", strings.Join(err.Others, ", "))
 		fmt.Fprintln(os.Stderr)
