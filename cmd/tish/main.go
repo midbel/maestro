@@ -21,10 +21,11 @@ func main() {
 		close(sig)
 	}()
 	var (
-		cwd  = flag.String("c", ".", "set working directory")
-		name = flag.String("n", "tish", "script name")
-		echo = flag.Bool("e", false, "echo each command before executing")
-		scan = flag.Bool("s", false, "scan script")
+		cwd   = flag.String("c", ".", "set working directory")
+		name  = flag.String("n", "tish", "script name")
+		echo  = flag.Bool("e", false, "echo each command before executing")
+		scan  = flag.Bool("s", false, "scan script")
+		parse = flag.Bool("p", false, "parse script")
 	)
 	flag.Parse()
 	if flag.NArg() == 0 {
@@ -32,9 +33,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *scan {
+	switch {
+	case *scan:
 		scanLine(flag.Arg(0))
 		return
+	case *parse:
+		parseLine(flag.Arg(0))
+		return
+	default:
 	}
 
 	options := []shell.ShellOption{
@@ -59,6 +65,17 @@ func main() {
 		fmt.Fprintln(os.Stderr)
 	}
 	sh.Exit()
+}
+
+func parseLine(line string) {
+	p := shell.NewParser(strings.NewReader(line))
+	for {
+		ex, err := p.Parse()
+		if err != nil {
+			break
+		}
+		_ = ex
+	}
 }
 
 func scanLine(line string) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/midbel/maestro/shell"
@@ -32,9 +33,24 @@ func TestShell(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		executeScript(t, sh, cmd, &sio)
 	})
+	t.Run("redirection", func(t *testing.T) {
+		executeScript(t, sh, "echo foobar > testdata/foobar.txt; if [[ -s testdata/foobar.txt ]]; then echo ok fi", &sio)
+		os.Remove("testdata/foobar.txt")
+	})
 	t.Run("alias", func(t *testing.T) {
 		sh.Alias("showgraph", cmd)
 		executeScript(t, sh, "showgraph", &sio)
+	})
+	t.Run("assign", func(t *testing.T) {
+		executeScript(t, sh, "foobar = foobar; echo ${foobar} | cut -f 1 -d 'b'", &sio)
+	})
+	t.Run("true-or", func(t *testing.T) {
+		executeScript(t, sh, "true && echo foo", &sio)
+		executeScript(t, sh, "false || echo bar", &sio)
+	})
+	t.Run("test", func(t *testing.T) {
+		executeScript(t, sh, "if [[ -d testdata ]]; then echo ok else echo ko fi", &sio)
+		executeScript(t, sh, "if [[ ! -d testdata ]]; then echo ok else echo ko fi", &sio)
 	})
 }
 

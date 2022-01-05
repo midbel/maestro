@@ -35,14 +35,6 @@ var testops = map[string]rune{
 	"-n": StrEmpty,
 }
 
-// [[ -z file && (file -nt other || file -ef other) ]]
-// [[ ! -z file && !(file -nt other || ! file -ef other) ]]
-// -z file => unary tester
-// file -nt other => binary tester
-// file -ef other => binary tester
-// ( x || y) => binary tester x.Test() || y.Test()
-// z && (x || y) => z.Test() && (x.Test() || y.Test())
-
 type Tester interface {
 	Expander
 	Test(Environment) (bool, error)

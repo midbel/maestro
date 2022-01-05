@@ -55,24 +55,42 @@ var tokens = []struct {
 		Input:  `echo $etc/$plug/files/*`,
 		Tokens: []rune{shell.Literal, shell.Blank, shell.Variable, shell.Literal, shell.Variable, shell.Literal},
 	},
+	{
+		Input:  `echo -F'/'`,
+		Tokens: []rune{shell.Literal, shell.Blank, shell.Literal, shell.Literal},
+	},
+	{
+		Input:  `[[test]]`,
+		Tokens: []rune{shell.BegTest, shell.Literal, shell.EndTest},
+	},
+	{
+		Input:  `[[$test]]`,
+		Tokens: []rune{shell.BegTest, shell.Variable, shell.EndTest},
+	},
+	{
+		Input:  `if [[-s testdata/foobar.txt]]; then echo ok fi`,
+		Tokens: []rune{shell.Keyword, shell.BegTest, shell.FileSize, shell.Literal, shell.EndTest, shell.List, shell.Keyword, shell.Literal, shell.Blank, shell.Literal, shell.Blank, shell.Keyword},
+	},
 }
 
 func TestScan(t *testing.T) {
 	for _, in := range tokens {
-		scan := shell.Scan(strings.NewReader(in.Input))
-		for i := 0; ; i++ {
-			tok := scan.Scan()
-			if tok.Type == shell.EOF {
-				break
+		t.Run(in.Input, func(t *testing.T) {
+			scan := shell.Scan(strings.NewReader(in.Input))
+			for i := 0; ; i++ {
+				tok := scan.Scan()
+				if tok.Type == shell.EOF {
+					break
+				}
+				if i >= len(in.Tokens) {
+					t.Errorf("too many token generated! expected %d, got %d", len(in.Tokens), i)
+					break
+				}
+				if tok.Type != in.Tokens[i] {
+					t.Errorf("token mismatched %d! %s (got %d, want %d)", i+1, tok, tok.Type, in.Tokens[i])
+					break
+				}
 			}
-			if i >= len(in.Tokens) {
-				t.Errorf("too many token generated! expected %d, got %d", len(in.Tokens), i)
-				break
-			}
-			if tok.Type != in.Tokens[i] {
-				t.Errorf("token mismatched! %s (got %d, want %d)", tok, tok.Type, in.Tokens[i])
-				break
-			}
-		}
+		})
 	}
 }

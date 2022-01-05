@@ -744,6 +744,9 @@ func (s *Scanner) stopLiteral(r rune) bool {
 	if s.char == lcurly {
 		return s.peek() != rcurly
 	}
+	if isTest(s.char, s.peek()) {
+		return true
+	}
 	ok := isBlank(s.char) || isSequence(s.char) || isDouble(s.char) ||
 		isVariable(s.char) || isAssign(s.char)
 	return ok
