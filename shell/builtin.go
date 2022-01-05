@@ -437,7 +437,25 @@ func runBuiltin(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	return nil
+	if set.NArg() == 0 {
+		fmt.Fprintln(b.stderr, "not enough argument supplied")
+		return nil
+	}
+	other, ok := b.shell.builtins[set.Arg(0)]
+	if !ok {
+		fmt.Fprintf(b.stderr, "%s: unknown builtin", set.Arg(0))
+		fmt.Fprintln(b.stderr)
+		return nil
+	}
+	for i := 1; i < set.NArg(); i++ {
+		other.args = append(other.args, set.Arg(i))
+	}
+	other.shell = b.shell
+	other.stdout = b.stdout
+	other.stderr = b.stderr
+	other.stdin = b.stdin
+
+	return other.Run()
 }
 
 func runCommand(b Builtin) error {

@@ -222,54 +222,19 @@ func (s *Shell) Delete(ident string) error {
 }
 
 func (s *Shell) Expand(str string, args []string) ([]string, error) {
-	var (
-		p   = NewParser(strings.NewReader(str))
-		ret []string
-	)
-	for {
-		ex, err := p.Parse()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		str, err := s.expandExecuter(ex)
-		if err != nil {
-			continue
-		}
-		var lines []string
-		for i := range str {
-			lines = append(lines, strings.Join(str[i], " "))
-		}
-		ret = append(ret, strings.Join(lines, "; "))
-	}
-	return ret, nil
+	return Expand(str, args, s)
 }
 
 func (s *Shell) Dry(str, cmd string, args []string) error {
 	s.setContext(cmd, args)
 	defer s.clearContext()
 
-	p := NewParser(strings.NewReader(str))
-	for {
-		ex, err := p.Parse()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return err
-		}
-		str, err := s.expandExecuter(ex)
-		if err != nil {
-			continue
-		}
+	return ExpandWith(str, args, s, func(str [][]string) {
 		for i := range str {
 			io.WriteString(s.stdout, strings.Join(str[i], " "))
 			io.WriteString(s.stdout, "\n")
 		}
-	}
-	return nil
+	})
 }
 
 func (s *Shell) Register(list ...Command) {
@@ -534,60 +499,6 @@ func (s *Shell) expand(ex Expander) ([]string, error) {
 		str = append(as, str[1:]...)
 	}
 	return str, nil
-}
-
-func (s *Shell) expandExecuter(ex Executer) ([][]string, error) {
-	var (
-		str [][]string
-		err error
-	)
-	switch x := ex.(type) {
-	case ExecSimple:
-		xs, err1 := x.Expand(s, true)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		str = append(str, xs)
-	case ExecAnd:
-		left, err1 := s.expandExecuter(x.Left)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		right, err1 := s.expandExecuter(x.Right)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		str = append(str, left...)
-		str = append(str, right...)
-	case ExecOr:
-		left, err1 := s.expandExecuter(x.Left)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		right, err1 := s.expandExecuter(x.Right)
-		if err1 != nil {
-			err = err1
-			break
-		}
-		str = append(str, left...)
-		str = append(str, right...)
-	case ExecPipe:
-		for i := range x.List {
-			xs, err1 := s.expandExecuter(x.List[i].Executer)
-			if err1 != nil {
-				err = err1
-				break
-			}
-			str = append(str, xs...)
-		}
-	default:
-		err = fmt.Errorf("unknown/unsupported executer type %T", ex)
-	}
-	return str, err
 }
 
 func (s *Shell) setContext(name string, args []string) {

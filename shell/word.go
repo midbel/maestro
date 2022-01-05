@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,6 +25,94 @@ type Executer interface{}
 type Expander interface {
 	Expand(env Environment, top bool) ([]string, error)
 	IsQuoted() bool
+}
+
+func Expand(str string, args []string, env Environment) ([]string, error) {
+	var (
+		ret []string
+		err error
+	)
+	err = ExpandWith(str, args, env, func(str [][]string) {
+		var lines []string
+		for i := range str {
+			lines = append(lines, strings.Join(str[i], " "))
+		}
+		ret = append(ret, strings.Join(lines, "; "))
+	})
+	return ret, err
+}
+
+func ExpandWith(str string, args []string, env Environment, with func([][]string)) error {
+	psr := NewParser(strings.NewReader(str))
+	for {
+		ex, err := psr.Parse()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+		str, err := expandExecuter(ex, env)
+		if err != nil {
+			continue
+		}
+		with(str)
+	}
+	return nil
+}
+
+func expandExecuter(ex Executer, env Environment) ([][]string, error) {
+	var (
+		str [][]string
+		err error
+	)
+	switch x := ex.(type) {
+	case ExecSimple:
+		xs, err1 := x.Expand(env, false)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		str = append(str, xs)
+	case ExecAnd:
+		left, err1 := expandExecuter(x.Left, env)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		right, err1 := expandExecuter(x.Right, env)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		str = append(str, left...)
+		str = append(str, right...)
+	case ExecOr:
+		left, err1 := expandExecuter(x.Left, env)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		right, err1 := expandExecuter(x.Right, env)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		str = append(str, left...)
+		str = append(str, right...)
+	case ExecPipe:
+		for i := range x.List {
+			xs, err1 := expandExecuter(x.List[i].Executer, env)
+			if err1 != nil {
+				err = err1
+				break
+			}
+			str = append(str, xs...)
+		}
+	default:
+		err = fmt.Errorf("unknown/unsupported executer type %T", ex)
+	}
+	return str, err
 }
 
 type ExecAssign struct {
