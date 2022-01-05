@@ -250,7 +250,7 @@ func (s *Single) Script(args []string) ([]string, error) {
 	}
 	var scripts []string
 	for _, i := range s.Scripts {
-		rs, err := s.shell.Expand(i.Line, args)
+		rs, err := shell.Expand(i.Line, args, s.shell)
 		if err != nil {
 			return nil, err
 		}

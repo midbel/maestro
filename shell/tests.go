@@ -54,7 +54,7 @@ type SingleTest struct {
 
 func (t SingleTest) Test(env Environment) (bool, error) {
 	str, err := t.Expander.Expand(env, false)
-	return len(str) > 0 && err == nil, err
+	return len(str) > 0 && err == nil, nil
 }
 
 type UnaryTest struct {
