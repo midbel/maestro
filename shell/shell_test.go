@@ -25,20 +25,20 @@ func (s *stdio) Reset() {
 
 type ShellCase struct {
 	Script string
-	Out []string
-	Err []string
-	Args []string
+	Out    []string
+	Err    []string
+	Args   []string
 }
 
 func TestShellBis(t *testing.T) {
 	data := []ShellCase{
 		{
 			Script: `echo foobar`,
-			Out: []string{"foobar"},
+			Out:    []string{"foobar"},
 		},
 		{
 			Script: `FOO=foobar; echo ${FOO} | cut -f 1 -d 'b'`,
-			Out: []string{"foo"},
+			Out:    []string{"foo"},
 		},
 	}
 	for _, d := range data {
