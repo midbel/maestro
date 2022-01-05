@@ -476,7 +476,26 @@ func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
 }
 
 func (m *Maestro) prepare(name string) (Command, error) {
-	return m.lookup(name)
+	cmd, err := m.lookup(name)
+	if err == nil {
+		return cmd, err
+	}
+	return nil, m.suggest(err, name)
+}
+
+func (m *Maestro) suggest(err error, name string) error {
+	var all []string
+	for _, c := range m.Commands {
+		all = append(all, c.Command())
+		s, ok := c.(*Single)
+		if !ok {
+			continue
+		}
+		for _, a := range s.Alias {
+			all = append(all, a)
+		}
+	}
+	return Suggest(err, name, all)
 }
 
 func (m *Maestro) lookup(name string) (Command, error) {

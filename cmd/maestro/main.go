@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/midbel/maestro"
 )
@@ -109,10 +110,21 @@ func main() {
 	default:
 		err = mst.Execute(cmd, args)
 	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	exit(err)
+}
+
+func exit(err error) {
+	if err == nil {
+		return
 	}
+	fmt.Fprintln(os.Stderr, err)
+	if err, ok := err.(maestro.SuggestionError); ok {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "similar command(s): %s", strings.Join(err.Others, ", "))
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "see maestro help to get the list of commands")
+	}
+	os.Exit(1)
 }
 
 func arguments() (string, []string) {

@@ -69,6 +69,8 @@ verify(
 	@go vet "$package/shell"
 	echo "run vet on $package/shlex"
 	@go vet "$package/shlex"
+	echo "run vet on $package/distance"
+	@go vet "$package/distance"
 }
 
 commit(
