@@ -96,12 +96,42 @@ func (m *Maestro) Load(file string) error {
 }
 
 func (m *Maestro) ListenAndServe() error {
-	// TODO: to be implemented
-	return nil
+	server := http.Server{
+		Addr:    m.MetaHttp.Addr,
+		Handler: m,
+	}
+	return server.ListenAndServe()
 }
 
 func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// TODO: to be implemented
+	name := filepath.Base(r.URL.Path)
+	w.Header().Set("content-type", "text/plain")
+	w.Header().Set("Trailer", "Maestro-Exit")
+	cmd, err := m.prepare(name)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	err = m.executeCommand(context.TODO(), cmd, nil, w, w)
+	if cmd, ok := cmd.(*Single); ok {
+		cmd.executed = false
+	}
+
+	exit := "ok"
+	if err != nil {
+		exit = err.Error()
+	}
+	w.Header().Set("Maestro-Exit", exit)
+}
+
+type testreader struct {
+	inner io.Reader
+}
+
+func (r *testreader) Read(b []byte) (int, error) {
+	n, err := r.inner.Read(b)
+	fmt.Println("read from reader", n, err)
+	return n, io.EOF
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
@@ -148,7 +178,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 	m.executeList(ctx, m.MetaExec.Before)
 	defer m.executeList(ctx, m.MetaExec.After)
 
-	err = m.executeCommand(ctx, cmd, args)
+	err = m.executeCommand(ctx, cmd, args, stdout, stderr)
 
 	if err := ctx.Done(); err == nil {
 		next := m.MetaExec.Success
@@ -335,7 +365,7 @@ func (m *Maestro) executeList(ctx context.Context, list []string) {
 		if err != nil {
 			continue
 		}
-		m.executeCommand(ctx, cmd, nil)
+		m.executeCommand(ctx, cmd, nil, stdout, stderr)
 	}
 }
 
@@ -380,7 +410,7 @@ func (m *Maestro) canExecute(cmd Command) error {
 	return nil
 }
 
-func (m *Maestro) executeCommand(ctx context.Context, cmd Command, args []string) error {
+func (m *Maestro) executeCommand(ctx context.Context, cmd Command, args []string, stdout, stderr io.Writer) error {
 	var (
 		pout, _ = createPipe()
 		perr, _ = createPipe()
@@ -433,11 +463,11 @@ func (m *Maestro) executeDependencies(ctx context.Context, cmd Command) error {
 				if err := m.executeDependencies(ctx, cmd); err != nil {
 					return err
 				}
-				m.executeCommand(ctx, cmd, d.Args)
+				m.executeCommand(ctx, cmd, d.Args, stdout, stderr)
 				return nil
 			})
 		} else {
-			err := m.executeCommand(ctx, cmd, d.Args)
+			err := m.executeCommand(ctx, cmd, d.Args, stdout, stderr)
 			if err != nil && !deps[i].Optional {
 				return err
 			}
@@ -621,6 +651,7 @@ type MetaHttp struct {
 	CertFile string
 	KeyFile  string
 	Addr     string
+	Base     string
 
 	// mapping of commands and http method
 	// commands not listed won't be available for execution

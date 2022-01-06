@@ -79,6 +79,7 @@ func main() {
 		{Short: "t", Long: "trace", Desc: "add tracing information command execution", Ptr: &mst.MetaExec.Trace},
 		{Short: "v", Long: "version", Desc: "print maestro version and exit", Ptr: &version},
 		{Short: "D", Long: "define", Desc: "set variables", Ptr: &mst.Locals},
+		{Short: "a", Long: "address", Desc: "listen http", Ptr: &mst.MetaHttp.Addr},
 	}
 
 	parseArgs(options)
@@ -156,6 +157,13 @@ func parseArgs(options []Option) {
 			}
 			if o.Long != "" {
 				flag.Var(v, o.Long, o.Desc)
+			}
+		case *string:
+			if o.Short != "" {
+				flag.StringVar(v, o.Short, *v, o.Desc)
+			}
+			if o.Long != "" {
+				flag.StringVar(v, o.Long, *v, o.Desc)
 			}
 		case *bool:
 			if o.Short != "" {
