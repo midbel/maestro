@@ -8,7 +8,7 @@ func Hamming(str string, others []string) []string {
 		if len(str) != len(others[i]) {
 			continue
 		}
-		if dist := hamming(str, others[i]); dist <= DefaultDistance {
+		if dist := GetHammingDistance(str, others[i]); dist <= DefaultDistance {
 			set = append(set, others[i])
 		}
 	}
@@ -18,14 +18,14 @@ func Hamming(str string, others []string) []string {
 func Levenshtein(str string, others []string) []string {
 	var set []string
 	for i := range others {
-		if dist := levenshtein(str, others[i]); dist <= DefaultDistance {
+		if dist := GetLevenshteinDistance(str, others[i]); dist <= DefaultDistance {
 			set = append(set, others[i])
 		}
 	}
 	return set
 }
 
-func hamming(fst, snd string) int {
+func GetHammingDistance(fst, snd string) int {
 	if fst == snd {
 		return 0
 	}
@@ -38,7 +38,7 @@ func hamming(fst, snd string) int {
 	return dist
 }
 
-func levenshtein(fst, snd string) int {
+func GetLevenshteinDistance(fst, snd string) int {
 	if fst == snd {
 		return 0
 	}
