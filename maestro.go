@@ -118,7 +118,11 @@ func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case CmdAll:
 	case CmdDefault:
 	case CmdVersion:
+		m.executeVersion(w)
+		return
 	case CmdHelp:
+		m.executeHelp("", w)
+		return
 	case CmdListen, CmdServe:
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -152,6 +156,37 @@ func (m *Maestro) Dry(name string, args []string) error {
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
+	return m.execute(name, args, stdout, stderr)
+}
+
+func (m *Maestro) ExecuteDefault(args []string) error {
+	if m.MetaExec.Default == "" {
+		return fmt.Errorf("default command not defined")
+	}
+	return m.execute(m.MetaExec.Default, args, stdout, stderr)
+}
+
+func (m *Maestro) ExecuteAll(args []string) error {
+	if len(m.MetaExec.All) == 0 {
+		return fmt.Errorf("all command not defined")
+	}
+	for _, n := range m.MetaExec.All {
+		if err := m.execute(n, args, stdout, stderr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Maestro) ExecuteHelp(name string) error {
+	return m.executeHelp(name, stdout)
+}
+
+func (m *Maestro) ExecuteVersion() error {
+	return m.executeVersion(stdout)
+}
+
+func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) error {
 	if hasHelp(args) {
 		return m.ExecuteHelp(name)
 	}
@@ -203,26 +238,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 	return err
 }
 
-func (m *Maestro) ExecuteDefault(args []string) error {
-	if m.MetaExec.Default == "" {
-		return fmt.Errorf("default command not defined")
-	}
-	return m.Execute(m.MetaExec.Default, args)
-}
-
-func (m *Maestro) ExecuteAll(args []string) error {
-	if len(m.MetaExec.All) == 0 {
-		return fmt.Errorf("all command not defined")
-	}
-	for _, n := range m.MetaExec.All {
-		if err := m.Execute(n, args); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (m *Maestro) ExecuteHelp(name string) error {
+func (m *Maestro) executeHelp(name string, w io.Writer) error {
 	var (
 		help string
 		err  error
@@ -237,14 +253,14 @@ func (m *Maestro) ExecuteHelp(name string) error {
 		help, err = m.help()
 	}
 	if err == nil {
-		fmt.Fprintln(os.Stdout, strings.TrimSpace(help))
+		fmt.Fprintln(w, strings.TrimSpace(help))
 	}
 	return err
 }
 
-func (m *Maestro) ExecuteVersion() error {
-	fmt.Fprintf(os.Stdout, "%s %s", m.Name(), m.Version)
-	fmt.Fprintln(os.Stdout)
+func (m *Maestro) executeVersion(w io.Writer) error {
+	fmt.Fprintf(w, "%s %s", m.Name(), m.Version)
+	fmt.Fprintln(w)
 	return nil
 }
 
