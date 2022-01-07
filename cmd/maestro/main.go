@@ -35,12 +35,15 @@ in it.
 maestro makes availabe some default sub commands:
 
 default: same as calling maestro without arguments, it will call the command
-         configured with the meta .DEFAULT
-all:     call all the commands defined in the meta .ALL in order
+         configured with the meta DEFAULT
+all:     call all the commands defined in the meta ALL in order
 help:    without arguments, maestro will print a help message generated from
-         all the information in the maestro file
-version: print the version of the maestro file defined via the meta .VERSION
+         the information in the maestro file. Otherwise print help of the
+				 command
+version: print the version of the maestro file defined via the meta VERSION
          and exit
+listen:  run a HTTP server and execute command from the name available in the
+         last element of the URL
 
 Options:
 
@@ -53,6 +56,7 @@ Options:
   -r, --remote                            execute commands on remote server
   -t, --trace                             add tracing information with command execution
   -v, --version                           print maestro version and exit
+  -a ADDR, --address ADDR                 use given address to listen for incoming HTTP requests
 `
 
 func main() {

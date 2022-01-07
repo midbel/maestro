@@ -201,7 +201,7 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 		return err
 	}
 	if m.Remote {
-		return m.executeRemote(cmd, args)
+		return m.executeRemote(cmd, args, stdout, stderr)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -218,12 +218,12 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 			return err
 		}
 	}
-	m.executeList(ctx, m.MetaExec.Before)
-	defer m.executeList(ctx, m.MetaExec.After)
+	m.executeList(ctx, m.MetaExec.Before, stdout, stderr)
+	defer m.executeList(ctx, m.MetaExec.After, stdout, stderr)
 
 	err = m.executeCommand(ctx, cmd, args, stdout, stderr)
 
-	if err := ctx.Done(); err == nil {
+	if errc := ctx.Done(); errc == nil {
 		next := m.MetaExec.Success
 		if err != nil {
 			next = m.MetaExec.Error
@@ -290,7 +290,7 @@ func (m *Maestro) Register(cmd *Single) error {
 	return nil
 }
 
-func (m *Maestro) executeRemote(cmd Command, args []string) error {
+func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Writer) error {
 	scripts, err := cmd.Script(args)
 	if err != nil {
 		return err
@@ -322,14 +322,14 @@ func (m *Maestro) executeRemote(cmd Command, args []string) error {
 		host := h
 		grp.Go(func() error {
 			defer sema.Release(1)
-			return m.executeHost(sub, cmd, host, scripts)
+			return m.executeHost(sub, cmd, host, scripts, stdout, stderr)
 		})
 	}
 	sema.Acquire(ctx, m.MetaSSH.Parallel)
 	return grp.Wait()
 }
 
-func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scripts []string) error {
+func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scripts []string, stdout, stderr io.Writer) error {
 	var (
 		pout, _ = createPipe()
 		perr, _ = createPipe()
@@ -383,7 +383,7 @@ func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scr
 	return nil
 }
 
-func (m *Maestro) executeList(ctx context.Context, list []string) {
+func (m *Maestro) executeList(ctx context.Context, list []string, stdout, stderr io.Writer) {
 	for i := range list {
 		cmd, err := m.lookup(list[i])
 		if err != nil {

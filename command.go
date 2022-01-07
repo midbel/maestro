@@ -301,6 +301,9 @@ func (s *Single) Execute(ctx context.Context, args []string) error {
 
 func (s *Single) execute(ctx context.Context, args []string) error {
 	for _, cmd := range s.Scripts {
+		if err := ctx.Err(); err != nil {
+			break
+		}
 		sh := s.shell
 		if cmd.Subshell {
 			sh, _ = sh.Subshell()

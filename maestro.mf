@@ -22,7 +22,7 @@ test(
 	tag   = build test,
 ): gofmt {
 	@go clean -testcache
-	.repeat($package, "$package/shlex", "$package/shell") {
+	.repeat($package, "$package/shlex", "$package/shell", "$package/distance") {
 		@go test -v -cover <var>
 	}
 }
