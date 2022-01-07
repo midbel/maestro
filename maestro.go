@@ -104,8 +104,26 @@ func (m *Maestro) ListenAndServe() error {
 }
 
 func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	name := filepath.Base(r.URL.Path)
+	// var (
+	// 	nodeps = r.Header.Get("Maestro-NoDeps")
+	// 	dry    = r.Header.Get("Maestro-Dry")
+	// 	vars   = r.Header.Get("Maestro-Vars")
+	// 	ignore = r.Header.Get("Maestro-Ignore")
+	// 	trace  = r.Header.Get("Maestro-Trace")
+	// )
+
 	w.Header().Set("content-type", "text/plain")
+	name := filepath.Base(r.URL.Path)
+	switch name {
+	case CmdAll:
+	case CmdDefault:
+	case CmdVersion:
+	case CmdHelp:
+	case CmdListen, CmdServe:
+		w.WriteHeader(http.StatusForbidden)
+		return
+	default:
+	}
 	w.Header().Set("Trailer", "Maestro-Exit")
 	cmd, err := m.prepare(name)
 	if err != nil {
@@ -122,16 +140,6 @@ func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		exit = err.Error()
 	}
 	w.Header().Set("Maestro-Exit", exit)
-}
-
-type testreader struct {
-	inner io.Reader
-}
-
-func (r *testreader) Read(b []byte) (int, error) {
-	n, err := r.inner.Read(b)
-	fmt.Println("read from reader", n, err)
-	return n, io.EOF
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
@@ -424,8 +432,8 @@ func (m *Maestro) executeCommand(ctx context.Context, cmd Command, args []string
 	cmd.SetOut(pout.W)
 	cmd.SetErr(perr.W)
 
-	go toStd(cmd.Command(), stdout, pout.R)
-	go toStd(cmd.Command(), stderr, perr.R)
+	go toStd(cmd.Command(), stdout, createLine(pout.R))
+	go toStd(cmd.Command(), stderr, createLine(perr.R))
 
 	return m.TraceTime(cmd, args, func() error {
 		err := cmd.Execute(ctx, args)
@@ -733,6 +741,10 @@ func createLine(r io.Reader) io.Reader {
 
 func (r *lineReader) Read(b []byte) (int, error) {
 	if !r.scan.Scan() {
+		err := r.scan.Err()
+		if err == nil {
+			err = io.EOF
+		}
 		return 0, io.EOF
 	}
 	x := r.scan.Bytes()

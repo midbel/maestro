@@ -23,7 +23,7 @@ test(
 ): gofmt {
 	@go clean -testcache
 	.repeat($package, "$package/shlex", "$package/shell") {
-		@go test -cover <var>
+		@go test -v -cover <var>
 	}
 }
 
