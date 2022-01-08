@@ -86,6 +86,19 @@
   - version: 0.2.0
   - author: midbel
 
+* maestro(command, decode): add a flag to command to indicate that it can run multiple times
+  a command once executed will have a flag toggle to avoid that it is re-executed a second time
+  in, eg, its dependencies tree. However in certain circumstances, a command should be allow to run multiple times (in dependencies and/or http context).
+  - date: 2022-01-07
+  - version: 0.2.0
+  - author: midbel
+
+* maestro(feature): introduce variable that can contain objects
+  such kind of variable can be used to eg reused common schedule object (see related improvements below). this variable could also allow the edition of their properties and/or their extension when assign to command properties and/or other variables
+  - date: 2022-01-07
+  - version: 0.2.0
+  - author: midbel
+
 # BUGS
 
 * <maestro(feature,command): cancel command execution
@@ -115,11 +128,9 @@
   syntax: !dep-name
 
 * maestro(command,decoder,execute): conditionally executing dependendies and/or commands
-  - version: 0.2.0
   - author: midbel
 
 * maestro(decoder,environment): predefined functions to "transform" value(s)
-  - version: 0.2.0
   - author: midbel
 
 * <maestro(macro): expand operator in repeat macro
@@ -130,7 +141,11 @@
   use -f to retrieve a maestro file located on a remote web server
   commands retrieved from the remote file have to be executed on the remote server
   - date: 2021-12-08
-  - version: 0.2.0
+  - author: midbel
+
+* maestro(command): schedule command execution (like cron job)
+  specify the name of a command to be execute and when it should be executed. use http request to reconfigure if needed the scheduled time
+  - date: 2022-01-07
   - author: midbel
 
 # ENHANCEMENTS/IMPROVEMENTS

@@ -47,16 +47,17 @@ listen:  run a HTTP server and execute command from the name available in the
 
 Options:
 
+  -a ADDR, --address ADDR                 use given address to listen for HTTP requests
   -d, --dry                               only print commands that will be executed
   -D NAME[=VALUE], --define NAME[=VALUE]  define NAME with optional value
   -f FILE, --file FILE                    read FILE as a maestro file
   -i, --ignore                            ignore all errors from command
   -I DIR, --includes DIR                  search DIR for included maestro files
-  -k, --skip-dep                          don't execute command's dependencies
+  -k, --skip                              don't execute command's dependencies
+  -p, --with-prefix                       prefix each output line with the name of the command
   -r, --remote                            execute commands on remote server
   -t, --trace                             add tracing information with command execution
   -v, --version                           print maestro version and exit
-  -a ADDR, --address ADDR                 use given address to listen for incoming HTTP requests
 `
 
 func main() {
@@ -84,6 +85,7 @@ func main() {
 		{Short: "v", Long: "version", Desc: "print maestro version and exit", Ptr: &version},
 		{Short: "D", Long: "define", Desc: "set variables", Ptr: &mst.Locals},
 		{Short: "a", Long: "address", Desc: "listen http", Ptr: &mst.MetaHttp.Addr},
+		{Short: "p", Long: "with-prefix", Desc: "add a prefix to each output line", Ptr: &mst.WithPrefix},
 	}
 
 	parseArgs(options)
@@ -113,6 +115,8 @@ func main() {
 		err = mst.ExecuteAll(args)
 	case maestro.CmdDefault:
 		err = mst.ExecuteDefault(args)
+	case maestro.CmdSchedule:
+		err = mst.Schedule()
 	default:
 		err = mst.Execute(cmd, args)
 	}

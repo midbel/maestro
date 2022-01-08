@@ -31,12 +31,13 @@ const (
 )
 
 const (
-	CmdHelp    = "help"
-	CmdVersion = "version"
-	CmdAll     = "all"
-	CmdDefault = "default"
-	CmdListen  = "listen"
-	CmdServe   = "serve"
+	CmdHelp     = "help"
+	CmdVersion  = "version"
+	CmdAll      = "all"
+	CmdDefault  = "default"
+	CmdListen   = "listen"
+	CmdServe    = "serve"
+	CmdSchedule = "schedule"
 )
 
 const (
@@ -56,8 +57,9 @@ type Maestro struct {
 	Duplicate string
 	Commands  map[string]Command
 
-	Remote bool
-	NoDeps bool
+	Remote     bool
+	NoDeps     bool
+	WithPrefix bool
 }
 
 func New() *Maestro {
@@ -103,16 +105,30 @@ func (m *Maestro) ListenAndServe() error {
 	return server.ListenAndServe()
 }
 
+const (
+	httpHdrNoDeps = "Maestro-NoDeps"
+	httpHdrDry    = "Maestro-Dry"
+	httpHdrVars   = "Maestro-Vars"
+	httpHdrIgnore = "Maestro-Ignore"
+	httpHdrTrace  = "Maestro-Trace"
+	httpHdrExit   = "Maestro-Exit"
+	httpHdrPrefix = "Maestro-Prefix"
+
+	httpHdrContent = "Content-Type"
+	httpHdrTrailer = "Trailer"
+)
+
 func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// var (
-	// 	nodeps = r.Header.Get("Maestro-NoDeps")
-	// 	dry    = r.Header.Get("Maestro-Dry")
-	// 	vars   = r.Header.Get("Maestro-Vars")
-	// 	ignore = r.Header.Get("Maestro-Ignore")
-	// 	trace  = r.Header.Get("Maestro-Trace")
+	// 	nodeps  = r.Header.Get(httpHdrNoDeps)
+	// 	dry     = r.Header.Get(httpHdrDry)
+	// 	vars    = r.Header.Get(httpHdrVars)
+	// 	ignore  = r.Header.Get(httpHdrIgnore)
+	// 	trace   = r.Header.Get(httpHdrTrace)
+	// 	prefix  = r.Header.Get(httpHdrPrefix)
 	// )
 
-	w.Header().Set("content-type", "text/plain")
+	w.Header().Set(httpHdrContent, "text/plain")
 	name := filepath.Base(r.URL.Path)
 	switch name {
 	case CmdAll:
@@ -123,12 +139,12 @@ func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case CmdHelp:
 		m.executeHelp("", w)
 		return
-	case CmdListen, CmdServe:
+	case CmdListen, CmdServe, CmdSchedule:
 		w.WriteHeader(http.StatusForbidden)
 		return
 	default:
 	}
-	w.Header().Set("Trailer", "Maestro-Exit")
+	w.Header().Set(httpHdrTrailer, httpHdrExit)
 	cmd, err := m.prepare(name)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -143,7 +159,11 @@ func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		exit = err.Error()
 	}
-	w.Header().Set("Maestro-Exit", exit)
+	w.Header().Set(httpHdrExit, exit)
+}
+
+func (m *Maestro) Schedule() error {
+	return nil
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
@@ -345,8 +365,8 @@ func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scr
 
 		prefix := fmt.Sprintf("%s;%s;%s", m.MetaSSH.User, addr, cmd.Command())
 
-		go toStd(prefix, stdout, createLine(pout.R))
-		go toStd(prefix, stderr, createLine(perr.R))
+		go toStd(prefix, stdout, createLine(pout.R), m.WithPrefix)
+		go toStd(prefix, stderr, createLine(perr.R), m.WithPrefix)
 
 		defer sess.Close()
 		sess.Stdout = pout.W
@@ -448,8 +468,8 @@ func (m *Maestro) executeCommand(ctx context.Context, cmd Command, args []string
 	cmd.SetOut(pout.W)
 	cmd.SetErr(perr.W)
 
-	go toStd(cmd.Command(), stdout, createLine(pout.R))
-	go toStd(cmd.Command(), stderr, createLine(perr.R))
+	go toStd(cmd.Command(), stdout, createLine(pout.R), m.WithPrefix)
+	go toStd(cmd.Command(), stderr, createLine(perr.R), m.WithPrefix)
 
 	return m.TraceTime(cmd, args, func() error {
 		err := cmd.Execute(ctx, args)
@@ -709,6 +729,30 @@ type help struct {
 	Commands map[string][]Command
 }
 
+// a job represent a command to be executed with its dependencies
+type job struct {
+	cmd     Command
+	deps    []Command
+	before  []Command
+	after   []Command
+	success []Command
+	errors  []Command
+
+	// all the command should share the same std output and error
+	stdout pipe
+	stderr pipe
+}
+
+func (j *job) Execute() error {
+
+}
+
+// reset toggles the executed flag back of each command executed when
+// the main command could be executed multiple times
+func (j *job) Reset() {
+
+}
+
 type pipe struct {
 	R *os.File
 	W *os.File
@@ -789,8 +833,11 @@ var (
 	stderr = createLock(os.Stderr)
 )
 
-func toStd(prefix string, w io.Writer, r io.Reader) {
-	io.Copy(createPrefix(prefix, w), r)
+func toStd(prefix string, w io.Writer, r io.Reader, with bool) {
+	if with && prefix != "" {
+		w = createPrefix(prefix, w)
+	}
+	io.Copy(w, r)
 }
 
 func hasHelp(args []string) bool {
