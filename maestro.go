@@ -37,6 +37,7 @@ const (
 	CmdDefault  = "default"
 	CmdListen   = "listen"
 	CmdServe    = "serve"
+	CmdGraph    = "graph"
 	CmdSchedule = "schedule"
 )
 
@@ -160,6 +161,29 @@ func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		exit = err.Error()
 	}
 	w.Header().Set(httpHdrExit, exit)
+}
+
+func (m *Maestro) Graph(name string) error {
+	return m.traverseGraph(name, 0)
+}
+
+func (m *Maestro) traverseGraph(name string, level int) error {
+	cmd, err := m.lookup(name)
+	if err != nil {
+		return err
+	}
+	s, ok := cmd.(*Single)
+	if !ok {
+		return nil
+	}
+	fmt.Fprintf(stdout, "%s- %s", strings.Repeat(" ", level*2), name)
+	fmt.Fprintln(stdout)
+	for _, d := range s.Deps {
+		if err := m.traverseGraph(d.Name, level+1); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *Maestro) Schedule() error {
@@ -743,8 +767,40 @@ type job struct {
 	stderr pipe
 }
 
-func (j *job) Execute() error {
+func (j *job) Execute(ctx context.Context, args []string) error {
+	j.executeList(ctx, j.before)
+	defer j.executeList(ctx, j.after)
 
+	j.cmd.SetOut(j.stdout.W)
+	j.cmd.SetErr(j.stderr.W)
+	var (
+		next []Command
+		err  = j.executeDependencies()
+	)
+	if err != nil {
+		return err
+	}
+	err = j.cmd.Execute(ctx, args)
+	if next = j.success; err != nil {
+		next = j.errors
+	}
+	j.executeList(ctx, next)
+	return err
+}
+
+func (j *job) executeDependencies() error {
+	return nil
+}
+
+func (j *job) executeList(ctx context.Context, list []Command) error {
+	for i := range list {
+		list[i].SetOut(j.stdout.W)
+		list[i].SetErr(j.stderr.W)
+		if err := list[i].Execute(ctx, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // reset toggles the executed flag back of each command executed when
