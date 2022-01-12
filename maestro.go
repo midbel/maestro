@@ -99,91 +99,58 @@ func (m *Maestro) Load(file string) error {
 }
 
 func (m *Maestro) ListenAndServe() error {
+	http.Handle("/help", serveRequest(ServeHelp(m)))
+	http.Handle("/version", serveRequest(ServeVersion(m)))
+	http.Handle("/debug", serveRequest(ServeDebug(m)))
+	http.Handle("/all", serveRequest(ServeAll(m)))
+	http.Handle("/default", serveRequest(ServeDefault(m)))
+	http.Handle("/", serveRequest(ServeCommand(m)))
 	server := http.Server{
-		Addr:    m.MetaHttp.Addr,
-		Handler: m,
+		Addr: m.MetaHttp.Addr,
 	}
 	return server.ListenAndServe()
 }
 
-const (
-	httpHdrNoDeps = "Maestro-NoDeps"
-	httpHdrDry    = "Maestro-Dry"
-	httpHdrVars   = "Maestro-Vars"
-	httpHdrIgnore = "Maestro-Ignore"
-	httpHdrTrace  = "Maestro-Trace"
-	httpHdrExit   = "Maestro-Exit"
-	httpHdrPrefix = "Maestro-Prefix"
-
-	httpHdrContent = "Content-Type"
-	httpHdrTrailer = "Trailer"
-)
-
-func (m *Maestro) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// var (
-	// 	nodeps  = r.Header.Get(httpHdrNoDeps)
-	// 	dry     = r.Header.Get(httpHdrDry)
-	// 	vars    = r.Header.Get(httpHdrVars)
-	// 	ignore  = r.Header.Get(httpHdrIgnore)
-	// 	trace   = r.Header.Get(httpHdrTrace)
-	// 	prefix  = r.Header.Get(httpHdrPrefix)
-	// )
-
-	w.Header().Set(httpHdrContent, "text/plain")
-	name := filepath.Base(r.URL.Path)
-	switch name {
-	case CmdAll:
-	case CmdDefault:
-	case CmdVersion:
-		m.executeVersion(w)
-		return
-	case CmdHelp:
-		m.executeHelp("", w)
-		return
-	case CmdListen, CmdServe, CmdSchedule:
-		w.WriteHeader(http.StatusForbidden)
-		return
-	default:
-	}
-	w.Header().Set(httpHdrTrailer, httpHdrExit)
-	cmd, err := m.prepare(name)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	err = m.executeCommand(context.TODO(), cmd, nil, w, w)
-	if cmd, ok := cmd.(*Single); ok {
-		cmd.executed = false
-	}
-
-	exit := "ok"
-	if err != nil {
-		exit = err.Error()
-	}
-	w.Header().Set(httpHdrExit, exit)
-}
-
 func (m *Maestro) Graph(name string) error {
-	return m.traverseGraph(name, 0)
+	all, err := m.traverseGraph(name, 0)
+	var (
+		seen = make(map[string]struct{})
+		deps = make([]string, 0, len(all))
+		zero = struct{}{}
+	)
+	for _, n := range all {
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = zero
+		deps = append(deps, n)
+	}
+	fmt.Fprintf(stdout, "order %s -> %s", strings.Join(deps, " -> "), name)
+	fmt.Fprintln(stdout)
+	return err
 }
 
-func (m *Maestro) traverseGraph(name string, level int) error {
+func (m *Maestro) traverseGraph(name string, level int) ([]string, error) {
 	cmd, err := m.lookup(name)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	s, ok := cmd.(*Single)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	fmt.Fprintf(stdout, "%s- %s", strings.Repeat(" ", level*2), name)
 	fmt.Fprintln(stdout)
+	var list []string
 	for _, d := range s.Deps {
-		if err := m.traverseGraph(d.Name, level+1); err != nil {
-			return err
+		others, err := m.traverseGraph(d.Name, level+1)
+		if err != nil {
+			return nil, err
 		}
+		list = append(list, others...)
+		list = append(list, d.Name)
 	}
-	return nil
+	return list, nil
 }
 
 func (m *Maestro) Schedule() error {
@@ -191,7 +158,7 @@ func (m *Maestro) Schedule() error {
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
-	cmd, err := m.lookup(name)
+	cmd, err := m.prepare(name)
 	if err != nil {
 		return err
 	}
@@ -239,9 +206,6 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 	}
 	cmd, err := m.prepare(name)
 	if err != nil {
-		return err
-	}
-	if err := m.canExecute(cmd); err != nil {
 		return err
 	}
 	if m.Remote {
@@ -429,7 +393,7 @@ func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scr
 
 func (m *Maestro) executeList(ctx context.Context, list []string, stdout, stderr io.Writer) {
 	for i := range list {
-		cmd, err := m.lookup(list[i])
+		cmd, err := m.prepare(list[i])
 		if err != nil {
 			continue
 		}
@@ -573,10 +537,13 @@ func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
 
 func (m *Maestro) prepare(name string) (Command, error) {
 	cmd, err := m.lookup(name)
-	if err == nil {
-		return cmd, err
+	if err != nil {
+		return nil, m.suggest(err, name)
 	}
-	return nil, m.suggest(err, name)
+	if err := m.canExecute(cmd); err != nil {
+		return nil, err
+	}
+	return cmd, nil
 }
 
 func (m *Maestro) suggest(err error, name string) error {
