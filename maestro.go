@@ -505,7 +505,6 @@ func (m *Maestro) executeDependencies(ctx context.Context, cmd Command) error {
 			}
 		}
 	}
-	grp.Wait()
 	return grp.Wait()
 }
 
@@ -832,10 +831,21 @@ type prefixWriter struct {
 }
 
 func createPrefix(prefix string, w io.Writer) io.Writer {
+	if prefix == "" {
+		prefix = "maestro"
+	}
 	return &prefixWriter{
 		prefix: fmt.Sprintf("[%s] ", prefix),
 		inner:  w,
 	}
+}
+
+func (w *prefixWriter) SetPrefix(prefix string) {
+	if prefix == "" {
+		w.prefix = prefix
+		return
+	}
+	w.prefix = fmt.Sprintf("[%s] ", prefix)
 }
 
 func (w *prefixWriter) Write(b []byte) (int, error) {
