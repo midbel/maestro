@@ -131,6 +131,12 @@ var builtins = map[string]Builtin{
 		Help:    "",
 		Execute: runExit,
 	},
+	"wait": {
+		Usage:   "wait [n]",
+		Short:   "wait for process running in background",
+		Help:    "",
+		Execute: runWait,
+	},
 }
 
 type Builtin struct {
@@ -752,5 +758,9 @@ func runUnalias(b Builtin) error {
 	for _, a := range set.Args() {
 		b.shell.Unalias(a)
 	}
+	return nil
+}
+
+func runWait(b Builtin) error {
 	return nil
 }
