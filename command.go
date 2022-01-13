@@ -23,13 +23,18 @@ const (
 	errRaise  = "raise"
 )
 
+type Executer interface {
+	Execute(context.Context, []string) error
+	SetOut(w io.Writer)
+	SetErr(w io.Writer)
+}
+
 type Command interface {
 	About() string
 	Help() (string, error)
 	Usage() string
 	Tags() []string
 	Command() string
-	HasRun() bool
 	Blocked() bool
 	Can() bool
 	Combined() bool
@@ -37,9 +42,7 @@ type Command interface {
 	Script([]string) ([]string, error)
 	Remote() bool
 	Targets() []string
-	Execute(context.Context, []string) error
-	SetOut(w io.Writer)
-	SetErr(w io.Writer)
+	Executer
 }
 
 type Dep struct {
@@ -170,10 +173,6 @@ func (s *Single) Usage() string {
 
 func (_ *Single) Combined() bool {
 	return false
-}
-
-func (s *Single) HasRun() bool {
-	return s.executed
 }
 
 func (s *Single) Blocked() bool {
@@ -477,15 +476,6 @@ func (c Combined) Tags() []string {
 func (c Combined) Blocked() bool {
 	for i := range c {
 		if c[i].Blocked() {
-			return true
-		}
-	}
-	return false
-}
-
-func (c Combined) HasRun() bool {
-	for i := range c {
-		if c[i].HasRun() {
 			return true
 		}
 	}

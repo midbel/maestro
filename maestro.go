@@ -632,9 +632,6 @@ type MetaExec struct {
 }
 
 func (m MetaExec) TraceTime(cmd Command, args []string, run func() error) error {
-	if cmd.HasRun() {
-		return nil
-	}
 	m.traceStart(cmd, args)
 	var (
 		now = time.Now()

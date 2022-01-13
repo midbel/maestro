@@ -6,10 +6,6 @@ import (
 	"io"
 )
 
-type Executer interface {
-	Execute(context.Context, []string) error
-}
-
 type execmain struct {
   Command
   args []string
