@@ -41,10 +41,18 @@ build(
 	tag   = build,
 	alias = compile,
 	hosts = "127.0.0.1:22",
+	options = (
+		short = c,
+		long  = clean,
+		flag  = true,
+		help  = "run go clean before compiling binaries"
+	)
 ): tidy, gofmt, test, verify {
 	# build the maestro binary and the tish shell
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
+
+	$clean && go clean -cache
 
 	version = $(git tag | head -n 1)
 	build   = $(date -I)
@@ -100,6 +108,13 @@ commit(
 
 .SSH_USER     = test
 .SSH_PASSWORD = usertest
+
+%goclean(
+	short = "clean previous build",
+	tag   = helper,
+): {
+	go clean -cache
+}
 
 %gofmt {
 	gofmt -w -s .
