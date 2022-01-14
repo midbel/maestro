@@ -509,40 +509,6 @@ func (m *Maestro) executeDependencies(ctx context.Context, cmd Command) error {
 	return grp.Wait()
 }
 
-func (m *Maestro) resolveDependenciesBis(cmd Command) ([]Executer, error) {
-	var (
-		traverse func(Command) ([]Executer, error)
-		seen     = make(map[string]struct{})
-		empty    = struct{}{}
-	)
-
-	traverse = func(cmd Command) ([]Executer, error) {
-		s, ok := cmd.(*Single)
-		if !ok {
-			return nil, nil
-		}
-		var all []Executer
-		for _, d := range s.Deps {
-			if _, ok := seen[d.Name]; ok {
-				continue
-			}
-			seen[d.Name] = empty
-			c, err := m.prepare(d.Name)
-			if err != nil {
-				return nil, err
-			}
-			set, err := traverse(c)
-			if err != nil {
-				return nil, err
-			}
-			all = append(all, set...)
-			all = append(all, c)
-		}
-		return all, nil
-	}
-	return traverse(cmd)
-}
-
 func (m *Maestro) resolveDependencies(cmd Command) ([]Dep, error) {
 	var traverse func(Command) ([]Dep, error)
 
