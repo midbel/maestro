@@ -1,7 +1,8 @@
 package maestro
 
 import (
-	// "context"
+	"context"
+	"io"
 	"net/http"
 	"path"
 	"strconv"
@@ -44,7 +45,15 @@ func ServeCommand(mst *Maestro) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		_ = cmd
+		ex, err := mst.resolve(cmd, nil)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if c, ok := ex.(io.Closer); ok {
+			defer c.Close()
+		}
+		err = ex.Execute(context.TODO(), w, w)
 
 		exit := "ok"
 		if err != nil {

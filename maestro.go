@@ -208,6 +208,9 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 	if err != nil {
 		return err
 	}
+	if err := m.canExecute(cmd); err != nil {
+		return err
+	}
 	if m.Remote {
 		return m.executeRemote(cmd, args, stdout, stderr)
 	}
@@ -220,30 +223,14 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 		cancel()
 		close(sig)
 	}()
-
-	if !m.NoDeps {
-		if err := m.executeDependencies(ctx, cmd); err != nil {
-			return err
-		}
+	ex, err := m.resolve(cmd, args)
+	if err != nil {
+		return err
 	}
-	m.executeList(ctx, m.MetaExec.Before, stdout, stderr)
-	defer m.executeList(ctx, m.MetaExec.After, stdout, stderr)
-
-	err = m.executeCommand(ctx, cmd, args, stdout, stderr)
-
-	if errc := ctx.Done(); errc == nil {
-		next := m.MetaExec.Success
-		if err != nil {
-			next = m.MetaExec.Error
-		}
-		for _, cmd := range next {
-			c, err := m.lookup(cmd)
-			if err == nil {
-				c.Execute(ctx, nil)
-			}
-		}
+	if c, ok := ex.(io.Closer); ok {
+		defer c.Close()
 	}
-	return err
+	return ex.Execute(ctx, stdout, stderr)
 }
 
 func (m *Maestro) executeHelp(name string, w io.Writer) error {
@@ -508,19 +495,62 @@ func (m *Maestro) executeDependencies(ctx context.Context, cmd Command) error {
 	return grp.Wait()
 }
 
-func (m *Maestro) resolveDependenciesBis(cmd Command) ([]Executer, error) {
+func (m *Maestro) resolve(cmd Command, args []string) (executer, error) {
+	var list deplist
+	if !m.NoDeps {
+		deps, err := m.resolveDependenciesBis(cmd)
+		if err != nil {
+			return nil, err
+		}
+		list = deps
+	}
 	var (
-		traverse func(Command) ([]Executer, error)
+		root = createMain(cmd, args, list)
+		err  error
+	)
+	root.pre, err = m.resolveList(m.Before)
+	root.post, err = m.resolveList(m.After)
+	root.errors, err = m.resolveList(m.Error)
+	root.success, err = m.resolveList(m.Success)
+
+	var ex executer = root
+	if m.Trace {
+		ex = trace(ex)
+	}
+
+	tree, err := createTree(ex)
+	if err != nil {
+		return nil, err
+	}
+	tree.prefix = m.WithPrefix
+	return &tree, nil
+}
+
+func (m *Maestro) resolveList(names []string) ([]Command, error) {
+	var list []Command
+	for _, n := range names {
+		c, err := m.lookup(n)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, c)
+	}
+	return list, nil
+}
+
+func (m *Maestro) resolveDependenciesBis(cmd Command) (deplist, error) {
+	var (
+		traverse func(Command) (deplist, error)
 		seen     = make(map[string]struct{})
 		empty    = struct{}{}
 	)
 
-	traverse = func(cmd Command) ([]Executer, error) {
+	traverse = func(cmd Command) (deplist, error) {
 		s, ok := cmd.(*Single)
 		if !ok {
 			return nil, nil
 		}
-		var all []Executer
+		var set []executer
 		for _, d := range s.Deps {
 			if _, ok := seen[d.Name]; ok {
 				continue
@@ -528,16 +558,26 @@ func (m *Maestro) resolveDependenciesBis(cmd Command) ([]Executer, error) {
 			seen[d.Name] = empty
 			c, err := m.prepare(d.Name)
 			if err != nil {
+				if d.Optional {
+					continue
+				}
 				return nil, err
 			}
-			set, err := traverse(c)
+			list, err := traverse(c)
 			if err != nil {
 				return nil, err
 			}
-			all = append(all, set...)
-			all = append(all, c)
+			ed := createDep(c, d.Args, list)
+			ed.background = d.Bg
+
+			var ex executer = ed
+			if m.Trace {
+				ex = trace(ex)
+			}
+
+			set = append(set, ex)
 		}
-		return all, nil
+		return deplist(set), nil
 	}
 	return traverse(cmd)
 }
@@ -572,9 +612,6 @@ func (m *Maestro) prepare(name string) (Command, error) {
 	cmd, err := m.lookup(name)
 	if err != nil {
 		return nil, m.suggest(err, name)
-	}
-	if err := m.canExecute(cmd); err != nil {
-		return nil, err
 	}
 	return cmd, nil
 }
@@ -748,81 +785,6 @@ type help struct {
 	Usage    string
 	Version  string
 	Commands map[string][]Command
-}
-
-// a job represent a command to be executed with its dependencies
-type job struct {
-	cmd     Command
-	deps    []Command
-	before  []Command
-	after   []Command
-	success []Command
-	errors  []Command
-
-	// all the command should share the same std output and error
-	stdout pipe
-	stderr pipe
-}
-
-func (j *job) Execute(ctx context.Context, args []string) error {
-	j.executeList(ctx, j.before)
-	defer j.executeList(ctx, j.after)
-
-	j.cmd.SetOut(j.stdout.W)
-	j.cmd.SetErr(j.stderr.W)
-	var (
-		next []Command
-		err  = j.executeDependencies()
-	)
-	if err != nil {
-		return err
-	}
-	err = j.cmd.Execute(ctx, args)
-	if next = j.success; err != nil {
-		next = j.errors
-	}
-	j.executeList(ctx, next)
-	return err
-}
-
-func (j *job) executeDependencies() error {
-	return nil
-}
-
-func (j *job) executeList(ctx context.Context, list []Command) error {
-	for i := range list {
-		list[i].SetOut(j.stdout.W)
-		list[i].SetErr(j.stderr.W)
-		if err := list[i].Execute(ctx, nil); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// reset toggles the executed flag back of each command executed when
-// the main command could be executed multiple times
-func (j *job) Reset() {
-
-}
-
-type pipe struct {
-	R *os.File
-	W *os.File
-}
-
-func createPipe() (*pipe, error) {
-	var (
-		p   pipe
-		err error
-	)
-	p.R, p.W, err = os.Pipe()
-	return &p, err
-}
-
-func (p *pipe) Close() error {
-	p.R.Close()
-	return p.W.Close()
 }
 
 type prefixWriter struct {
