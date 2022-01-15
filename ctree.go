@@ -16,6 +16,13 @@ type executer interface {
 	Execute(context.Context, io.Writer, io.Writer) error
 }
 
+type ctreeOption struct {
+	Ignore bool
+	Prefix bool
+	Trace  bool
+	NoDeps bool
+}
+
 type ctree struct {
 	root executer
 

@@ -29,15 +29,18 @@ func parseBool(str string) bool {
 func ServeCommand(mst *Maestro) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		// var (
-		// 	nodeps  = r.Header.Get(httpHdrNoDeps)
 		// 	dry     = r.Header.Get(httpHdrDry)
 		// 	vars    = r.Header.Get(httpHdrVars)
-		// 	ignore = parseBool(r.Header.Get(httpHdrIgnore))
-		// 	trace  = parseBool(r.Header.Get(httpHdrTrace))
-		// 	prefix = parseBool(r.Header.Get(httpHdrPrefix))
 		// )
-		name := path.Base(r.URL.Path)
-
+		var (
+			name   = path.Base(r.URL.Path)
+			option = ctreeOption{
+				NoDeps: parseBool(r.Header.Get(httpHdrNoDeps)),
+				Ignore: parseBool(r.Header.Get(httpHdrIgnore)),
+				Trace:  parseBool(r.Header.Get(httpHdrTrace)),
+				Prefix: parseBool(r.Header.Get(httpHdrPrefix)),
+			}
+		)
 		w.Header().Set(httpHdrTrailer, httpHdrExit)
 
 		cmd, err := mst.prepare(name)
@@ -45,7 +48,7 @@ func ServeCommand(mst *Maestro) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		ex, err := mst.resolve(cmd, nil)
+		ex, err := mst.resolve(cmd, nil, option)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

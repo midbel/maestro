@@ -227,7 +227,13 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 		cancel()
 		close(sig)
 	}()
-	ex, err := m.resolve(cmd, args)
+	option := ctreeOption{
+		Trace:  m.Trace,
+		NoDeps: m.NoDeps,
+		Prefix: m.WithPrefix,
+		Ignore: m.Ignore,
+	}
+	ex, err := m.resolve(cmd, args, option)
 	if err != nil {
 		return err
 	}
@@ -390,10 +396,10 @@ func (m *Maestro) canExecute(cmd Command) error {
 	return nil
 }
 
-func (m *Maestro) resolve(cmd Command, args []string) (executer, error) {
+func (m *Maestro) resolve(cmd Command, args []string, option ctreeOption) (executer, error) {
 	var list deplist
-	if !m.NoDeps {
-		deps, err := m.resolveDependencies(cmd)
+	if !option.NoDeps {
+		deps, err := m.resolveDependencies(cmd, option)
 		if err != nil {
 			return nil, err
 		}
@@ -403,13 +409,14 @@ func (m *Maestro) resolve(cmd Command, args []string) (executer, error) {
 		root = createMain(cmd, args, list)
 		err  error
 	)
+	root.ignore = option.Ignore
 	root.pre, err = m.resolveList(m.Before)
 	root.post, err = m.resolveList(m.After)
 	root.errors, err = m.resolveList(m.Error)
 	root.success, err = m.resolveList(m.Success)
 
 	var ex executer = root
-	if m.Trace {
+	if option.Trace {
 		ex = trace(ex)
 	}
 
@@ -417,7 +424,7 @@ func (m *Maestro) resolve(cmd Command, args []string) (executer, error) {
 	if err != nil {
 		return nil, err
 	}
-	tree.prefix = m.WithPrefix
+	tree.prefix = option.Prefix
 	return &tree, nil
 }
 
@@ -433,7 +440,7 @@ func (m *Maestro) resolveList(names []string) ([]Command, error) {
 	return list, nil
 }
 
-func (m *Maestro) resolveDependencies(cmd Command) (deplist, error) {
+func (m *Maestro) resolveDependencies(cmd Command, option ctreeOption) (deplist, error) {
 	var (
 		traverse func(Command) (deplist, error)
 		seen     = make(map[string]struct{})
@@ -466,7 +473,7 @@ func (m *Maestro) resolveDependencies(cmd Command) (deplist, error) {
 			ed.background = d.Bg
 
 			var ex executer = ed
-			if m.Trace {
+			if option.Trace {
 				ex = trace(ex)
 			}
 
