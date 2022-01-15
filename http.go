@@ -1,7 +1,6 @@
 package maestro
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"path"
@@ -56,7 +55,7 @@ func ServeCommand(mst *Maestro) http.Handler {
 		if c, ok := ex.(io.Closer); ok {
 			defer c.Close()
 		}
-		err = ex.Execute(context.TODO(), w, w)
+		err = ex.Execute(r.Context(), w, w)
 
 		exit := "ok"
 		if err != nil {

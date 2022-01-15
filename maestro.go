@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -219,20 +218,15 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 		return m.executeRemote(cmd, args, stdout, stderr)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Kill, os.Interrupt)
-		<-sig
-		cancel()
-		close(sig)
-	}()
-	option := ctreeOption{
-		Trace:  m.Trace,
-		NoDeps: m.NoDeps,
-		Prefix: m.WithPrefix,
-		Ignore: m.Ignore,
-	}
+	var (
+		ctx    = interruptContext()
+		option = ctreeOption{
+			Trace:  m.Trace,
+			NoDeps: m.NoDeps,
+			Prefix: m.WithPrefix,
+			Ignore: m.Ignore,
+		}
+	)
 	ex, err := m.resolve(cmd, args, option)
 	if err != nil {
 		return err
@@ -274,19 +268,13 @@ func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Wr
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Kill, os.Interrupt)
-		<-sig
-		cancel()
-	}()
 	if m.MetaSSH.Parallel <= 0 {
 		n := len(cmd.Targets())
 		m.MetaSSH.Parallel = int64(n)
 	}
 	var (
-		grp, sub = errgroup.WithContext(ctx)
+		parent   = interruptContext()
+		grp, ctx = errgroup.WithContext(parent)
 		sema     = semaphore.NewWeighted(m.MetaSSH.Parallel)
 		seen     = make(map[string]struct{})
 	)
@@ -295,16 +283,16 @@ func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Wr
 			continue
 		}
 		seen[h] = struct{}{}
-		if err := sema.Acquire(ctx, 1); err != nil {
+		if err := sema.Acquire(parent, 1); err != nil {
 			return err
 		}
 		host := h
 		grp.Go(func() error {
 			defer sema.Release(1)
-			return m.executeHost(sub, cmd, host, scripts, stdout, stderr)
+			return m.executeHost(ctx, cmd, host, scripts, stdout, stderr)
 		})
 	}
-	sema.Acquire(ctx, m.MetaSSH.Parallel)
+	sema.Acquire(parent, m.MetaSSH.Parallel)
 	return grp.Wait()
 }
 
@@ -454,13 +442,13 @@ func (m *Maestro) resolveDependencies(cmd Command, option ctreeOption) (deplist,
 		}
 		var set []executer
 		for _, d := range s.Deps {
-			if _, ok := seen[d.Name]; ok {
+			if _, ok := seen[d.Name]; ok && !d.Mandatory {
 				continue
 			}
 			seen[d.Name] = empty
 			c, err := m.prepare(d.Name)
 			if err != nil {
-				if d.Optional {
+				if d.Optional && !d.Mandatory {
 					continue
 				}
 				return nil, err
