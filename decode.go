@@ -71,7 +71,7 @@ const (
 	optDefault  = "default"
 	optFlag     = "flag"
 	optHelp     = "help"
-	optValid    = "validate"
+	optValid    = "check"
 )
 
 type Decoder struct {
@@ -556,6 +556,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			case optHelp:
 				opt.Help, err = d.parseString()
 			case optValid:
+				opt.Valid, err = d.decodeValidateOption()
 			}
 			if err != nil {
 				return opt, err
@@ -610,6 +611,75 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 		return d.unexpected()
 	}
 	return nil
+}
+
+func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error) {
+	return nil, nil
+}
+
+func (d *Decoder) decodeValidateOption() (ValidateFunc, error) {
+	var list []ValidateFunc
+	for !d.done() && d.curr().Type != Comma {
+		if d.curr().Type != Ident {
+			return nil, d.unexpected()
+		}
+		var (
+			rule = d.curr().Literal
+			args []string
+		)
+		d.next()
+		if rule == validNot || rule == validSome || rule == validAll {
+			fn, err := decodeSpecialValidateOption(rule)
+			if err != nil {
+				return nil, err
+			}
+			list = append(list, err)
+			continue
+		}
+		if d.curr().Type == BegList {
+			d.next()
+			for !d.done() && d.curr().Type != EndList {
+				switch curr := d.curr(); curr.Type {
+				case Ident, String, Boolean, Integer:
+					args = append(args, curr.Literal)
+				case Variable:
+					vs, err := d.locals.Resolve(curr.Literal)
+					if err != nil {
+						return nil, err
+					}
+					args = append(args, vs...)
+				default:
+					return nil, d.unexpected()
+				}
+				d.next()
+			}
+			if d.curr().Type != EndList {
+				return nil, d.unexpected()
+			}
+			d.next()
+		}
+		make, ok := validations[rule]
+		if !ok {
+			return nil, fmt.Errorf("%s is unknown", rule)
+		}
+		fn, err := make(args)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, fn)
+	}
+	if d.curr().Type != Comma {
+		return nil, d.unexpected()
+	}
+	d.next()
+	switch len(list) {
+	case 0:
+		return nil, fmt.Errorf("%s is given but rules are supplied", optValid)
+	case 1:
+		return list[0], nil
+	default:
+		return validateAll(list...), nil
+	}
 }
 
 func (d *Decoder) decodeCommandDependencies(cmd *Single) error {

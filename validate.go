@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,8 +13,15 @@ import (
 
 type ValidateFunc func(string) error
 
+const (
+	validNot  = "not"
+	validSome = "some"
+	validAll  = "all"
+)
+
 var validations = map[string]func([]string) (ValidateFunc, error){
 	"oneof":      validateOneOf,
+	"noneof":     validateNoneOf,
 	"notempty":   validateNotEmpty,
 	"match":      validateMatch,
 	"int":        validateInt,
@@ -33,6 +41,16 @@ var validations = map[string]func([]string) (ValidateFunc, error){
 	"readable":   validateFileIsReadable,
 	"writable":   validateFileIsWritable,
 	"executable": validateFileIsExecutable,
+}
+
+func validateError(valid ValidateFunc) ValidateFunc {
+	return func(value string) error {
+		err := valid(value)
+		if err == nil {
+			return fmt.Errorf("validation should fail but it pass")
+		}
+		return nil
+	}
 }
 
 func validateSome(valid ...ValidateFunc) ValidateFunc {
@@ -72,6 +90,21 @@ func validateOneOf(args []string) (ValidateFunc, error) {
 	return fn, nil
 }
 
+func validateNoneOf(args []string) (ValidateFunc, error) {
+	if len(args) == 0 {
+		return nil, noArg("noneof")
+	}
+	sort.Strings(args)
+	fn := func(value string) error {
+		i := sort.SearchStrings(args, value)
+		if i >= len(args) || args[i] != value {
+			return nil
+		}
+		return fmt.Errorf("value can not be one of %s", strings.Join(args, ", "))
+	}
+	return fn, nil
+}
+
 func validateNotEmpty(args []string) (ValidateFunc, error) {
 	if len(args) != 0 {
 		return nil, tooManyArg("notempty", 0, len(args))
@@ -89,7 +122,15 @@ func validateMatch(args []string) (ValidateFunc, error) {
 	if len(args) == 0 {
 		return nil, noArg("match")
 	}
+	r, err := regexp.Compile(args[0])
+	if err != nil {
+		return nil, err
+	}
 	fn := func(value string) error {
+		ok := r.MatchString(value)
+		if !ok {
+			return fmt.Errorf("%s does not match pattern %s", value, args[0])
+		}
 		return nil
 	}
 	return fn, nil
@@ -350,5 +391,5 @@ func noArg(name string) error {
 }
 
 func tooManyArg(name string, narg, given int) error {
-	return fmt.Errorf("%s take %d argument(s)! %d were given", name, narg, given)
+	return fmt.Errorf("%s take %d argument(s)! %d was/were given", name, narg, given)
 }
