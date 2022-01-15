@@ -11,7 +11,7 @@
 
 # TODOS
 
-* maestro(feature): implements the ListenAndServe
+* >maestro(feature): implements the ListenAndServe
   stdout/stderr of Command.Shell should be set to the http.ResponseWriter given in the http.Handler
   - date: 2021-11-30
   - version: 0.2.0
@@ -86,7 +86,7 @@
   - version: 0.2.0
   - author: midbel
 
-* maestro(command, decode): add a flag to command to indicate that it can run multiple times
+* !maestro(command, decode): add a flag to command to indicate that it can run multiple times
   a command once executed will have a flag toggle to avoid that it is re-executed a second time
   in, eg, its dependencies tree. However in certain circumstances, a command should be allow to run multiple times (in dependencies and/or http context).
   - date: 2022-01-07

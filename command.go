@@ -64,6 +64,8 @@ type Option struct {
 	DefaultFlag bool
 	Target      string
 	TargetFlag  bool
+
+	Valid func(string) error
 }
 
 type Line struct {

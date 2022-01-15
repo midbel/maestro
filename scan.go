@@ -38,6 +38,7 @@ const (
 	percent    = '%'
 	plus       = '+'
 	caret      = '^'
+	star       = '*'
 )
 
 func IsValue(r rune) bool {
@@ -343,7 +344,7 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		s.state.Pop()
 	case question:
 		tok.Type = Optional
-	case bang:
+	case star:
 		tok.Type = Mandatory
 	case percent:
 		tok.Type = Hidden
@@ -478,7 +479,7 @@ func isVariable(b rune) bool {
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
 		b == lcurly || b == rcurly || b == equal || b == ampersand ||
-		b == question || b == percent || b == plus || b == bang
+		b == question || b == percent || b == plus || b == star
 }
 
 func isModifier(b rune) bool {

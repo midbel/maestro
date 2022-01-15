@@ -17,8 +17,9 @@ action(
 		short   = "b",
 		long    = "bind",
 		default = "false",
+		validate = 
 	)
-): action1&, !?action2, action3& {
+): action1&, *?action2, action3& {
 	# prefix !: reverse the result of the result code returned by the command
 	# prefix -: ignore error when result return a non zero code
 	# prefix @: script will be printed to stdout before execution

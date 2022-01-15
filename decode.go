@@ -631,8 +631,8 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 			return d.unexpected()
 		}
 		dep := Dep{
-			Name:     d.curr().Literal,
-			Optional: optional,
+			Name:      d.curr().Literal,
+			Optional:  optional,
 			Mandatory: mandatory,
 		}
 		d.next()
