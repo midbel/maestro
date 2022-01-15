@@ -31,7 +31,7 @@ deploy(
 	short = "copy binaries in PATH",
 	tag   = build deploy,
 	alias = install,
-): !build {
+): ?build {
 	cp ${bindir,,}/${maestro} /home/nico/go/bin
 	cp ${bindir,,}/${tish} /home/nico/go/bin
 }

@@ -17,19 +17,8 @@ action(
 		short   = "b",
 		long    = "bind",
 		default = "false",
-	),
-	# schedule can be use to schedule command for later/regular execution
-	# moreover, schedule can also define other settings for properties
-	# of the command
-	# should find a way to specify value of schedule property inherit the
-	# values of the regular property
-	schedule = (
-		time = "",
-		args = "",
-		cwd  = "",
-		hosts = "", # list of hosts where scheduled version should be executed
-	),
-): action1&, action2, action3& {
+	)
+): action1&, !?action2, action3& {
 	# prefix !: reverse the result of the result code returned by the command
 	# prefix -: ignore error when result return a non zero code
 	# prefix @: script will be printed to stdout before execution

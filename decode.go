@@ -611,13 +611,20 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 
 func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	d.next()
-	seen := make(map[string]struct{})
 	for !d.done() {
 		if d.curr().Type == BegScript {
 			break
 		}
-		optional := d.curr().Type == Ignore
-		if optional {
+		var optional, mandatory bool
+		for d.curr().Type != Ident {
+			switch d.curr().Type {
+			case Mandatory:
+				mandatory = true
+			case Optional:
+				optional = true
+			default:
+				return d.unexpected()
+			}
 			d.next()
 		}
 		if d.curr().Type != Ident {
@@ -626,12 +633,8 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 		dep := Dep{
 			Name:     d.curr().Literal,
 			Optional: optional,
+			Mandatory: mandatory,
 		}
-		if _, ok := seen[dep.Name]; ok {
-			return fmt.Errorf("%s: duplicate dependency", dep.Name)
-		}
-		seen[dep.Name] = struct{}{}
-
 		d.next()
 		if d.curr().Type == BegList {
 			d.next()
@@ -659,8 +662,8 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 			d.next()
 		}
 		if d.curr().Type == Background {
-			d.next()
 			dep.Bg = true
+			d.next()
 		}
 		cmd.Deps = append(cmd.Deps, dep)
 		switch d.curr().Type {

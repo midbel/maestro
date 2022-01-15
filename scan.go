@@ -124,9 +124,6 @@ func (s *Scanner) Scan() Token {
 		s.scanMeta(&tok)
 	case isNL(s.char):
 		s.scanEol(&tok)
-	case s.char == bang:
-		tok.Type = Ignore
-		s.read()
 	default:
 		tok.Type = Invalid
 	}
@@ -346,6 +343,8 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		s.state.Pop()
 	case question:
 		tok.Type = Optional
+	case bang:
+		tok.Type = Mandatory
 	case percent:
 		tok.Type = Hidden
 	default:
@@ -479,7 +478,7 @@ func isVariable(b rune) bool {
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
 		b == lcurly || b == rcurly || b == equal || b == ampersand ||
-		b == question || b == percent || b == plus
+		b == question || b == percent || b == plus || b == bang
 }
 
 func isModifier(b rune) bool {

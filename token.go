@@ -42,6 +42,7 @@ const (
 	Subshell
 	Invalid
 	Optional
+	Mandatory
 	Hidden
 	Expand
 )
@@ -75,6 +76,8 @@ func (t Token) String() string {
 		return "<echo>"
 	case Optional:
 		return "<optional>"
+	case Mandatory:
+		return "<mandatory>"
 	case Hidden:
 		return "<hidden>"
 	case Reverse:
