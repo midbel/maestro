@@ -48,13 +48,18 @@ func createTree(root executer) (ctree, error) {
 }
 
 func (c *ctree) Execute(ctx context.Context, stdout, stderr io.Writer) error {
-	c.stdout.add = c.prefix
-	c.stderr.add = c.prefix
-
 	go io.Copy(stdout, c.stdout)
 	go io.Copy(stderr, c.stderr)
 
-	return c.root.Execute(ctx, c.stdout, c.stderr)
+	return c.root.Execute(ctx, c.Stdout(), c.Stderr())
+}
+
+func (c *ctree) Stdout() io.Writer {
+	return createWriter(c.stdout, c.prefix)
+}
+
+func (c *ctree) Stderr() io.Writer {
+	return createWriter(c.stderr, c.prefix)
 }
 
 func (c *ctree) Close() error {
@@ -207,7 +212,6 @@ type pipe struct {
 	W *os.File
 
 	scan   *bufio.Scanner
-	add    bool
 	prefix string
 }
 
@@ -248,7 +252,7 @@ func (p *pipe) Read(b []byte) (int, error) {
 		return 0, io.EOF
 	}
 	var n int
-	if p.prefix != "" && p.add {
+	if p.prefix != "" {
 		n = copy(b, p.prefix)
 	}
 	x := p.scan.Bytes()
@@ -269,4 +273,25 @@ func setPrefix(w io.Writer, name string) {
 		return
 	}
 	p.SetPrefix(name)
+}
+
+func createWriter(w io.Writer, prefix bool) io.Writer {
+	if prefix {
+		return w
+	}
+	return createNoopPrefix(w)
+}
+
+type noopPrefix struct {
+	io.Writer
+}
+
+func createNoopPrefix(w io.Writer) io.Writer {
+	return noopPrefix{
+		Writer: w,
+	}
+}
+
+func (_ noopPrefix) SetPrefix(_ string) {
+	// noop
 }
