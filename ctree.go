@@ -48,6 +48,9 @@ func createTree(root executer) (ctree, error) {
 }
 
 func (c *ctree) Execute(ctx context.Context, stdout, stderr io.Writer) error {
+	c.stdout.add = c.prefix
+	c.stderr.add = c.prefix
+
 	go io.Copy(stdout, c.stdout)
 	go io.Copy(stderr, c.stderr)
 
@@ -204,6 +207,7 @@ type pipe struct {
 	W *os.File
 
 	scan   *bufio.Scanner
+	add    bool
 	prefix string
 }
 
@@ -244,7 +248,7 @@ func (p *pipe) Read(b []byte) (int, error) {
 		return 0, io.EOF
 	}
 	var n int
-	if p.prefix != "" {
+	if p.prefix != "" && p.add {
 		n = copy(b, p.prefix)
 	}
 	x := p.scan.Bytes()
