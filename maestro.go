@@ -277,7 +277,15 @@ func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Wr
 		grp, ctx = errgroup.WithContext(parent)
 		sema     = semaphore.NewWeighted(m.MetaSSH.Parallel)
 		seen     = make(map[string]struct{})
+		pout, _  = createPipe()
+		perr, _  = createPipe()
+		sshout   = createLock(pout)
+		ssherr   = createLock(perr)
 	)
+
+	go io.Copy(stdout, pout)
+	go io.Copy(stderr, perr)
+
 	for _, h := range cmd.Targets() {
 		if _, ok := seen[h]; ok {
 			continue
@@ -289,7 +297,7 @@ func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Wr
 		host := h
 		grp.Go(func() error {
 			defer sema.Release(1)
-			return m.executeHost(ctx, cmd, host, scripts, stdout, stderr)
+			return m.executeHost(ctx, cmd, host, scripts, sshout, ssherr)
 		})
 	}
 	sema.Acquire(parent, m.MetaSSH.Parallel)
@@ -298,28 +306,18 @@ func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Wr
 
 func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scripts []string, stdout, stderr io.Writer) error {
 	var (
-		pout, _ = createPipe()
-		perr, _ = createPipe()
+		prefix = fmt.Sprintf("%s;%s;%s", m.MetaSSH.User, addr, cmd.Command())
+		exec   = func(sess *ssh.Session, line string) error {
+			setPrefix(stdout, prefix)
+			setPrefix(stderr, prefix)
+
+			defer sess.Close()
+			sess.Stdout = stdout
+			sess.Stderr = stderr
+
+			return sess.Run(line)
+		}
 	)
-
-	defer func() {
-		pout.Close()
-		perr.Close()
-	}()
-	exec := func(sess *ssh.Session, line string) error {
-		prefix := fmt.Sprintf("%s;%s;%s", m.MetaSSH.User, addr, cmd.Command())
-		pout.SetPrefix(prefix)
-		perr.SetPrefix(prefix)
-
-		go io.Copy(stdout, pout)
-		go io.Copy(stderr, perr)
-
-		defer sess.Close()
-		sess.Stdout = pout
-		sess.Stderr = perr
-
-		return sess.Run(line)
-	}
 	config := ssh.ClientConfig{
 		User:            m.MetaSSH.User,
 		Auth:            m.MetaSSH.AuthMethod(),
