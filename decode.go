@@ -556,7 +556,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			case optHelp:
 				opt.Help, err = d.parseString()
 			case optValid:
-				opt.Valid, err = d.decodeValidateOption()
+				opt.Valid, err = d.decodeBasicValidateOption()
 			}
 			if err != nil {
 				return opt, err
@@ -614,12 +614,47 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 }
 
 func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error) {
-	return nil, nil
+	if d.curr().Type != BegList {
+		return nil, d.unexpected()
+	}
+	d.next()
+	list, err := d.decodeValidateOption(EndList)
+	if err != nil {
+		return nil, err
+	}
+	var fn ValidateFunc
+	switch rule {
+	case validNot:
+		fn = validateError(validateAll(list...))
+	case validSome:
+		fn = validateSome(list...)
+	case validAll:
+		fn = validateAll(list...)
+	default:
+		// should never happens
+		return nil, fmt.Errorf("%s: unknown validation function", rule)
+	}
+	return fn, nil
 }
 
-func (d *Decoder) decodeValidateOption() (ValidateFunc, error) {
+func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
+	list, err := d.decodeValidateOption(Comma)
+	if err != nil {
+		return nil, err
+	}
+	switch len(list) {
+	case 0:
+		return nil, fmt.Errorf("%s is given but rules are supplied", optValid)
+	case 1:
+		return list[0], nil
+	default:
+		return validateAll(list...), nil
+	}
+}
+
+func (d *Decoder) decodeValidateOption(until rune) ([]ValidateFunc, error) {
 	var list []ValidateFunc
-	for !d.done() && d.curr().Type != Comma {
+	for !d.done() && d.curr().Type != until {
 		if d.curr().Type != Ident {
 			return nil, d.unexpected()
 		}
@@ -629,11 +664,11 @@ func (d *Decoder) decodeValidateOption() (ValidateFunc, error) {
 		)
 		d.next()
 		if rule == validNot || rule == validSome || rule == validAll {
-			fn, err := decodeSpecialValidateOption(rule)
+			fn, err := d.decodeSpecialValidateOption(rule)
 			if err != nil {
 				return nil, err
 			}
-			list = append(list, err)
+			list = append(list, fn)
 			continue
 		}
 		if d.curr().Type == BegList {
@@ -658,28 +693,17 @@ func (d *Decoder) decodeValidateOption() (ValidateFunc, error) {
 			}
 			d.next()
 		}
-		make, ok := validations[rule]
-		if !ok {
-			return nil, fmt.Errorf("%s is unknown", rule)
-		}
-		fn, err := make(args)
+		fn, err := getValidateFunc(rule, args)
 		if err != nil {
 			return nil, err
 		}
 		list = append(list, fn)
 	}
-	if d.curr().Type != Comma {
+	if d.curr().Type != until {
 		return nil, d.unexpected()
 	}
 	d.next()
-	switch len(list) {
-	case 0:
-		return nil, fmt.Errorf("%s is given but rules are supplied", optValid)
-	case 1:
-		return list[0], nil
-	default:
-		return validateAll(list...), nil
-	}
+	return list, nil
 }
 
 func (d *Decoder) decodeCommandDependencies(cmd *Single) error {

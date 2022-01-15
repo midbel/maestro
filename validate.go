@@ -43,6 +43,14 @@ var validations = map[string]func([]string) (ValidateFunc, error){
 	"executable": validateFileIsExecutable,
 }
 
+func getValidateFunc(name string, args []string) (ValidateFunc, error) {
+  make, ok := validations[name]
+  if !ok {
+    return nil, fmt.Errorf("%s: unknown validation function", name)
+  }
+  return make(args)
+}
+
 func validateError(valid ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		err := valid(value)

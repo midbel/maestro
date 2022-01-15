@@ -17,7 +17,7 @@ action(
 		short   = "b",
 		long    = "bind",
 		default = "false",
-		check   = notempty oneof(dev prod test) dir(),
+		check   = notempty oneof(dev prod test) dir not(dir file all(writable readable)),
 	)
 ): action1&, *?action2, action3& {
 	# prefix !: reverse the result of the result code returned by the command
