@@ -48,19 +48,20 @@ const (
 )
 
 const (
-	propHelp    = "help"
-	propShort   = "short"
-	propTags    = "tag"
-	propRetry   = "retry"
-	propWorkDir = "workdir"
-	propTimeout = "timeout"
-	propHosts   = "hosts"
-	propError   = "error"
-	propOpts    = "options"
-	propArg     = "args"
-	propAlias   = "alias"
-	propUser    = "user"
-	propGroup   = "group"
+	propHelp     = "help"
+	propShort    = "short"
+	propTags     = "tag"
+	propRetry    = "retry"
+	propWorkDir  = "workdir"
+	propTimeout  = "timeout"
+	propHosts    = "hosts"
+	propError    = "error"
+	propOpts     = "options"
+	propArg      = "args"
+	propAlias    = "alias"
+	propUser     = "user"
+	propGroup    = "group"
+	propSchedule = "schedule"
 )
 
 const (
@@ -70,6 +71,7 @@ const (
 	optDefault  = "default"
 	optFlag     = "flag"
 	optHelp     = "help"
+	optValid    = "validate"
 )
 
 type Decoder struct {
@@ -553,6 +555,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 				opt.Flag, err = d.parseBool()
 			case optHelp:
 				opt.Help, err = d.parseString()
+			case optValid:
 			}
 			if err != nil {
 				return opt, err

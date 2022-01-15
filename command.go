@@ -65,7 +65,7 @@ type Option struct {
 	Target      string
 	TargetFlag  bool
 
-	Valid func(string) error
+	Valid ValidateFunc
 }
 
 type Line struct {
