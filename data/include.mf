@@ -2,6 +2,12 @@ test = variable
 
 foobar = $(echo foo bar)
 
+object = (
+	prop1 = "value",
+	prop2 = "value",
+	prop3 = list of value,
+)
+
 # trailing comma between parenthesis when using multi line definition can be optional
 action(
 	short   = "sample action", # inline comment

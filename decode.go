@@ -346,6 +346,11 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 	return d.ensureEOL()
 }
 
+func (d *Decoder) decodeObjectVariable(mst *Maestro) error {
+	// TODO
+	return nil
+}
+
 func (d *Decoder) decodeVariable(mst *Maestro) error {
 	var (
 		ident  = d.curr()
