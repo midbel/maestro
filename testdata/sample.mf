@@ -16,23 +16,36 @@ HELP
 single   = foobar
 multiple = foo bar
 
-object = (
+obj1 = (
 	prop1 = value1, # a comment after value should be accepted
 	prop2 = value2,
 	prop3 = value3 value4 $single,
 )
+obj2 = (prop4 = value4, prop5 = value5)
 
 export (
 	FOO = foo # a comment after export should be accepted
 	BAR = bar
+	FOOBAR = $single
 )
 
 alias print = echo
 
-print(
+alias (
+	tcp  = netstat -tanp
+	run  = ps -aux
+	list = ls -l
+)
+
+action1(short="basic command", tag=demo, alias=aa1): {
+	print $single
+	print $multiple
+}
+
+action2(
 	short = "basic command", # a comment after property should be accepted
 	tag   = demo test,
-	alias = print,
+	alias = aa2,
 ): *dep1, ?dep2&, dep3("-a" "-b" arg1 arg2)& {
 	# this line will be the help of the command
 	#
@@ -49,6 +62,27 @@ print(
 	.repeat(arg1, arg2, $single) {
 		@echo <var>
 	}
+}
+
+action3(
+	short   = "basic command",
+	tag     = "demo",
+	retry   = 10,
+	timeout = "10ms",
+	options = (
+		short = "a",
+		long  = "all",
+		flag  = true,
+	), (
+		short    = b,
+		long     = bind,
+		default  = "localhost:22",
+		required =  true,
+		check    = notempty ipport not(oneof("localhost:22" ":22" "0.0.0.0:22")),
+	),
+	args = arg1 arg2(file),
+): {
+	$all && echo $bind
 }
 
 delete single multiple
