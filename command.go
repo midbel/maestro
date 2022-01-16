@@ -81,6 +81,18 @@ func (o Option) Validate() error {
 	return o.Valid(o.Target)
 }
 
+type Arg struct {
+	Name  string
+	Valid ValidateFunc
+}
+
+func (a Arg) Validate(arg string) error {
+	if a.Valid == nil {
+		return nil
+	}
+	return a.Valid(arg)
+}
+
 type Line struct {
 	Line     string
 	Reverse  bool
@@ -109,7 +121,7 @@ type Single struct {
 	Deps    []Dep
 	Scripts []Line
 	Options []Option
-	Args    []string
+	Args    []Arg
 
 	executed bool
 
@@ -181,7 +193,7 @@ func (s *Single) Usage() string {
 	for _, a := range s.Args {
 		str.WriteString(" ")
 		str.WriteString("<")
-		str.WriteString(a)
+		str.WriteString(a.Name)
 		str.WriteString(">")
 	}
 	return str.String()

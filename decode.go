@@ -490,7 +490,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			cmd.Alias, err = d.parseStringList()
 			sort.Strings(cmd.Alias)
 		case propArg:
-			cmd.Args, err = d.parseStringList()
+			cmd.Args, err = d.decodeCommandArguments()
 		case propUser:
 			cmd.Users, err = d.parseStringList()
 			sort.Strings(cmd.Users)
@@ -523,6 +523,38 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	}
 	d.next()
 	return nil
+}
+
+func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
+	var args []Arg
+	for !d.done() && d.curr().Type != Comma {
+		if d.curr().Type != Ident {
+			return nil, d.unexpected()
+		}
+		arg := Arg{
+			Name: d.curr().Literal,
+		}
+		d.next()
+		if d.curr().Type == BegList {
+			d.next()
+			list, err := d.decodeValidationRules(EndList)
+			if err != nil {
+				return nil, err
+			}
+			switch len(list) {
+			case 0:
+			case 1:
+				arg.Valid = list[0]
+			default:
+				arg.Valid = validateAll(list...)
+			}
+		}
+		args = append(args, arg)
+	}
+	if d.curr().Type != Comma {
+		return nil, d.unexpected()
+	}
+	return args, nil
 }
 
 func (d *Decoder) decodeCommandOptions(cmd *Single) error {
@@ -623,7 +655,7 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error)
 		return nil, d.unexpected()
 	}
 	d.next()
-	list, err := d.decodeValidateOption(EndList)
+	list, err := d.decodeValidationRules(EndList)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +675,7 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error)
 }
 
 func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
-	list, err := d.decodeValidateOption(Comma)
+	list, err := d.decodeValidationRules(Comma)
 	if err != nil {
 		return nil, err
 	}
@@ -657,7 +689,7 @@ func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
 	}
 }
 
-func (d *Decoder) decodeValidateOption(until rune) ([]ValidateFunc, error) {
+func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 	var list []ValidateFunc
 	for !d.done() && d.curr().Type != until {
 		if d.curr().Type != Ident {
