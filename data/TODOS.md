@@ -42,7 +42,7 @@
   - date: 2021-12-02
   - author: midbel
 
-* command(feature): extend the command options by providing a way to validate the given value
+* <command(feature): extend the command options by providing a way to validate the given value
   add a type and/or a validate property to the list of properties supported by the options properties.
   moreover, provides a list of "predefined" function to validate the function (eg: isFile, isDir,...)
   - date: 2021-12-12

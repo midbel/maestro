@@ -341,7 +341,7 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 		return define(name, strconv.FormatBool(value))
 	}
 	for _, o := range s.Options {
-		if o.Required && o.Target == "" {
+		if !o.Flag && o.Required && o.Target == "" {
 			return nil, fmt.Errorf("%s/%s: missing value", o.Short, o.Long)
 		}
 		var e1, e2 error
@@ -349,6 +349,11 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 			e1 = defineFlag(o.Short, o.TargetFlag)
 			e2 = defineFlag(o.Long, o.TargetFlag)
 		} else {
+			if o.Valid != nil {
+				if err := o.Valid(o.Target); err != nil {
+					return nil, err
+				}
+			}
 			e1 = define(o.Short, o.Target)
 			e2 = define(o.Long, o.Target)
 		}
