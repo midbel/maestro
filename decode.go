@@ -347,11 +347,36 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeObjectVariable(mst *Maestro) error {
-	// TODO
+	d.next()
+	d.skipNL()
+	var done bool
+	for !d.done() && !done {
+		if err := d.decodeAssignment(mst); err != nil {
+			return err
+		}
+		switch d.curr().Type {
+		case Comma:
+			d.next()
+			d.skipComment()
+			d.skipNL()
+			done = d.curr().Type == EndList
+		case Eol:
+			d.skipNL()
+			done = d.curr().Type == EndList
+		case EndList:
+			done = true
+		default:
+			return d.unexpected()
+		}
+	}
+	if d.curr().Type != EndList {
+		return d.unexpected()
+	}
+	d.next()
 	return nil
 }
 
-func (d *Decoder) decodeVariable(mst *Maestro) error {
+func (d *Decoder) decodeAssignment(mst *Maestro) error {
 	var (
 		ident  = d.curr()
 		assign bool
@@ -362,6 +387,13 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 	}
 	assign = d.curr().Type == Assign
 	d.next()
+
+	if d.curr().Type == BegList {
+		if !assign {
+			return d.unexpected()
+		}
+		return d.decodeObjectVariable(mst)
+	}
 
 	var vs []string
 	for d.curr().IsValue() && !d.done() {
@@ -388,6 +420,13 @@ func (d *Decoder) decodeVariable(mst *Maestro) error {
 	} else {
 		xs, _ := d.locals.Resolve(ident.Literal)
 		d.locals.Define(ident.Literal, append(xs, vs...))
+	}
+	return nil
+}
+
+func (d *Decoder) decodeVariable(mst *Maestro) error {
+	if err := d.decodeAssignment(mst); err != nil {
+		return err
 	}
 	return d.ensureEOL()
 }
