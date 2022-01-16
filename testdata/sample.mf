@@ -1,0 +1,54 @@
+# a comment
+
+about = <<HELP
+demo help text
+
+heredoc accepts multiple lines
+
+blank lines are kept as is!
+HELP
+
+.AUTHOR  = midbel
+.EMAIL   = "noreply@midbel.org"
+.VERSION = "0.1.0"
+.HELP    = $about
+
+single   = foobar
+multiple = foo bar
+
+object = (
+	prop1 = value1, # a comment after value should be accepted
+	prop2 = value2,
+	prop3 = value3 value4 $single,
+)
+
+export (
+	FOO = foo # a comment after export should be accepted
+	BAR = bar
+)
+
+alias print = echo
+
+print(
+	short = "basic command", # a comment after property should be accepted
+	tag   = demo test,
+	alias = print,
+): *dep1, ?dep2&, dep3("-a" "-b" arg1 arg2)& {
+	# this line will be the help of the command
+	#
+	# blank lines will be kept
+	#
+	#
+	# multiple blank lines will be merge into one single
+	# blank line
+	#
+	# enjoy
+	@echo $single
+	@echo $multiple
+
+	.repeat(arg1, arg2, $single) {
+		@echo <var>
+	}
+}
+
+delete single multiple

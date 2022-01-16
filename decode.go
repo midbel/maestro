@@ -288,11 +288,17 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 
 func (d *Decoder) decodeDelete(mst *Maestro) error {
 	d.next()
-	for !d.done() {
+	for !d.done() && d.curr().Type != Eol {
 		if !d.curr().IsValue() {
 			return d.unexpected()
 		}
 		d.locals.Delete(d.curr().Literal)
+		d.next()
+		switch d.curr().Type {
+		case Ident, Eol:
+		default:
+			return d.unexpected()
+		}
 	}
 	return d.ensureEOL()
 }

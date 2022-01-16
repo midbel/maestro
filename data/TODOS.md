@@ -93,7 +93,7 @@
   - version: 0.2.0
   - author: midbel
 
-* maestro(feature): introduce variable that can contain objects
+* >maestro(feature): introduce variable that can contain objects
   such kind of variable can be used to eg reused common schedule object (see related improvements below). this variable could also allow the edition of their properties and/or their extension when assign to command properties and/or other variables
   - date: 2022-01-07
   - version: 0.2.0
