@@ -114,6 +114,7 @@ func (d *Decoder) Decode() (*Maestro, error) {
 }
 
 func (d *Decoder) decode(mst *Maestro) error {
+	d.skipNL()
 	for !d.done() {
 		var err error
 		switch d.curr().Type {
@@ -603,67 +604,68 @@ func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
 	return args, nil
 }
 
-func (d *Decoder) decodeCommandOptions(cmd *Single) error {
-	decode := func() (Option, error) {
-		var opt Option
-		for !d.done() {
-			if d.curr().Type == EndList {
-				break
-			}
-			d.skipComment()
-			if d.curr().Type != Ident {
-				return opt, d.unexpected()
-			}
-			var (
-				prop = d.curr()
-				err  error
-			)
-			d.next()
-			if d.curr().Type != Assign {
-				return opt, d.unexpected()
-			}
-			d.next()
-			switch prop.Literal {
-			default:
-				return opt, fmt.Errorf("%s: unknown option property", prop.Literal)
-			case optShort:
-				opt.Short, err = d.parseString()
-			case optLong:
-				opt.Long, err = d.parseString()
-			case optDefault:
-				opt.Default, err = d.parseString()
-			case optRequired:
-				opt.Required, err = d.parseBool()
-			case optFlag:
-				opt.Flag, err = d.parseBool()
-			case optHelp:
-				opt.Help, err = d.parseString()
-			case optValid:
-				opt.Valid, err = d.decodeBasicValidateOption()
-			}
-			if err != nil {
-				return opt, err
-			}
-			switch d.curr().Type {
-			case Comma:
-				d.next()
-				d.skipNL()
-			case Eol:
-				if d.peek().Type != EndList {
-					return opt, d.unexpected()
-				}
-				d.next()
-			case EndList:
-			default:
-				return opt, d.unexpected()
-			}
+func (d *Decoder) decodeOptionObject() (Option, error) {
+	var opt Option
+	for !d.done() {
+		if d.curr().Type == EndList {
+			break
 		}
-		if d.curr().Type != EndList {
+		d.skipComment()
+		if d.curr().Type != Ident {
+			return opt, d.unexpected()
+		}
+		var (
+			prop = d.curr()
+			err  error
+		)
+		d.next()
+		if d.curr().Type != Assign {
 			return opt, d.unexpected()
 		}
 		d.next()
-		return opt, nil
+		switch prop.Literal {
+		default:
+			return opt, fmt.Errorf("%s: unknown option property", prop.Literal)
+		case optShort:
+			opt.Short, err = d.parseString()
+		case optLong:
+			opt.Long, err = d.parseString()
+		case optDefault:
+			opt.Default, err = d.parseString()
+		case optRequired:
+			opt.Required, err = d.parseBool()
+		case optFlag:
+			opt.Flag, err = d.parseBool()
+		case optHelp:
+			opt.Help, err = d.parseString()
+		case optValid:
+			opt.Valid, err = d.decodeBasicValidateOption()
+		}
+		if err != nil {
+			return opt, err
+		}
+		switch d.curr().Type {
+		case Comma:
+			d.next()
+			d.skipNL()
+		case Eol:
+			if d.peek().Type != EndList {
+				return opt, d.unexpected()
+			}
+			d.next()
+		case EndList:
+		default:
+			return opt, d.unexpected()
+		}
 	}
+	if d.curr().Type != EndList {
+		return opt, d.unexpected()
+	}
+	d.next()
+	return opt, nil
+}
+
+func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 	var done bool
 	for !d.done() && !done {
 		if t := d.curr().Type; t != BegList {
@@ -674,7 +676,7 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 		}
 		d.next()
 		d.skipNL()
-		opt, err := decode()
+		opt, err := d.decodeOptionObject()
 		if err != nil {
 			return err
 		}
