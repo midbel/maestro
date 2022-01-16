@@ -504,6 +504,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			return err
 		}
 		switch d.curr().Type {
+		case Ident, String:
 		case Comma:
 			d.next()
 			d.skipComment()
@@ -620,7 +621,10 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 	}
 	var done bool
 	for !d.done() && !done {
-		if d.curr().Type != BegList {
+		if t := d.curr().Type; t != BegList {
+			if t == Ident || t == String {
+				return nil
+			}
 			return d.unexpected()
 		}
 		d.next()
