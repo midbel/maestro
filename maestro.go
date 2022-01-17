@@ -126,12 +126,7 @@ func (m *Maestro) Register(cmd *Single) error {
 }
 
 func (m *Maestro) ListenAndServe() error {
-	http.Handle("/help", serveRequest(ServeHelp(m)))
-	http.Handle("/version", serveRequest(ServeVersion(m)))
-	http.Handle("/debug", serveRequest(ServeDebug(m)))
-	http.Handle("/all", serveRequest(ServeAll(m)))
-	http.Handle("/default", serveRequest(ServeDefault(m)))
-	http.Handle("/", serveRequest(ServeCommand(m)))
+	setupRoutes(m)
 	server := http.Server{
 		Addr: m.MetaHttp.Addr,
 	}

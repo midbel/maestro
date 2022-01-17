@@ -11,7 +11,7 @@
 
 # TODOS
 
-* >maestro(feature): implements the ListenAndServe
+* <maestro(feature): implements the ListenAndServe
   stdout/stderr of Command.Shell should be set to the http.ResponseWriter given in the http.Handler
   - date: 2021-11-30
   - version: 0.2.0

@@ -1,7 +1,9 @@
 package maestro
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path"
@@ -21,62 +23,24 @@ const (
 	httpHdrTrailer = "Trailer"
 )
 
-func ServeCommand(mst *Maestro) http.Handler {
+func setupRoutes(m *Maestro) {
+	http.Handle("/help", serveRequest(ServeHelp(m)))
+	http.Handle("/version", serveRequest(ServeVersion(m)))
+	http.Handle("/", serveRequest(ServeExecute(m)))
+}
+
+func ServeExecute(mst *Maestro) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		// var (
-		// 	dry     = r.Header.Get(httpHdrDry)
-		// 	vars    = r.Header.Get(httpHdrVars)
-		// )
 		var (
 			name   = path.Base(r.URL.Path)
 			option = getOption(r)
 		)
+		if name == "" {
+			name = mst.MetaExec.Default
+		}
 		w.Header().Set(httpHdrTrailer, httpHdrExit)
 		var (
-			err  = executeCommand(w, name, option, mst)
-			code int
-		)
-		switch {
-		case errors.Is(err, errNotFound):
-			code = http.StatusBadRequest
-		case errors.Is(err, errResolve):
-			code = http.StatusInternalServerError
-		default:
-		}
-		if code >= http.StatusBadRequest {
-			w.WriteHeader(code)
-			io.WriteString(w, err.Error())
-			return
-		}
-		exit := "ok"
-		if err != nil {
-			exit = err.Error()
-		}
-		w.Header().Set(httpHdrExit, exit)
-	}
-	return http.HandlerFunc(fn)
-}
-
-func ServeDebug(mst *Maestro) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		// returns all information about a command: its shell env, help, properties...
-		w.WriteHeader(http.StatusNotImplemented)
-	}
-	return http.HandlerFunc(fn)
-}
-
-func ServeAll(mst *Maestro) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotImplemented)
-	}
-	return http.HandlerFunc(fn)
-}
-
-func ServeDefault(mst *Maestro) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(httpHdrTrailer, httpHdrExit)
-		var (
-			err  = executeCommand(w, mst.MetaExec.Default, getOption(r), mst)
+			err  = executeCommand(r.Context(), w, name, option, mst)
 			code int
 		)
 		switch {
@@ -143,7 +107,7 @@ var (
 	errExecute  = errors.New("execution fail")
 )
 
-func executeCommand(w io.Writer, name string, option ctreeOption, mst *Maestro) error {
+func executeCommand(ctx context.Context, w io.Writer, name string, option ctreeOption, mst *Maestro) error {
 	cmd, err := mst.prepare(name)
 	if err != nil {
 		return errNotFound
@@ -155,7 +119,7 @@ func executeCommand(w io.Writer, name string, option ctreeOption, mst *Maestro) 
 	if c, ok := ex.(io.Closer); ok {
 		defer c.Close()
 	}
-	err = ex.Execute(r.Context(), w, w)
+	err = ex.Execute(ctx, w, w)
 	if err != nil {
 		err = fmt.Errorf("%w %s: %s", errExecute, name, err)
 	}
