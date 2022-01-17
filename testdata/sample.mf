@@ -82,7 +82,8 @@ action3(
 	),
 	args = arg1 arg2(file),
 ): {
-	$all && echo $bind
+	$all && echo $bind \
+		|| echo "bind not set"
 }
 
 delete single multiple

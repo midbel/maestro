@@ -354,27 +354,35 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeObjectVariable(mst *Maestro) error {
+	return d.decodeObject(func() error {
+		return d.decodeAssignment(mst)
+	})
+}
+
+func (d *Decoder) decodeObject(decode func() error) error {
 	d.next()
 	d.skipNL()
 	var done bool
 	for !d.done() && !done {
-		if err := d.decodeAssignment(mst); err != nil {
+		d.skipComment()
+		if err := decode(); err != nil {
 			return err
 		}
 		switch d.curr().Type {
+		case Ident, String:
+		case Comment:
+			d.next()
 		case Comma:
 			d.next()
 			d.skipComment()
 			d.skipNL()
-			done = d.curr().Type == EndList
 		case Eol:
 			d.skipNL()
-			done = d.curr().Type == EndList
 		case EndList:
-			done = true
 		default:
 			return d.unexpected()
 		}
+		done = d.curr().Type == EndList
 	}
 	if d.curr().Type != EndList {
 		return d.unexpected()
@@ -492,31 +500,25 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeCommandProperties(cmd *Single) error {
-	d.next()
-	d.skipNL()
-	for !d.done() {
-		if d.curr().Type == EndList {
-			break
-		}
-		d.skipComment()
-		switch curr := d.curr(); {
+	return d.decodeObject(func() error {
+		var (
+			curr = d.curr()
+			err error
+		)
+		switch {
 		case curr.Type == Ident:
 		case curr.Type == Keyword && curr.Literal == kwAlias:
 		default:
 			return d.unexpected()
 		}
-		var (
-			prop = d.curr()
-			err  error
-		)
 		d.next()
 		if d.curr().Type != Assign {
 			return d.unexpected()
 		}
 		d.next()
-		switch prop.Literal {
+		switch curr.Literal {
 		default:
-			err = fmt.Errorf("%s: unknown command property", prop.Literal)
+			err = fmt.Errorf("%s: unknown command property", curr.Literal)
 		case propError:
 			cmd.Error, err = d.parseString()
 		case propShort:
@@ -546,30 +548,8 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
 		}
-		if err != nil {
-			return err
-		}
-		switch d.curr().Type {
-		case Ident, String:
-		case Comma:
-			d.next()
-			d.skipComment()
-			d.skipNL()
-		case Eol:
-			if d.peek().Type != EndList {
-				return d.unexpected()
-			}
-			d.next()
-		case EndList:
-		default:
-			return d.unexpected()
-		}
-	}
-	if d.curr().Type != EndList {
-		return d.unexpected()
-	}
-	d.next()
-	return nil
+		return err
+	})
 }
 
 func (d *Decoder) decodeCommandArguments() ([]Arg, error) {

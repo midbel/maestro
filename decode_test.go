@@ -10,7 +10,7 @@ import (
 
 func TestDecode(t *testing.T) {
 	t.Run("file", testDecodeFile)
-	t.Run("end-of-line", testDecodeMultilineObject)
+	t.Run("end-of-line", testDecodeEndOfLine)
 }
 
 func testDecodeFile(t *testing.T) {
@@ -31,6 +31,7 @@ var = foobar
 classic = (
 	prop1 = value1, # a comment
 	prop2 = value2,
+	# comment should be skipped
 	nested = (
 		sub1 = value1,
 		sub2 = value2
