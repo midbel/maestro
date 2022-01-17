@@ -60,13 +60,14 @@ func ServeCommand(mst *Maestro) http.Handler {
 func ServeDebug(mst *Maestro) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		// returns all information about a command: its shell env, help, properties...
+		w.WriteHeader(http.StatusNotImplemented)
 	}
 	return http.HandlerFunc(fn)
 }
 
 func ServeAll(mst *Maestro) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		
+		w.WriteHeader(http.StatusNotImplemented)
 	}
 	return http.HandlerFunc(fn)
 }
