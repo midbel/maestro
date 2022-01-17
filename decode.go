@@ -1257,6 +1257,10 @@ func createFrame(file string) (*frame, error) {
 	return makeFrame(r)
 }
 
+func (f *frame) Line() string {
+	return f.scan.CurrentLine()
+}
+
 func (f *frame) next() {
 	f.curr = f.peek
 	f.peek = f.scan.Scan()
@@ -1264,4 +1268,14 @@ func (f *frame) next() {
 
 func (f *frame) done() bool {
 	return f.curr.IsEOF()
+}
+
+type UnexpectedError struct {
+	Line     string
+	Invalid  Token
+	Expected []string
+}
+
+func (e UnexpectedError) Error() string {
+	return ""
 }

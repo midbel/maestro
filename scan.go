@@ -82,6 +82,21 @@ func Scan(r io.Reader) (*Scanner, error) {
 	return &s, nil
 }
 
+func (s *Scanner) CurrentLine() string {
+	var (
+		pos = s.curr - s.column
+		off = bytes.IndexByte(s.input[s.curr:], nl)
+	)
+	if off < 0 {
+		off = len(s.input[s.curr:])
+	}
+	if pos < 0 {
+		pos = 0
+	}
+	b := bytes.TrimSpace(s.input[pos : s.curr+off])
+	return string(b)
+}
+
 func (s *Scanner) SetIdentFunc(fn func(rune) bool) {
 	s.identFunc = fn
 }
