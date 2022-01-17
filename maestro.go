@@ -594,7 +594,7 @@ func (m MetaSSH) CheckHostKey(host string, addr net.Addr, key ssh.PublicKey) err
 		}
 		return fmt.Errorf("%s: public key mismatched", host)
 	}
-	return fmt.Errorf("%s unknwon host (%s)", host, addr)
+	return fmt.Errorf("%s unknown host (%s)", host, addr)
 }
 
 type MetaHttp struct {

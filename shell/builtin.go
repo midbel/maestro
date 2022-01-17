@@ -25,13 +25,13 @@ var builtins = map[string]Builtin{
 	},
 	"true": {
 		Usage:   "true",
-		Short:   "always return a successfull result",
+		Short:   "always return a successful result",
 		Help:    "",
 		Execute: runTrue,
 	},
 	"false": {
 		Usage:   "false",
-		Short:   "always return an unsuccessfull result",
+		Short:   "always return an unsuccessful result",
 		Help:    "",
 		Execute: runFalse,
 	},

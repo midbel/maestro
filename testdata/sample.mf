@@ -8,10 +8,14 @@ heredoc accepts multiple lines
 blank lines are kept as is!
 HELP
 
-.AUTHOR  = midbel
-.EMAIL   = "noreply@midbel.org"
-.VERSION = "0.1.0"
-.HELP    = $about
+.AUTHOR       = midbel
+.EMAIL        = "noreply@midbel.org"
+.VERSION      = "0.1.0"
+.HELP         = $about
+.ALL          = action1 action2
+.DEFAULT      = action2
+.SSH_USER     = test
+.SSH_PASSWORD = "tmp123!"
 
 single   = foobar
 multiple = foo bar
@@ -27,6 +31,11 @@ export (
 	FOO = foo # a comment after export should be accepted
 	BAR = bar
 	FOOBAR = $single
+)
+
+include (
+	"include1.mf"?
+	"include2.mf"?
 )
 
 alias print = echo
@@ -46,6 +55,8 @@ action2(
 	short = "basic command", # a comment after property should be accepted
 	tag   = demo test,
 	alias = aa2,
+	user  = nobody,
+	group = nobody,
 ): *dep1, ?dep2&, dep3("-a" "-b" arg1 arg2)& {
 	# this line will be the help of the command
 	#

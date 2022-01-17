@@ -39,12 +39,12 @@ const (
 	metaParallel   = "SSH_PARALLEL"
 	metaCertFile   = "HTTP_CERT_FILE"
 	metaKeyFile    = "HTTP_CERT_KEY"
-	metaHttpGet    = "HTTP_GET"
-	metaHttpPost   = "HTTP_POST"
-	metaHttpPut    = "HTTP_PUT"
-	metaHttpDel    = "HTTP_DELETE"
-	metaHttpPatch  = "HTTP_PATCH"
-	metaHttpHead   = "HTTP_HEAD"
+	// metaHttpGet    = "HTTP_GET"
+	// metaHttpPost   = "HTTP_POST"
+	// metaHttpPut    = "HTTP_PUT"
+	// metaHttpDel    = "HTTP_DELETE"
+	// metaHttpPatch  = "HTTP_PATCH"
+	// metaHttpHead   = "HTTP_HEAD"
 )
 
 const (

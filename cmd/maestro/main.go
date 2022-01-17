@@ -32,7 +32,7 @@ Moreover, to make the file and its commands easier to use, maestro creates
 a help message for the input maestro file and foreach of commands defined
 in it.
 
-maestro makes availabe some default sub commands:
+maestro makes available some default sub commands:
 
 default: same as calling maestro without arguments, it will call the command
          configured with the meta DEFAULT

@@ -49,7 +49,6 @@ func (u Unary) Eval(env Environment) (float64, error) {
 		if ret != 0 {
 			ret = 1
 		}
-		ret = 0
 	case Sub:
 		ret = -ret
 	case Inc:
