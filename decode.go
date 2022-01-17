@@ -503,7 +503,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	return d.decodeObject(func() error {
 		var (
 			curr = d.curr()
-			err error
+			err  error
 		)
 		switch {
 		case curr.Type == Ident:
@@ -586,26 +586,22 @@ func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
 
 func (d *Decoder) decodeOptionObject() (Option, error) {
 	var opt Option
-	for !d.done() {
-		if d.curr().Type == EndList {
-			break
-		}
-		d.skipComment()
-		if d.curr().Type != Ident {
-			return opt, d.unexpected()
-		}
+	return opt, d.decodeObject(func() error {
 		var (
-			prop = d.curr()
+			curr = d.curr()
 			err  error
 		)
-		d.next()
-		if d.curr().Type != Assign {
-			return opt, d.unexpected()
+		if curr.Type != Ident {
+			return d.unexpected()
 		}
 		d.next()
-		switch prop.Literal {
+		if d.curr().Type != Assign {
+			return d.unexpected()
+		}
+		d.next()
+		switch curr.Literal {
 		default:
-			return opt, fmt.Errorf("%s: unknown option property", prop.Literal)
+			return fmt.Errorf("%s: unknown option property", curr.Literal)
 		case optShort:
 			opt.Short, err = d.parseString()
 		case optLong:
@@ -621,28 +617,8 @@ func (d *Decoder) decodeOptionObject() (Option, error) {
 		case optValid:
 			opt.Valid, err = d.decodeBasicValidateOption()
 		}
-		if err != nil {
-			return opt, err
-		}
-		switch d.curr().Type {
-		case Comma:
-			d.next()
-			d.skipNL()
-		case Eol:
-			if d.peek().Type != EndList {
-				return opt, d.unexpected()
-			}
-			d.next()
-		case EndList:
-		default:
-			return opt, d.unexpected()
-		}
-	}
-	if d.curr().Type != EndList {
-		return opt, d.unexpected()
-	}
-	d.next()
-	return opt, nil
+		return err
+	})
 }
 
 func (d *Decoder) decodeCommandOptions(cmd *Single) error {
@@ -654,28 +630,25 @@ func (d *Decoder) decodeCommandOptions(cmd *Single) error {
 			}
 			return d.unexpected()
 		}
-		d.next()
-		d.skipNL()
 		opt, err := d.decodeOptionObject()
 		if err != nil {
 			return err
 		}
+		cmd.Options = append(cmd.Options, opt)
 		switch d.curr().Type {
 		case Comma:
 			d.next()
 			d.skipComment()
 			d.skipNL()
-			done = d.curr().Type == EndList
 		case Eol:
 			d.skipNL()
-			done = d.curr().Type == EndList
 		case EndList:
 		default:
 			return d.unexpected()
 		}
-		cmd.Options = append(cmd.Options, opt)
+		done = d.curr().Type == EndList
 	}
-	if !done {
+	if d.curr().Type != EndList {
 		return d.unexpected()
 	}
 	return nil
