@@ -51,7 +51,7 @@
 
 * maestro(decode, feature): add supports for variable expansion inside literal and literal string
   - date: 2021-12-12
-  - version: 0.2.0
+  - version: 0.3.0
   - author: midbel
 
 * maestro(decode, feature): improve error message when syntax error is found while decoding input file
@@ -73,7 +73,7 @@
 
 * shell(feature): add support for the case statement
   - date: 2021-12-13
-  - version: 0.2.0
+  - version: 0.3.0
   - author: midbel
 
 * <shell(feature): add support for the test ([[ expr ]]) statement
@@ -137,7 +137,7 @@
   variable to be considered as a list of values
   operator syntax: variable+ (variable name + plus sign)
 
-* maestro(feature): remote maestro file hosted on a web server
+* !maestro(feature): remote maestro file hosted on a web server
   use -f to retrieve a maestro file located on a remote web server
   commands retrieved from the remote file have to be executed on the remote server
   - date: 2021-12-08
@@ -147,6 +147,7 @@
   specify the name of a command to be execute and when it should be executed. use http request to reconfigure if needed the scheduled time
   - date: 2022-01-07
   - author: midbel
+  - version: 0.3.0
 
 # ENHANCEMENTS/IMPROVEMENTS
 
