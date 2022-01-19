@@ -54,7 +54,7 @@
   - version: 0.3.0
   - author: midbel
 
-* maestro(decode, feature): improve error message when syntax error is found while decoding input file
+* >maestro(decode, feature): improve error message when syntax error is found while decoding input file
   - date: 2021-12-12
   - version: 0.2.0
   - author: midbel

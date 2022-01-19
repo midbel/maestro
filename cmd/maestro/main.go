@@ -150,8 +150,10 @@ func printUnexpected(err maestro.UnexpectedError, file string) {
 		fmt.Fprintln(os.Stderr, err)
 		return
 	}
-	prefix := strings.Repeat("~", err.Invalid.Column-1)
-	n, _ := fmt.Fprintf(os.Stderr, "(%d:%d) ", err.Invalid.Line, err.Invalid.Column)
+	var (
+		prefix = strings.Repeat("~", err.Invalid.Column-1)
+		n, _   = fmt.Fprintf(os.Stderr, "(%d:%d) ", err.Invalid.Line, err.Invalid.Column)
+	)
 	fmt.Fprintln(os.Stderr, err.Line)
 	fmt.Fprintf(os.Stderr, "%s%s", strings.Repeat(" ", n), prefix)
 
@@ -161,7 +163,15 @@ func printUnexpected(err maestro.UnexpectedError, file string) {
 	}
 	fmt.Fprintln(os.Stderr, strings.Repeat("^", n))
 
-	fmt.Fprintf(os.Stderr, "%s: syntax error - unexpected token %s", file, err.Invalid)
+	var msg string
+	if err.Invalid.IsInvalid() {
+		msg = "unexpected character found"
+	} else {
+		// TODO: improve alternative with err.Expected slice once filled by Decoder
+		msg = err.Invalid.String()
+	}
+
+	fmt.Fprintf(os.Stderr, "%s: syntax error - %s", file, msg)
 	fmt.Fprintln(os.Stderr)
 }
 
