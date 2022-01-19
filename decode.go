@@ -1143,14 +1143,7 @@ func (d *Decoder) done() bool {
 }
 
 func (d *Decoder) unexpected() error {
-	var (
-		curr = d.curr()
-		str  = curr.Literal
-	)
-	if str == "" {
-		str = curr.String()
-	}
-	return fmt.Errorf("maestro: %w %s at %d:%d", errUnexpected, str, curr.Line, curr.Column)
+	return unexpected(d.curr(), d.CurrentLine())
 }
 
 func (d *Decoder) undefined() error {
@@ -1218,6 +1211,14 @@ func (d *Decoder) resetIdentFunc() {
 	d.frames[z-1].scan.ResetIdentFunc()
 }
 
+func (d *Decoder) CurrentLine() string {
+	z := len(d.frames)
+	if z == 0 {
+		return ""
+	}
+	return d.frames[z-1].scan.CurrentLine()
+}
+
 var (
 	errUnexpected = errors.New("unexpected token")
 	errUndefined  = errors.New("undefined variable")
@@ -1270,6 +1271,17 @@ type UnexpectedError struct {
 	Expected []string
 }
 
+func unexpected(token Token, line string) error {
+	return UnexpectedError{
+		Line:    strings.TrimSpace(line),
+		Invalid: token,
+	}
+}
+
 func (e UnexpectedError) Error() string {
-	return ""
+	str := e.Invalid.Literal
+	if str == "" {
+		str = e.Invalid.String()
+	}
+	return fmt.Sprintf("%w %s at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
 }

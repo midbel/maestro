@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -98,8 +99,7 @@ func main() {
 
 	err := mst.Load(file)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		exit(err, file)
 	}
 	switch cmd, args := arguments(); cmd {
 	case maestro.CmdListen, maestro.CmdServe:
@@ -125,22 +125,53 @@ func main() {
 	default:
 		err = mst.Execute(cmd, args)
 	}
-	exit(err)
+	exit(err, file)
 }
 
-func exit(err error) {
+func exit(err error, file string) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(os.Stderr, err)
-	if err, ok := err.(maestro.SuggestionError); ok {
-		sort.Strings(err.Others)
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintf(os.Stderr, "similar command(s): %s", strings.Join(err.Others, ", "))
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "see maestro help to get the list of commands")
+	switch err := err.(type) {
+	case maestro.SuggestionError:
+		printSuggestion(err)
+	case maestro.UnexpectedError:
+		printUnexpected(err, file)
+	default:
+		fmt.Fprintln(os.Stderr, err)
 	}
 	os.Exit(1)
+}
+
+func printUnexpected(err maestro.UnexpectedError, file string) {
+	file = filepath.Base(file)
+	if err.Line == "" {
+		fmt.Fprintf(os.Stderr, "%s: %s", file, err)
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	prefix := strings.Repeat("~", err.Invalid.Column-1)
+	n, _ := fmt.Fprintf(os.Stderr, "(%d:%d) ", err.Invalid.Line, err.Invalid.Column)
+	fmt.Fprintln(os.Stderr, err.Line)
+	fmt.Fprintf(os.Stderr, "%s%s", strings.Repeat(" ", n), prefix)
+
+	n = len(err.Invalid.Literal)
+	if n == 0 {
+		n++
+	}
+	fmt.Fprintln(os.Stderr, strings.Repeat("^", n))
+
+	fmt.Fprintf(os.Stderr, "%s: syntax error - unexpected token %s", file, err.Invalid)
+	fmt.Fprintln(os.Stderr)
+}
+
+func printSuggestion(err maestro.SuggestionError) {
+	sort.Strings(err.Others)
+	fmt.Fprintln(os.Stderr, err)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "similar command(s): %s", strings.Join(err.Others, ", "))
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "see maestro help to get the list of commands")
 }
 
 func arguments() (string, []string) {
