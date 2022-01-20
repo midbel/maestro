@@ -1283,5 +1283,5 @@ func (e UnexpectedError) Error() string {
 	if str == "" {
 		str = e.Invalid.String()
 	}
-	return fmt.Sprintf("%w %s at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
+	return fmt.Sprintf("%s %s at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
 }
