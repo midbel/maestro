@@ -93,7 +93,13 @@ func (s *Scanner) CurrentLine() string {
 	if pos < 0 {
 		pos = 0
 	}
-	b := bytes.TrimSpace(s.input[pos : s.curr+off])
+	b := s.input[pos : s.curr+off]
+	for i := 0; i < len(b); i++ {
+		if b[i] != nl {
+			b = b[i:]
+			break
+		}
+	}
 	return string(b)
 }
 

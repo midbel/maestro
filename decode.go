@@ -1273,7 +1273,7 @@ type UnexpectedError struct {
 
 func unexpected(token Token, line string) error {
 	return UnexpectedError{
-		Line:    strings.TrimSpace(line),
+		Line:    line,
 		Invalid: token,
 	}
 }

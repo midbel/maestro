@@ -1,4 +1,6 @@
 .VERSION = "0.1.1"
+.AUTHOR  = "midbel"
+.EMAIL   = "no-reply@midbel.org"
 .DEFAULT = build
 .ALL     = test verify build
 .HELP    = <<HELP
@@ -18,6 +20,7 @@ cover   = "cover.out"
 package = "github.com/midbel/maestro"
 
 test(
+	export = "test",
 	short = "run test in current directory",
 	tag   = build test,
 ): gofmt {
