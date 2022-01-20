@@ -20,7 +20,6 @@ cover   = "cover.out"
 package = "github.com/midbel/maestro"
 
 test(
-	export = "test",
 	short = "run test in current directory",
 	tag   = build test,
 ): gofmt {

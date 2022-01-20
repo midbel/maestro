@@ -100,6 +100,11 @@ func (s *Scanner) CurrentLine() string {
 			break
 		}
 	}
+	for i := 0; i < len(b); i++ {
+		if b[i] == tab {
+			b[i] = space
+		}
+	}
 	return string(b)
 }
 
