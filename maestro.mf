@@ -5,10 +5,10 @@
 .ALL     = test verify build
 .HELP    = <<HELP
 simple is a sample maestro file that can be used for any Go project.
-It provides commands to automatize building, checking and testing
+It provides commands to automatize building, checking and testing \
 your Go project.
 
-It has also some commands to give statistics on the status of the
+It has also some commands to give statistics on the status of the \
 project such as number of remaining todos, line of codes and others.
 HELP
 
