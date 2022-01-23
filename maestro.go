@@ -470,6 +470,14 @@ func (m *Maestro) prepare(name string) (Command, error) {
 	if err != nil {
 		return nil, m.suggest(err, name)
 	}
+	if s, ok := cmd.(*Single); ok {
+		for n, c := range m.Commands {
+			if c.Command() == name {
+				continue
+			}
+			s.shell.Register(c)
+		}
+	}
 	return cmd, nil
 }
 

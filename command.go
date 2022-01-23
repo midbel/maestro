@@ -284,12 +284,40 @@ func (s *Single) Script(args []string) ([]string, error) {
 	return scripts, nil
 }
 
+func (s *Single) SetIn(r io.Reader) {
+	s.shell.SetIn(r)
+}
+
 func (s *Single) SetOut(w io.Writer) {
 	s.shell.SetOut(w)
 }
 
 func (s *Single) SetErr(w io.Writer) {
 	s.shell.SetErr(w)
+}
+
+func (s *Single) StdinPipe() (io.WriteCloser, error) {
+	return nil, nil
+}
+
+func (s *Single) StdoutPipe() (io.ReadCloser, error) {
+	return nil, nil
+}
+
+func (s *Single) StderrPipe() (io.ReadCloser, error) {
+	return nil, nil
+}
+
+func (s *Single) Run() error {
+	return nil
+}
+
+func (s *Single) Start() error {
+	return nil
+}
+
+func (s *Single) Exit() (int, int) {
+	return 0, 0
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {

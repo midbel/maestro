@@ -130,6 +130,10 @@ func (s *Shell) Exit() {
 	os.Exit(s.context.code)
 }
 
+func (s *Shell) SetIn(r io.Reader) {
+	s.stdin = r
+}
+
 func (s *Shell) SetOut(w io.Writer) {
 	s.stdout = w
 }
