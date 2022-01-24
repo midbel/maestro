@@ -48,6 +48,7 @@ type CommandType int8
 const (
 	TypeBuiltin CommandType = iota
 	TypeScript
+	TypeExternal
 	TypeRegular
 )
 
@@ -535,6 +536,11 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 		b.shell = s
 		b.args = str[1:]
 		cmd = &b
+	} else if c, ok := s.commands[str[0]]; ok {
+		cmd = c
+		if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
+			a.SetArgs(str[1:])
+		}
 	} else {
 		cmd = StandardContext(ctx, str[0], str[1:])
 		if e, ok := cmd.(interface{ SetEnv([]string) }); ok {

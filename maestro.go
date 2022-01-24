@@ -470,12 +470,13 @@ func (m *Maestro) prepare(name string) (Command, error) {
 	if err != nil {
 		return nil, m.suggest(err, name)
 	}
-	if s, ok := cmd.(*Single); ok {
-		for n, c := range m.Commands {
-			if c.Command() == name {
-				continue
-			}
-			s.shell.Register(c)
+	if curr, ok := cmd.(*Single); ok {
+		for _, c := range m.Commands {
+			// if n == name {
+			// 	continue
+			// }
+			s := makeShellCommand(context.TODO(), c)
+			curr.shell.Register(s)
 		}
 	}
 	return cmd, nil

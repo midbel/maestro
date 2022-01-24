@@ -273,15 +273,15 @@ func (s *Single) Script(args []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var scripts []string
+	var shellCommands []string
 	for _, i := range s.Scripts {
 		rs, err := shell.Expand(i.Line, args, s.shell)
 		if err != nil {
 			return nil, err
 		}
-		scripts = append(scripts, rs...)
+		shellCommands = append(shellCommands, rs...)
 	}
-	return scripts, nil
+	return shellCommands, nil
 }
 
 func (s *Single) SetIn(r io.Reader) {
@@ -294,30 +294,6 @@ func (s *Single) SetOut(w io.Writer) {
 
 func (s *Single) SetErr(w io.Writer) {
 	s.shell.SetErr(w)
-}
-
-func (s *Single) StdinPipe() (io.WriteCloser, error) {
-	return nil, nil
-}
-
-func (s *Single) StdoutPipe() (io.ReadCloser, error) {
-	return nil, nil
-}
-
-func (s *Single) StderrPipe() (io.ReadCloser, error) {
-	return nil, nil
-}
-
-func (s *Single) Run() error {
-	return nil
-}
-
-func (s *Single) Start() error {
-	return nil
-}
-
-func (s *Single) Exit() (int, int) {
-	return 0, 0
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
@@ -477,6 +453,12 @@ func hasError(errs ...error) error {
 	return nil
 }
 
+// TODO: replace current Combined type by this one
+// type Combined struct {
+// 	shell *shell.Shell
+// 	list  []Command
+// }
+
 type Combined []Command
 
 func (c Combined) Command() string {
@@ -578,17 +560,119 @@ func (c Combined) Dry(args []string) error {
 }
 
 func (c Combined) Script(args []string) ([]string, error) {
-	var scripts []string
+	var shellCommands []string
 	for i := range c {
 		str, err := c[i].Script(args)
 		if err != nil {
 			return nil, err
 		}
-		scripts = append(scripts, str...)
+		shellCommands = append(shellCommands, str...)
 	}
-	return scripts, nil
+	return shellCommands, nil
 }
 
 func (c Combined) Usage() string {
 	return ""
+}
+
+// TODO: implements shell.Command functions
+type shellCommand struct {
+	cmd  Command
+	args []string
+	ctx  context.Context
+
+	shell.StdPipe
+	done    chan error
+	errch   chan error
+	running bool
+	code    int
+}
+
+func makeShellCommand(ctx context.Context, cmd Command) shell.Command {
+	return &shellCommand{
+		cmd: cmd,
+		ctx: ctx,
+	}
+}
+
+func (s *shellCommand) SetArgs(args []string) {
+	s.args = append(s.args[:0], args...)
+}
+
+func (s *shellCommand) Command() string {
+	return s.cmd.Command()
+}
+
+func (s *shellCommand) Type() shell.CommandType {
+	return shell.TypeExternal
+}
+
+func (s *shellCommand) Run() error {
+	if err := s.Start(); err != nil {
+		return err
+	}
+	return s.Wait()
+}
+
+func (s *shellCommand) Start() error {
+	if s.running {
+		return fmt.Errorf("%s is already running", s.Command())
+	}
+	s.running = true
+	for i, set := range s.SetupFd() {
+		rw, err := set()
+		if err != nil {
+			s.Close()
+			return err
+		}
+		switch i {
+		case 1:
+			s.cmd.SetOut(rw)
+		case 2:
+			s.cmd.SetErr(rw)
+		default:
+		}
+	}
+	if copies := s.Copies(); len(copies) > 0 {
+		s.errch = make(chan error, 3)
+		for _, fn := range copies {
+			go func(fn func() error) {
+				s.errch <- fn()
+			}(fn)
+		}
+	}
+	s.done = make(chan error, 1)
+	go func() {
+		s.done <- s.cmd.Execute(s.ctx, s.args)
+	}()
+	return nil
+}
+
+func (s *shellCommand) Wait() error {
+	if !s.running {
+		return fmt.Errorf("%s is not running", s.Command())
+	}
+	s.running = false
+	var (
+		errex = <-s.done
+		errcp error
+	)
+	defer close(s.done)
+	s.Close()
+	for range s.Copies() {
+		e := <-s.errch
+		if errcp == nil && e != nil {
+			s.code = 2
+			errcp = e
+		}
+	}
+	if errex != nil {
+		s.code = 1
+		return errex
+	}
+	return errcp
+}
+
+func (s *shellCommand) Exit() (int, int) {
+	return 0, s.code
 }
