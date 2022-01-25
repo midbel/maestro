@@ -17,6 +17,7 @@ below the list of additions/modifications/deletions that will be introduce in th
 * handling of command that must expand on multiple lines in script command (eg: for loop, if...)
 * better handling of shell and subshell management during command execution
 * improve (fully rewrite) the `Combined` Command type
+* conditional dependency(ies)/commands (pre-conditions such as OS, files available...)
 * others...
 
 #### v0.2.0 (2022-01-22)
