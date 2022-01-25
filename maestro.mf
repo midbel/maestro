@@ -22,7 +22,7 @@ package = "github.com/midbel/maestro"
 test(
 	short = "run test in current directory",
 	tag   = build test,
-): gofmt {
+): format {
 	@go clean -testcache
 	.repeat($package, "$package/shlex", "$package/shell", "$package/distance") {
 		@go test -v -cover <var>
@@ -49,7 +49,7 @@ build(
 		flag  = true,
 		help  = "run go clean before compiling binaries"
 	)
-): tidy, gofmt, test, verify {
+): tidy, format, test, verify {
 	# build the maestro binary and the tish shell
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
@@ -71,7 +71,7 @@ verify(
 	short = "verify code",
 	tag   = build verify,
 	alias = vet,
-): gofmt {
+): format {
 	# run "go vet" on each package(s) in the project.
 	echo "run vet on $package"
 	@go vet $package
@@ -93,7 +93,7 @@ commit(
 		flag  = true,
 		help  = "push committed changes to remote repository",
 	)
-): gofmt {
+): format {
 	# commit changes in the project and optionally push them to the remote
 	# repository.
 	git commit -am $1
@@ -118,7 +118,7 @@ commit(
 	go clean -cache
 }
 
-%gofmt {
+%format {
 	gofmt -w -s .
 }
 
@@ -144,8 +144,8 @@ commit(
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
-): gofmt {
+): format {
 	# reports the number of lines and remaining todos in the project
-	<loc
-	<todo
+	loc
+	todo
 }

@@ -109,6 +109,18 @@ func (s *StdPipe) SetupFd() []func() (*os.File, error) {
 	}
 }
 
+func (s *StdPipe) Clear() {
+	s.stdin = nil
+	s.stdout = nil
+	s.stderr = nil
+	s.Reset()
+}
+
+func (s *StdPipe) Reset() {
+	s.closes = s.closes[:0]
+	s.copies = s.copies[:0]
+}
+
 func (s *StdPipe) Copies() []func() error {
 	return s.copies
 }
@@ -181,6 +193,7 @@ func (s *StdPipe) setStdin() (*os.File, error) {
 		if ok {
 			return f, nil
 		}
+	default:
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -222,7 +235,6 @@ func (s *StdPipe) openFile(w io.Writer) (*os.File, error) {
 		}
 	default:
 	}
-
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, err

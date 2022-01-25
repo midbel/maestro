@@ -123,8 +123,6 @@ type Single struct {
 	Options []Option
 	Args    []Arg
 
-	executed bool
-
 	locals *Env
 	shell  *shell.Shell
 }
@@ -297,9 +295,6 @@ func (s *Single) SetErr(w io.Writer) {
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
-	if s.executed {
-		return nil
-	}
 	if err := s.shell.Chdir(s.WorkDir); err != nil {
 		return err
 	}
@@ -323,7 +318,6 @@ func (s *Single) Execute(ctx context.Context, args []string) error {
 			break
 		}
 	}
-	s.executed = true
 	if err := sub.Err(); errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
@@ -582,6 +576,7 @@ type shellCommand struct {
 	ctx  context.Context
 
 	shell.StdPipe
+
 	done    chan error
 	errch   chan error
 	running bool
@@ -619,13 +614,16 @@ func (s *shellCommand) Start() error {
 		return fmt.Errorf("%s is already running", s.Command())
 	}
 	s.running = true
-	for i, set := range s.SetupFd() {
+
+	for i, set := range s.StdPipe.SetupFd() {
 		rw, err := set()
 		if err != nil {
 			s.Close()
 			return err
 		}
 		switch i {
+		case 0:
+			// s.cmd.SetIn(rw)
 		case 1:
 			s.cmd.SetOut(rw)
 		case 2:
@@ -666,6 +664,7 @@ func (s *shellCommand) Wait() error {
 			errcp = e
 		}
 	}
+	s.Clear()
 	if errex != nil {
 		s.code = 1
 		return errex

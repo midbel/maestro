@@ -64,7 +64,7 @@
   - version: 0.1.1
   - author: midbel
 
-* maestro(feature): let user called a command as if it was an shell user defined command
+* >maestro(feature): let user called a command as if it was an shell user defined command
   Single type should implements the shell.Command interface + commands should be registered into
   the shell of the command being executed
   - date: 2021-12-13
