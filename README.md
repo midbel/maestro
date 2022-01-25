@@ -2,6 +2,21 @@
 
 maestro helps to organize all the tasks and/or commands that need to be performed regularly in a project whatever its nature. It could be the development of a program, administration of a single server or a set of virtual machines,...
 
+### changelog
+
+#### v0.2.0 (2022-01-22)
+
+below, the list of additions/modifications/deletions in the `v0.2.0`:
+
+* internal of command execution rewritten
+* command(s) can be directly called inside the script of other command(s)
+* command options and arguments validation
+* mandatory dependency(ies)
+* new sub-commands: serve, graph
+* support for test expression in command script
+* support for break and continue keyword in command script
+* minor modifications in the execution of commands via ssh
+
 ### maestro file
 
 this section describes the syntax and features offered by a maestro file to write and organize your commands.
