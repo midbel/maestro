@@ -494,6 +494,7 @@ func (m *Maestro) suggest(err error, name string) error {
 			all = append(all, a)
 		}
 	}
+	all = append(all, CmdHelp, CmdVersion, CmdAll, CmdDefault, CmdServe, CmdGraph, CmdSchedule)
 	return Suggest(err, name, all)
 }
 
