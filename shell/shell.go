@@ -531,21 +531,22 @@ func (s *Shell) clearContext() {
 }
 
 func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
-	var cmd Command
 	if b, ok := s.builtins[str[0]]; ok && b.IsEnabled() {
 		b.shell = s
 		b.args = str[1:]
-		cmd = &b
-	} else if c, ok := s.commands[str[0]]; ok {
+		return &b
+	}
+	var cmd Command
+	if c, ok := s.commands[str[0]]; ok {
 		cmd = c
-		if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
-			a.SetArgs(str[1:])
-		}
 	} else {
 		cmd = StandardContext(ctx, str[0], str[1:])
-		if e, ok := cmd.(interface{ SetEnv([]string) }); ok {
-			e.SetEnv(s.environ())
-		}
+	}
+	if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
+		a.SetArgs(str[1:])
+	}
+	if e, ok := cmd.(interface{ SetEnv([]string) }); ok {
+		e.SetEnv(s.environ())
 	}
 	return cmd
 }
