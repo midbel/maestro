@@ -4,9 +4,20 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 ### changelog
 
+#### v0.3.0
+
+below the list of additions/modifications/deletions that will be introduce in the `v0.3.0`:
+
+* new sub-command: schedule
+* `schedule` command property related to the future `schedule` sub-command
+* define object variable
+* variable interpolation in string
+* support for the `case` instruction in script command
+* others...
+
 #### v0.2.0 (2022-01-22)
 
-below, the list of additions/modifications/deletions in the `v0.2.0`:
+below, the list of additions/modifications/deletions introduces in the `v0.2.0`:
 
 * internal of command execution rewritten
 * command(s) can be directly called inside the script of other command(s)
@@ -14,8 +25,10 @@ below, the list of additions/modifications/deletions in the `v0.2.0`:
 * mandatory dependency(ies)
 * new sub-commands: serve, graph
 * support for test expression in command script
-* support for break and continue keyword in command script
+* support for `break` and `continue` keyword in command script
 * minor modifications in the execution of commands via ssh
+* command suggestion(s) when given command is not known (typo,...)
+* improved error message when syntax error is found when decoding input file
 
 ### maestro file
 
