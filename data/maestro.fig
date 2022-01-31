@@ -1,0 +1,44 @@
+.define(midbel) {
+  maintainer {
+    name  = "midbel"
+  }
+}
+
+package     = maestro
+version     = "0.2.0"
+summary     = "manage your tasks made easy"
+description = <<DESC
+maestro helps to organize all the tasks related to a project by grouping them into a single place
+DESC
+license     = mit
+section     = utils
+priority    = optional
+os          = linux
+arch        = 64
+vendor      = midbel
+homepage    = "https://github.com/midbel/maestro"
+compiler    = "go1.17.6"
+
+.apply(midbel, method=merge)
+
+depend = linux-vdso
+depend = libpthread
+depend = libc6
+depend = ld-linux-x86-64
+
+# directories definition
+bin      = `usr/bin/${package}`
+doc      = `usr/share/doc/${package}`
+examples = `usr/share/doc/${package}/examples`
+
+resource {
+  file    = "bin/maestro"
+  archive = `${bin}`
+  perm    = 0o755
+}
+
+resource {
+  file    = LICENSE
+  archive = `${doc}/copyright`
+  perm    = 0o644
+}
