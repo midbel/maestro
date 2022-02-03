@@ -9,6 +9,7 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 * conditional dependency(ies)/commands (pre-conditions such as OS, files available...)
 * hazardous command property will cause a prompt of the password of the current user
 * namespaced command: command from included file can be namespaced to not combined them with others having same name from other included files
+* lint sub-command
 * others...
 
 #### v0.3.0
