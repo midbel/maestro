@@ -18,7 +18,7 @@ below the list of additions/modifications/deletions that will be introduce in th
 
 * new sub-command: schedule
 * `schedule` command property related to the future `schedule` sub-command
-* reload of maestro fille for the `serve` sub-command
+* reload of maestro file for the `serve` sub-command
 * define object variable
 * variable interpolation in string
 * support for the `case` instruction in script command

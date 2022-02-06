@@ -65,11 +65,6 @@ func (e *Env) Unwrap() *Env {
 	return e.parent
 }
 
-func (e *Env) Detach() *Env {
-	e.parent = nil
-	return e
-}
-
 func (e *Env) Copy() *Env {
 	locals := make(Values)
 	locals = copyLocals(locals, e.locals)

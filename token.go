@@ -16,6 +16,7 @@ const (
 const (
 	Eof rune = -(iota + 1)
 	Eol
+	Blank
 	Comment
 	Ident
 	Keyword
@@ -92,6 +93,8 @@ func (t Token) String() string {
 		return "<eof>"
 	case Eol:
 		return "<eol>"
+	case Blank:
+		return "<blank>"
 	case Assign:
 		return "<assign>"
 	case Append:
