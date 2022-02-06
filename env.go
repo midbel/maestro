@@ -5,9 +5,11 @@ import (
 	"strings"
 )
 
+type Values map[string][]string
+
 type Env struct {
 	parent *Env
-	locals map[string][]string
+	locals Values
 }
 
 func EmptyEnv() *Env {
@@ -17,7 +19,7 @@ func EmptyEnv() *Env {
 func EnclosedEnv(parent *Env) *Env {
 	return &Env{
 		parent: parent,
-		locals: make(map[string][]string),
+		locals: make(Values),
 	}
 }
 
@@ -63,16 +65,22 @@ func (e *Env) Unwrap() *Env {
 	return e.parent
 }
 
-func (e *Env) Copy() *Env {
-	locals := make(map[string][]string)
-	locals = copyLocals(locals, e.locals)
-	if e.parent != nil {
+func (e *Env) Detach() *Env {
+	e.parent = nil
+	return e
+}
 
-	}
+func (e *Env) Copy() *Env {
+	locals := make(Values)
+	locals = copyLocals(locals, e.locals)
 	return &Env{locals: locals}
 }
 
-func copyLocals(locals, others map[string][]string) map[string][]string {
+func (e *Env) register(ident string, v Values) {
+
+}
+
+func copyLocals(locals, others Values) Values {
 	for k, vs := range others {
 		locals[k] = append(locals[k], vs...)
 	}
