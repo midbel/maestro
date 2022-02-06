@@ -1,7 +1,7 @@
 package maestro
 
 import (
-	"github.com/midbel/maestro/distance"
+	"github.com/midbel/distance"
 )
 
 type SuggestionError struct {

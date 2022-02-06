@@ -114,7 +114,7 @@ func (d *Decoder) decode(mst *Maestro) error {
 		switch d.curr().Type {
 		case Ident:
 			if d.peek().IsAssign() {
-				err = d.decodeVariable(mst)
+				err = d.decodeVariable()
 				break
 			}
 			err = d.decodeCommand(mst)
@@ -347,10 +347,15 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 	return d.ensureEOL()
 }
 
-func (d *Decoder) decodeObjectVariable(mst *Maestro) error {
-	return d.decodeObject(func() error {
-		return d.decodeAssignment(mst)
-	})
+func (d *Decoder) decodeObjectVariable(ident string) error {
+	d.locals = EnclosedEnv(d.locals)
+	err := d.decodeObject(d.decodeAssignment)
+	if err != nil {
+		return err
+	}
+	// restore the original env
+	d.locals = d.locals.Unwrap()
+	return nil
 }
 
 func (d *Decoder) decodeObject(decode func() error) error {
@@ -385,7 +390,7 @@ func (d *Decoder) decodeObject(decode func() error) error {
 	return nil
 }
 
-func (d *Decoder) decodeAssignment(mst *Maestro) error {
+func (d *Decoder) decodeAssignment() error {
 	var (
 		ident  = d.curr()
 		assign bool
@@ -401,7 +406,7 @@ func (d *Decoder) decodeAssignment(mst *Maestro) error {
 		if !assign {
 			return d.unexpected()
 		}
-		return d.decodeObjectVariable(mst)
+		return d.decodeObjectVariable(ident.Literal)
 	}
 
 	var vs []string
@@ -433,8 +438,8 @@ func (d *Decoder) decodeAssignment(mst *Maestro) error {
 	return nil
 }
 
-func (d *Decoder) decodeVariable(mst *Maestro) error {
-	if err := d.decodeAssignment(mst); err != nil {
+func (d *Decoder) decodeVariable() error {
+	if err := d.decodeAssignment(); err != nil {
 		return err
 	}
 	return d.ensureEOL()
