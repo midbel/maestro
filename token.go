@@ -163,6 +163,18 @@ func (t Token) IsEOF() bool {
 	return t.Type == Eof
 }
 
+func (t Token) IsEOL() bool {
+	return t.Type == Eol
+}
+
+func (t Token) IsBlank() bool {
+	return t.Type == Blank
+}
+
+func (t Token) IsComment() bool {
+	return t.Type == Comment
+}
+
 func (t Token) IsInvalid() bool {
 	return t.Type == Invalid
 }

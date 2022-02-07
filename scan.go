@@ -61,7 +61,7 @@ type Scanner struct {
 	column int
 	seen   int
 
-	// script    bool
+	keepBlank bool
 	state     stack
 	identFunc func(rune) bool
 }
@@ -117,8 +117,6 @@ func (s *Scanner) ResetIdentFunc() {
 }
 
 func (s *Scanner) Scan() Token {
-	s.skipBlank()
-	s.reset()
 	var tok Token
 	tok.Position = Position{
 		Line:   s.line,
@@ -127,6 +125,17 @@ func (s *Scanner) Scan() Token {
 	if s.char == zero || s.char == utf8.RuneError {
 		tok.Type = Eof
 		return tok
+	}
+	if s.keepBlank && isBlank(s.char) && s.state.Default() {
+		s.skipBlank()
+		tok.Type = Blank
+		return tok
+	}
+	s.skipBlank()
+	s.reset()
+	tok.Position = Position{
+		Line:   s.line,
+		Column: s.column,
 	}
 	if s.char != rcurly && s.state.Script() {
 		s.scanScript(&tok)
@@ -137,6 +146,8 @@ func (s *Scanner) Scan() Token {
 		s.scanHeredoc(&tok)
 	case isComment(s.char):
 		s.scanComment(&tok)
+		s.skipBlank()
+		s.keepBlank = false
 	case isLetter(s.char):
 		s.scanIdent(&tok)
 	case isVariable(s.char):
@@ -147,10 +158,20 @@ func (s *Scanner) Scan() Token {
 		s.scanInteger(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
+		if tok.IsAssign() {
+			s.keepBlank = true
+			s.skipBlank()
+		}
+		if tok.Type == Comma {
+			s.keepBlank = false
+			s.skipBlank()
+		}
 	case isMeta(s.char):
 		s.scanMeta(&tok)
 	case isNL(s.char):
 		s.scanEol(&tok)
+		s.skipBlank()
+		s.keepBlank = false
 	default:
 		tok.Type = Invalid
 	}
@@ -380,6 +401,9 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	if (s.state.Script() || s.state.Macro()) && isNL(s.char) {
 		s.skipNL()
 	}
+	if tok.Type == Comma {
+		s.skipBlank()
+	}
 }
 
 func (s *Scanner) scanComment(tok *Token) {
@@ -396,6 +420,10 @@ func (s *Scanner) scanComment(tok *Token) {
 
 func (s *Scanner) done() bool {
 	return s.char == zero || s.char == utf8.RuneError
+}
+
+func (s *Scanner) toggleBlank() bool {
+	s.keepBlank = !s.keepBlank()
 }
 
 func (s *Scanner) reset() {

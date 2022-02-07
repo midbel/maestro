@@ -395,6 +395,7 @@ func (d *Decoder) decodeAssignment() error {
 		ident  = d.curr()
 		assign bool
 	)
+	fmt.Println("start assignment", d.curr(), d.peek())
 	d.next()
 	if !d.curr().IsAssign() {
 		return d.unexpected()
@@ -428,6 +429,7 @@ func (d *Decoder) decodeAssignment() error {
 			vs = append(vs, d.curr().Literal)
 		}
 		d.next()
+		d.skipBlank()
 	}
 	if assign {
 		d.locals.Define(ident.Literal, vs)
@@ -1020,6 +1022,7 @@ func (d *Decoder) parseStringList() ([]string, error) {
 			str = append(str, d.curr().Literal)
 		}
 		d.next()
+		d.skipBlank()
 	}
 	return str, nil
 }
@@ -1145,6 +1148,12 @@ func (d *Decoder) done() bool {
 		return d.frames[0].done()
 	}
 	return false
+}
+
+func (d *Decoder) skipBlank() {
+	for d.curr().IsBlank() {
+		d.next()
+	}
 }
 
 func (d *Decoder) unexpected() error {
