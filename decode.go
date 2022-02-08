@@ -250,6 +250,7 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 			d.env[ident.Literal] = d.curr().Literal
 		}
 		d.next()
+		d.skipBlank()
 		return d.ensureEOL()
 	}
 	d.next()
@@ -395,7 +396,6 @@ func (d *Decoder) decodeAssignment() error {
 		ident  = d.curr()
 		assign bool
 	)
-	fmt.Println("start assignment", d.curr(), d.peek())
 	d.next()
 	if !d.curr().IsAssign() {
 		return d.unexpected()
@@ -563,6 +563,7 @@ func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
 			Name: d.curr().Literal,
 		}
 		d.next()
+		d.skipBlank()
 		if d.curr().Type == BegList {
 			d.next()
 			list, err := d.decodeValidationRules(EndList)
@@ -705,6 +706,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 			args []string
 		)
 		d.next()
+		d.skipBlank()
 		if rule == validNot || rule == validSome || rule == validAll {
 			fn, err := d.decodeSpecialValidateOption(rule)
 			if err != nil {
@@ -729,11 +731,13 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 					return nil, d.unexpected()
 				}
 				d.next()
+				d.skipBlank()
 			}
 			if d.curr().Type != EndList {
 				return nil, d.unexpected()
 			}
 			d.next()
+			d.skipBlank()
 		}
 		fn, err := getValidateFunc(rule, args)
 		if err != nil {

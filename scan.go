@@ -146,8 +146,6 @@ func (s *Scanner) Scan() Token {
 		s.scanHeredoc(&tok)
 	case isComment(s.char):
 		s.scanComment(&tok)
-		s.skipBlank()
-		s.keepBlank = false
 	case isLetter(s.char):
 		s.scanIdent(&tok)
 	case isVariable(s.char):
@@ -158,23 +156,14 @@ func (s *Scanner) Scan() Token {
 		s.scanInteger(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
-		if tok.IsAssign() {
-			s.keepBlank = true
-			s.skipBlank()
-		}
-		if tok.Type == Comma {
-			s.keepBlank = false
-			s.skipBlank()
-		}
 	case isMeta(s.char):
 		s.scanMeta(&tok)
 	case isNL(s.char):
 		s.scanEol(&tok)
-		s.skipBlank()
-		s.keepBlank = false
 	default:
 		tok.Type = Invalid
 	}
+	s.toggleBlank(tok)
 	return tok
 }
 
@@ -422,8 +411,24 @@ func (s *Scanner) done() bool {
 	return s.char == zero || s.char == utf8.RuneError
 }
 
-func (s *Scanner) toggleBlank() bool {
-	s.keepBlank = !s.keepBlank()
+func (s *Scanner) toggleBlank(tok Token) {
+	if !s.state.Default() {
+		return
+	}
+	if tok.IsAssign() {
+
+		s.skipBlank()
+		return
+	}
+	switch tok.Type {
+	default:
+	case Assign, Append:
+		s.keepBlank = true
+		s.skipBlank()
+	case Comment, Comma, BegList, Dependency, Eol:
+		s.keepBlank = false
+		s.skipBlank()
+	}
 }
 
 func (s *Scanner) reset() {
