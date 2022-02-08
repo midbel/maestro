@@ -63,7 +63,6 @@ type Scanner struct {
 
 	keepBlank bool
 	state     stack
-	identFunc func(rune) bool
 }
 
 func Scan(r io.Reader) (*Scanner, error) {
@@ -76,7 +75,6 @@ func Scan(r io.Reader) (*Scanner, error) {
 		line:      1,
 		column:    0,
 		state:     defaultStack(),
-		identFunc: isIdent,
 	}
 	s.read()
 	return &s, nil
@@ -108,12 +106,11 @@ func (s *Scanner) CurrentLine() string {
 	return string(b)
 }
 
-func (s *Scanner) SetIdentFunc(fn func(rune) bool) {
-	s.identFunc = fn
-}
-
-func (s *Scanner) ResetIdentFunc() {
-	s.identFunc = isIdent
+func (s *Scanner) ResetMode() {
+	for s.state.Len() > 0 {
+		s.state.Pop()
+	}
+	s.state.Push(scanDefault)
 }
 
 func (s *Scanner) Scan() Token {
@@ -337,7 +334,18 @@ func (s *Scanner) scanVariable(tok *Token) {
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
-	for s.identFunc(s.char) {
+	var (
+		accept func(rune) bool
+		kind = Ident
+	)
+	switch {
+	case s.state.Value():
+		accept = isValue
+		kind = String
+	default:
+		accept = isIdent
+	}
+	for accept(s.char) {
 		s.str.WriteRune(s.char)
 		s.read()
 	}
@@ -348,8 +356,11 @@ func (s *Scanner) scanIdent(tok *Token) {
 	case kwInclude, kwExport, kwDelete, kwAlias:
 		tok.Type = Keyword
 	default:
-		tok.Type = Ident
+		tok.Type = kind
 	}
+	// if s.state.Line() && isNL(s.char) {
+	// 	s.unread()
+	// }
 }
 
 func (s *Scanner) scanDelimiter(tok *Token) {
@@ -488,6 +499,10 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	for fn(s.char) {
 		s.read()
 	}
+}
+
+func isValue(b rune) bool {
+	return !isVariable(b) && !isBlank(b) && !isNL(b)
 }
 
 func isHeredoc(c, p rune) bool {

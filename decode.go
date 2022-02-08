@@ -301,19 +301,27 @@ func (d *Decoder) decodeDelete(mst *Maestro) error {
 
 func (d *Decoder) decodeAlias(mst *Maestro) error {
 	decode := func() error {
-		d.setLineFunc()
-		ident := d.curr()
+		var (
+			ident = d.curr()
+			str []string
+		)
 		d.next()
-		if d.curr().Type != Assign {
+		if !d.curr().IsAssign() {
 			return d.unexpected()
 		}
 		d.next()
-		if !d.curr().IsValue() {
-			return d.unexpected()
+		for !d.done() {
+			vs, err := d.decodeValue()
+			if err != nil {
+				return err
+			}
+			str = append(str, vs...)
+			if !d.curr().IsBlank() {
+				break
+			}
+			d.skipBlank()
 		}
-		d.alias[ident.Literal] = d.curr().Literal
-		d.resetIdentFunc()
-		d.next()
+		d.alias[ident.Literal] = strings.Join(str, " ")
 		return nil
 	}
 	d.next()
@@ -327,10 +335,7 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() {
-			if d.curr().Type == EndList {
-				break
-			}
+		for !d.done() && d.curr().Type != EndList {
 			if err := decode(); err != nil {
 				return err
 			}
@@ -1210,30 +1215,6 @@ func (d *Decoder) peek() Token {
 		t = d.frames[z-1].peek
 	}
 	return t
-}
-
-func (d *Decoder) setLineFunc() {
-	z := len(d.frames)
-	if z == 0 {
-		return
-	}
-	d.frames[z-1].scan.SetIdentFunc(IsLine)
-}
-
-func (d *Decoder) setValueFunc() {
-	z := len(d.frames)
-	if z == 0 {
-		return
-	}
-	d.frames[z-1].scan.SetIdentFunc(IsValue)
-}
-
-func (d *Decoder) resetIdentFunc() {
-	z := len(d.frames)
-	if z == 0 {
-		return
-	}
-	d.frames[z-1].scan.ResetIdentFunc()
 }
 
 func (d *Decoder) CurrentLine() string {
