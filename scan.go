@@ -118,10 +118,7 @@ func (s *Scanner) ResetIdentFunc() {
 
 func (s *Scanner) Scan() Token {
 	var tok Token
-	tok.Position = Position{
-		Line:   s.line,
-		Column: s.column,
-	}
+	tok.Position = s.currentPosition()
 	if s.char == zero || s.char == utf8.RuneError {
 		tok.Type = Eof
 		return tok
@@ -131,12 +128,8 @@ func (s *Scanner) Scan() Token {
 		tok.Type = Blank
 		return tok
 	}
-	s.skipBlank()
 	s.reset()
-	tok.Position = Position{
-		Line:   s.line,
-		Column: s.column,
-	}
+	tok.Position = s.currentPosition()
 	if s.char != rcurly && s.state.Script() {
 		s.scanScript(&tok)
 		return tok
@@ -293,7 +286,6 @@ func (s *Scanner) scanString(tok *Token) {
 		return
 	}
 	s.read()
-
 	tok.Literal = s.str.String()
 	tok.Type = String
 }
@@ -324,12 +316,24 @@ func (s *Scanner) scanVariable(tok *Token) {
 		}
 		return
 	}
+	var enclosed bool
+	if s.char == lcurly {
+		s.read()
+		enclosed = true
+	}
 	for isIdent(s.char) {
 		s.str.WriteRune(s.char)
 		s.read()
 	}
 	tok.Type = Variable
 	tok.Literal = s.str.String()
+	if enclosed {
+		if s.char != rcurly {
+			tok.Type = Invalid
+			return
+		}
+		s.read()
+	}
 }
 
 func (s *Scanner) scanIdent(tok *Token) {
@@ -415,23 +419,26 @@ func (s *Scanner) toggleBlank(tok Token) {
 	if !s.state.Default() {
 		return
 	}
-	if tok.IsAssign() {
-
-		s.skipBlank()
-		return
-	}
 	switch tok.Type {
-	default:
 	case Assign, Append:
 		s.keepBlank = true
 		s.skipBlank()
 	case Comment, Comma, BegList, Dependency, Eol:
 		s.keepBlank = false
 		s.skipBlank()
+	default:
+	}
+}
+
+func (s *Scanner) currentPosition() Position {
+	return Position{
+		Line:   s.line,
+		Column: s.column,
 	}
 }
 
 func (s *Scanner) reset() {
+	s.skipBlank()
 	s.str.Reset()
 }
 
@@ -556,6 +563,8 @@ const (
 	scanDefault scanState = iota
 	scanScript
 	scanMacro
+	scanQuote
+	scanValue
 )
 
 func (s scanState) String() string {
@@ -599,6 +608,10 @@ func (s *stack) Push(st scanState) {
 
 func (s *stack) Default() bool {
 	return s.Curr() == scanDefault
+}
+
+func (s *stack) Value() bool {
+	return s.Curr() == scanValue
 }
 
 func (s *stack) Script() bool {

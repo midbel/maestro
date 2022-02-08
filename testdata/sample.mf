@@ -19,6 +19,7 @@ HELP
 
 single   = foobar
 multiple = foo bar
+replace  = "pre-"${single}"-post" "prefix-"${multiple}"-suffix"
 
 obj1 = (
 	prop1 = value1, # a comment after value should be accepted

@@ -410,32 +410,23 @@ func (d *Decoder) decodeAssignment() error {
 		return d.decodeObjectVariable(ident.Literal)
 	}
 
-	var vs []string
-	for d.curr().IsValue() && !d.done() {
-		switch {
-		case d.curr().IsVariable():
-			xs, err := d.locals.Resolve(d.curr().Literal)
-			if err != nil {
-				return err
-			}
-			vs = append(vs, xs...)
-		case d.curr().IsScript():
-			xs, err := d.decodeScript(d.curr().Literal)
-			if err != nil {
-				return err
-			}
-			vs = append(vs, xs...)
-		default:
-			vs = append(vs, d.curr().Literal)
+	var str []string
+	for !d.done() {
+		xs, err := d.decodeValue()
+		if err != nil {
+			return err
 		}
-		d.next()
+		str = append(str, xs...)
+		if !d.curr().IsBlank() {
+			break
+		}
 		d.skipBlank()
 	}
 	if assign {
-		d.locals.Define(ident.Literal, vs)
+		d.locals.Define(ident.Literal, str)
 	} else {
 		xs, _ := d.locals.Resolve(ident.Literal)
-		d.locals.Define(ident.Literal, append(xs, vs...))
+		d.locals.Define(ident.Literal, append(xs, str...))
 	}
 	return nil
 }
@@ -1010,22 +1001,43 @@ func (d *Decoder) ensureEOL() error {
 	return nil
 }
 
-func (d *Decoder) parseStringList() ([]string, error) {
-	if d.curr().Type == Eol || d.curr().Type == Comment {
-		return nil, nil
-	}
-	var str []string
+func (d *Decoder) decodeValue() ([]string, error) {
+	var str [][]string
 	for d.curr().IsValue() {
+		var tmp []string
 		if d.curr().IsVariable() {
 			vs, err := d.locals.Resolve(d.curr().Literal)
 			if err != nil {
 				return nil, err
 			}
-			str = append(str, vs...)
+			tmp = vs
 		} else {
-			str = append(str, d.curr().Literal)
+			tmp = append(tmp, d.curr().Literal)
 		}
 		d.next()
+		str = copyStringArray(str, tmp)
+	}
+	ret := make([]string, len(str))
+	for i := range str {
+		ret[i] = strings.Join(str[i], "")
+	}
+	return ret, nil
+}
+
+func (d *Decoder) parseStringList() ([]string, error) {
+	if d.curr().Type == Eol || d.curr().Type == Comment {
+		return nil, nil
+	}
+	var str []string
+	for !d.done() {
+		xs, err := d.decodeValue()
+		if err != nil {
+			return nil, err
+		}
+		str = append(str, xs...)
+		if !d.curr().IsBlank() {
+			break
+		}
 		d.skipBlank()
 	}
 	return str, nil
@@ -1038,19 +1050,14 @@ func (d *Decoder) parseString() (string, error) {
 	if !d.curr().IsValue() {
 		return "", d.unexpected()
 	}
-	defer d.next()
-
-	str := d.curr().Literal
-	if d.curr().IsVariable() {
-		vs, err := d.locals.Resolve(d.curr().Literal)
-		if err != nil {
-			return "", err
-		}
-		if len(vs) >= 0 {
-			str = vs[0]
-		}
+	str, err := d.decodeValue()
+	if err != nil {
+		return "", err
 	}
-	return str, nil
+	if len(str) != 1 {
+		return "", fmt.Errorf("too many values")
+	}
+	return str[0], nil
 }
 
 func (d *Decoder) parseKnownHosts() ([]hostEntry, error) {
@@ -1118,14 +1125,20 @@ func (d *Decoder) parseDuration() (time.Duration, error) {
 	return time.ParseDuration(str)
 }
 
+func (d *Decoder) skipBlank() {
+	d.skip(Blank)
+}
+
 func (d *Decoder) skipNL() {
-	for d.curr().Type == Eol {
-		d.next()
-	}
+	d.skip(Eol)
 }
 
 func (d *Decoder) skipComment() {
-	for d.curr().Type == Comment {
+	d.skip(Comment)
+}
+
+func (d *Decoder) skip(kind rune) {
+	for d.curr().Type == kind {
 		d.next()
 	}
 }
@@ -1152,12 +1165,6 @@ func (d *Decoder) done() bool {
 		return d.frames[0].done()
 	}
 	return false
-}
-
-func (d *Decoder) skipBlank() {
-	for d.curr().IsBlank() {
-		d.next()
-	}
 }
 
 func (d *Decoder) unexpected() error {
