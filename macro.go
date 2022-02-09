@@ -22,10 +22,7 @@ func decodeMacroSequence(d *Decoder, cmd *Single) error {
 	d.next()
 
 	var lines []Line
-	for !d.done() {
-		if d.curr().Type == EndScript {
-			break
-		}
+	for !d.done() && d.curr().Type != EndScript {
 		if d.curr().Type == Comment {
 			d.next()
 			continue
@@ -59,10 +56,7 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 	}
 	d.next()
 	var list []Token
-	for !d.done() {
-		if d.curr().Type == EndList {
-			break
-		}
+	for !d.done() && d.curr().Type != EndList {
 		switch curr := d.curr(); {
 		case curr.IsPrimitive():
 			list = append(list, curr)
@@ -97,10 +91,7 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 	}
 	d.next()
 	var lines []Line
-	for !d.done() {
-		if d.curr().Type == EndScript {
-			break
-		}
+	for !d.done() && d.curr().Type != EndScript {
 		if d.curr().Type == Comment {
 			d.next()
 			continue
