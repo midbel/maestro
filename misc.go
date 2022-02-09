@@ -18,7 +18,6 @@ func interruptContext() context.Context {
 	return ctx
 }
 
-
 func copyStringArray(str [][]string, values []string) [][]string {
 	if len(str) == 0 {
 		for i := range values {

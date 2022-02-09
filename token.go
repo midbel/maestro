@@ -26,6 +26,7 @@ const (
 	Meta
 	Script
 	Macro
+	Quote
 	Assign
 	Append
 	Comma
@@ -50,6 +51,10 @@ const (
 type Position struct {
 	Line   int
 	Column int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("<%d:%d>", p.Line, p.Column)
 }
 
 type Token struct {
@@ -114,6 +119,8 @@ func (t Token) String() string {
 		return "<end-script>"
 	case Invalid:
 		return "<invalid>"
+	case Quote:
+		return "<quote>"
 	case Ident:
 		prefix = "ident"
 	case String:
@@ -153,7 +160,7 @@ func (t Token) IsScript() bool {
 }
 
 func (t Token) IsPrimitive() bool {
-	return t.Type == Ident || t.Type == String || t.Type == Boolean
+	return t.Type == Ident || t.Type == String || t.Type == Boolean || t.Type == Quote
 }
 
 func (t Token) IsEOF() bool {

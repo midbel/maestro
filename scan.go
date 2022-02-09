@@ -90,6 +90,15 @@ func (s *Scanner) Scan() Token {
 		s.scanScript(&tok)
 		return tok
 	}
+	if s.state.Quote() && !isDouble(s.char) {
+		scan := s.scanText
+		if isVariable(s.char) {
+			scan = s.scanVariable
+		}
+		scan(&tok)
+		return tok
+	}
+	s.skipBlank()
 	switch {
 	case isHeredoc(s.char, s.peek()):
 		s.scanHeredoc(&tok)
@@ -97,8 +106,10 @@ func (s *Scanner) Scan() Token {
 		s.scanComment(&tok)
 	case isVariable(s.char):
 		s.scanVariable(&tok)
-	case isQuote(s.char):
+	case isSingle(s.char):
 		s.scanString(&tok)
+	case isDouble(s.char):
+		s.scanQuote(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
 	case isMeta(s.char):
@@ -249,6 +260,27 @@ func (s *Scanner) scanHeredoc(tok *Token) {
 		io.Copy(&s.str, &tmp)
 	}
 	tok.Literal = strings.TrimSpace(s.str.String())
+	tok.Type = String
+}
+
+func (s *Scanner) scanQuote(tok *Token) {
+	tok.Type = Quote
+	s.state.ToggleQuote()
+	s.read()
+	if !s.keepBlank && !s.state.Quote() {
+		s.skipBlank()
+	}
+}
+
+func (s *Scanner) scanText(tok *Token) {
+	accept := func(r rune) bool {
+		return !isDouble(r) && !isVariable(r)
+	}
+	for accept(s.char) {
+		s.str.WriteRune(s.char)
+		s.read()
+	}
+	tok.Literal = s.str.String()
 	tok.Type = String
 }
 
@@ -415,7 +447,6 @@ func (s *Scanner) currentPosition() Position {
 }
 
 func (s *Scanner) reset() {
-	s.skipBlank()
 	s.str.Reset()
 }
 
@@ -495,8 +526,12 @@ func isDigit(b rune) bool {
 	return b >= '0' && b <= '9'
 }
 
-func isQuote(b rune) bool {
-	return b == dquote || b == squote
+func isSingle(b rune) bool {
+	return b == squote
+}
+
+func isDouble(b rune) bool {
+	return b == dquote
 }
 
 func isLetter(b rune) bool {
@@ -594,6 +629,14 @@ func (s *stack) Default() bool {
 
 func (s *stack) Quote() bool {
 	return s.Curr() == scanQuote
+}
+
+func (s *stack) ToggleQuote() {
+	if s.Quote() {
+		s.Pop()
+		return
+	}
+	s.Push(scanQuote)
 }
 
 func (s *stack) Script() bool {

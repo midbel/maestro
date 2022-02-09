@@ -1006,17 +1006,48 @@ func (d *Decoder) ensureEOL() error {
 	return nil
 }
 
+func (d *Decoder) decodeQuote() (string, error) {
+	d.next()
+	var str []string
+	for !d.done() && d.curr().Type != Quote {
+		if d.curr().IsVariable() {
+			vs, err := d.locals.Resolve(d.curr().Literal)
+			if err != nil {
+				return "", err
+			}
+			if len(vs) != 1 {
+				return "", fmt.Errorf("quote: too many values")
+			}
+			str = append(str, vs[0])
+		} else {
+			str = append(str, d.curr().Literal)
+		}
+		d.next()
+	}
+	if d.curr().Type != Quote {
+		return "", d.unexpected()
+	}
+	return strings.Join(str, ""), nil
+}
+
 func (d *Decoder) decodeValue() ([]string, error) {
 	var str [][]string
 	for d.curr().IsValue() {
 		var tmp []string
-		if d.curr().IsVariable() {
+		switch curr := d.curr(); {
+		case curr.IsVariable():
 			vs, err := d.locals.Resolve(d.curr().Literal)
 			if err != nil {
 				return nil, err
 			}
 			tmp = vs
-		} else {
+		case curr.Type == Quote:
+			s, err := d.decodeQuote()
+			if err != nil {
+				return nil, err
+			}
+			tmp = append(tmp, s)
+		default:
 			tmp = append(tmp, d.curr().Literal)
 		}
 		d.next()
