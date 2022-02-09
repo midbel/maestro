@@ -106,8 +106,6 @@ func (s *Scanner) Scan() Token {
 		s.scanHeredoc(&tok)
 	case isComment(s.char):
 		s.scanComment(&tok)
-	case isLetter(s.char):
-		s.scanLiteral(&tok)
 	case isVariable(s.char):
 		s.scanVariable(&tok)
 	case isQuote(s.char):
@@ -121,7 +119,6 @@ func (s *Scanner) Scan() Token {
 	case isNL(s.char):
 		s.scanEol(&tok)
 	default:
-		tok.Type = String
 		s.scanLiteral(&tok)
 	}
 	s.toggleBlank(tok)
@@ -335,25 +332,26 @@ func (s *Scanner) scanVariable(tok *Token) {
 }
 
 func (s *Scanner) scanLiteral(tok *Token) {
-	var (
-		accept func(rune) bool = isIdent
-		kind   = Ident
-	)
-	if tok.Type == String {
-		accept, kind = isValue, tok.Type
-	}
-	for accept(s.char) {
+	ident := true
+	for isValue(s.char) {
+		if ident && !isIdent(s.char) {
+			ident = !ident
+		}
 		s.str.WriteRune(s.char)
 		s.read()
 	}
 	tok.Literal = s.str.String()
+	if !ident {
+		tok.Type = String
+		return
+	}
 	switch tok.Literal {
 	case kwTrue, kwFalse:
 		tok.Type = Boolean
 	case kwInclude, kwExport, kwDelete, kwAlias:
 		tok.Type = Keyword
 	default:
-		tok.Type = kind
+		tok.Type = Ident
 	}
 }
 
@@ -496,7 +494,7 @@ func (s *Scanner) skip(fn func(rune) bool) {
 }
 
 func isValue(b rune) bool {
-	return !isVariable(b) && !isBlank(b) && !isNL(b)
+	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b)
 }
 
 func isHeredoc(c, p rune) bool {

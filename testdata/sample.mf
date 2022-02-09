@@ -35,8 +35,8 @@ export (
 )
 
 include (
-	"include1.mf"?
-	"include2.mf"?
+	/tmp/include1.mf?
+	/tmp/include2.mf?
 )
 
 alias print = echo
