@@ -42,7 +42,7 @@ const (
 )
 
 func IsValue(r rune) bool {
-	return !isVariable(r) && !isBlank(r) && !isNL(r)
+	return !isVariable(r) && !isBlank(r) && !isNL(r) && r != comma
 }
 
 func IsLine(r rune) bool {
@@ -107,7 +107,7 @@ func (s *Scanner) Scan() Token {
 	case isComment(s.char):
 		s.scanComment(&tok)
 	case isLetter(s.char):
-		s.scanIdent(&tok)
+		s.scanLiteral(&tok)
 	case isVariable(s.char):
 		s.scanVariable(&tok)
 	case isQuote(s.char):
@@ -121,7 +121,8 @@ func (s *Scanner) Scan() Token {
 	case isNL(s.char):
 		s.scanEol(&tok)
 	default:
-		tok.Type = Invalid
+		tok.Type = String
+		s.scanLiteral(&tok)
 	}
 	s.toggleBlank(tok)
 	return tok
@@ -333,20 +334,13 @@ func (s *Scanner) scanVariable(tok *Token) {
 	}
 }
 
-func (s *Scanner) scanIdent(tok *Token) {
+func (s *Scanner) scanLiteral(tok *Token) {
 	var (
-		accept func(rune) bool
+		accept func(rune) bool = isIdent
 		kind   = Ident
 	)
-	switch {
-	case s.state.Value():
-		accept = isValue
-		kind = String
-	case s.state.Line():
-		accept = func(r rune) bool { return !isNL(r) }
-		kind = String
-	default:
-		accept = isIdent
+	if tok.Type == String {
+		accept, kind = isValue, tok.Type
 	}
 	for accept(s.char) {
 		s.str.WriteRune(s.char)
@@ -361,9 +355,6 @@ func (s *Scanner) scanIdent(tok *Token) {
 	default:
 		tok.Type = kind
 	}
-	// if s.state.Line() && isNL(s.char) {
-	// 	s.unread()
-	// }
 }
 
 func (s *Scanner) scanDelimiter(tok *Token) {
@@ -437,7 +428,7 @@ func (s *Scanner) toggleBlank(tok Token) {
 	case Assign, Append:
 		s.keepBlank = true
 		s.skipBlank()
-	case Comment, Comma, BegList, Dependency, Eol:
+	case Comment, Comma, BegList, EndList, Dependency, Eol:
 		s.keepBlank = false
 		s.skipBlank()
 	default:
