@@ -303,7 +303,7 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 	decode := func() error {
 		var (
 			ident = d.curr()
-			str []string
+			str   []string
 		)
 		d.next()
 		if !d.curr().IsAssign() {
@@ -1146,6 +1146,14 @@ func (d *Decoder) skip(kind rune) {
 	for d.curr().Type == kind {
 		d.next()
 	}
+}
+
+func (d *Decoder) scanner() *Scanner {
+	z := len(d.frames)
+	if z == 1 {
+		return d.frames[0].scan
+	}
+	return nil
 }
 
 func (d *Decoder) next() {

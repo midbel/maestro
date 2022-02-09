@@ -29,8 +29,8 @@ obj1 = (
 obj2 = (prop4 = value4, prop5 = value5)
 
 export (
-	FOO = foo # a comment after export should be accepted
-	BAR = bar
+	FOO    = foo # a comment after export should be accepted
+	BAR    = bar
 	FOOBAR = $single
 )
 

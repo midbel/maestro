@@ -71,10 +71,10 @@ func Scan(r io.Reader) (*Scanner, error) {
 		return nil, err
 	}
 	s := Scanner{
-		input:     bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
-		line:      1,
-		column:    0,
-		state:     defaultStack(),
+		input:  bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
+		line:   1,
+		column: 0,
+		state:  defaultStack(),
 	}
 	s.read()
 	return &s, nil
@@ -336,11 +336,14 @@ func (s *Scanner) scanVariable(tok *Token) {
 func (s *Scanner) scanIdent(tok *Token) {
 	var (
 		accept func(rune) bool
-		kind = Ident
+		kind   = Ident
 	)
 	switch {
 	case s.state.Value():
 		accept = isValue
+		kind = String
+	case s.state.Line():
+		accept = func(r rune) bool { return !isNL(r) }
 		kind = String
 	default:
 		accept = isIdent
@@ -580,6 +583,7 @@ const (
 	scanMacro
 	scanQuote
 	scanValue
+	scanLine
 )
 
 func (s scanState) String() string {
@@ -590,6 +594,12 @@ func (s scanState) String() string {
 		return "script"
 	case scanMacro:
 		return "macro"
+	case scanValue:
+		return "value"
+	case scanQuote:
+		return "quoted"
+	case scanLine:
+		return "line"
 	default:
 		return "unknown"
 	}
@@ -627,6 +637,14 @@ func (s *stack) Default() bool {
 
 func (s *stack) Value() bool {
 	return s.Curr() == scanValue
+}
+
+func (s *stack) Quote() bool {
+	return s.Curr() == scanQuote
+}
+
+func (s *stack) Line() bool {
+	return s.Curr() == scanLine
 }
 
 func (s *stack) Script() bool {
