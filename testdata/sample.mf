@@ -9,8 +9,8 @@ blank lines are kept as is!
 HELP
 
 .AUTHOR       = midbel
-.EMAIL        = "noreply@midbel.org"
-.VERSION      = "0.1.0"
+.EMAIL        = noreply@midbel.org
+.VERSION      = 0.1.0
 .HELP         = $about
 .ALL          = action1 action2
 .DEFAULT      = action2
@@ -19,7 +19,7 @@ HELP
 
 single   = foobar
 multiple = foo bar
-replace  = "pre-"${single}"-post" "prefix-"${multiple}"-suffix"
+replace  = pre-${single}-post prefix-${multiple}-suffix
 
 obj1 = (
 	prop1 = value1, # a comment after value should be accepted
@@ -36,6 +36,8 @@ export (
 
 tmpdir = /tmp
 incl   = "include"
+
+include /var/maestro/definition.mf?
 
 include (
 	$tmpdir/${incl}1.mf?
@@ -100,5 +102,7 @@ action3(
 	$all && echo $bind \
 		|| echo "bind not set"
 }
+
+%hidden(short="hidden command", tag = default): {}
 
 delete single multiple

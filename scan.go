@@ -90,9 +90,6 @@ func (s *Scanner) Scan() Token {
 		s.scanScript(&tok)
 		return tok
 	}
-	if s.state.Line() {
-		defer s.state.Pop()
-	}
 	switch {
 	case isHeredoc(s.char, s.peek()):
 		s.scanHeredoc(&tok)
@@ -113,10 +110,6 @@ func (s *Scanner) Scan() Token {
 	}
 	s.toggleBlank(tok)
 	return tok
-}
-
-func (s *Scanner) EnterLineMode() {
-	s.state.Push(scanLine)
 }
 
 func (s *Scanner) CurrentLine() string {
@@ -552,8 +545,6 @@ const (
 	scanScript
 	scanMacro
 	scanQuote
-	scanValue
-	scanLine
 )
 
 func (s scanState) String() string {
@@ -564,12 +555,8 @@ func (s scanState) String() string {
 		return "script"
 	case scanMacro:
 		return "macro"
-	case scanValue:
-		return "value"
 	case scanQuote:
 		return "quoted"
-	case scanLine:
-		return "line"
 	default:
 		return "unknown"
 	}
@@ -605,16 +592,8 @@ func (s *stack) Default() bool {
 	return s.Curr() == scanDefault
 }
 
-func (s *stack) Value() bool {
-	return s.Curr() == scanValue
-}
-
 func (s *stack) Quote() bool {
 	return s.Curr() == scanQuote
-}
-
-func (s *stack) Line() bool {
-	return s.Curr() == scanLine
 }
 
 func (s *stack) Script() bool {

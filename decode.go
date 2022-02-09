@@ -137,18 +137,20 @@ func (d *Decoder) decode(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeKeyword(mst *Maestro) error {
+	var err error
 	switch d.curr().Literal {
 	case kwInclude:
-		return d.decodeInclude(mst)
+		err = d.decodeInclude(mst)
 	case kwExport:
-		return d.decodeExport(mst)
+		err = d.decodeExport(mst)
 	case kwDelete:
-		return d.decodeDelete(mst)
+		err = d.decodeDelete(mst)
 	case kwAlias:
-		return d.decodeAlias(mst)
+		err = d.decodeAlias(mst)
 	default:
+		err = d.unexpected()
 	}
-	return nil
+	return err
 }
 
 func (d *Decoder) decodeInclude(mst *Maestro) error {
@@ -156,7 +158,6 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 		file     string
 		optional bool
 	}
-
 	decode := func() (include, error) {
 		var (
 			str []string
@@ -174,10 +175,7 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 			inc.optional = true
 			d.next()
 		}
-		if err := d.ensureEOL(); err != nil {
-			return inc, err
-		}
-		return inc, nil
+		return inc, d.ensureEOL()
 	}
 	d.next()
 	var list []include
@@ -274,10 +272,7 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() {
-			if d.curr().Type == EndList {
-				break
-			}
+		for !d.done() && d.curr().Type != EndList {
 			if err := decode(); err != nil {
 				return err
 			}
@@ -332,14 +327,12 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 			d.skipBlank()
 		}
 		d.alias[ident.Literal] = strings.Join(str, " ")
-		return nil
+		return d.ensureEOL()
 	}
 	d.next()
 	switch d.curr().Type {
 	case Ident:
-		if err := decode(); err != nil {
-			return err
-		}
+		return decode()
 	case BegList:
 		d.next()
 		if err := d.ensureEOL(); err != nil {
@@ -349,18 +342,15 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 			if err := decode(); err != nil {
 				return err
 			}
-			if err := d.ensureEOL(); err != nil {
-				return err
-			}
 		}
 		if d.curr().Type != EndList {
 			return d.unexpected()
 		}
 		d.next()
+		return d.ensureEOL()
 	default:
 		return d.unexpected()
 	}
-	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeObjectVariable(ident string) error {
