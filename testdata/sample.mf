@@ -34,9 +34,12 @@ export (
 	FOOBAR = $single
 )
 
+tmpdir = /tmp
+incl   = "include"
+
 include (
-	/tmp/include1.mf?
-	/tmp/include2.mf?
+	$tmpdir/${incl}"1.mf"?
+	$tmpdir/${incl}"2.mf"?
 )
 
 alias print = echo

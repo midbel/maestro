@@ -156,36 +156,46 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 		file     string
 		optional bool
 	}
-	d.next()
-	var list []include
-	switch d.curr().Type {
-	case String, Ident:
-		i := include{file: d.curr().Literal}
-		d.next()
+
+	decode := func() (include, error) {
+		var (
+			str []string
+			inc include
+		)
+		for !d.done() && d.curr().IsValue() {
+			vs, err := d.decodeValue()
+			if err != nil {
+				return inc, err
+			}
+			str = append(str, vs...)
+		}
+		inc.file = strings.Join(str, "")
 		if d.curr().Type == Optional {
-			i.optional = true
+			inc.optional = true
 			d.next()
 		}
+		if err := d.ensureEOL(); err != nil {
+			return inc, err
+		}
+		return inc, nil
+	}
+	d.next()
+	var list []include
+	switch curr := d.curr(); {
+	case curr.IsValue():
+		i, err := decode()
+		if err != nil {
+			return err
+		}
 		list = append(list, i)
-	case BegList:
+	case curr.Type == BegList:
 		d.next()
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() {
-			if d.curr().Type == EndList {
-				break
-			}
-			if d.curr().Type != String && d.curr().Type != Ident {
-				return d.unexpected()
-			}
-			i := include{file: d.curr().Literal}
-			d.next()
-			if d.curr().Type == Optional {
-				i.optional = true
-				d.next()
-			}
-			if err := d.ensureEOL(); err != nil {
+		for !d.done() && d.curr().Type != EndList {
+			i, err := decode()
+			if err != nil {
 				return err
 			}
 			list = append(list, i)
@@ -194,11 +204,11 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 			return d.unexpected()
 		}
 		d.next()
+		if err := d.ensureEOL(); err != nil {
+			return err
+		}
 	default:
 		return d.unexpected()
-	}
-	if err := d.ensureEOL(); err != nil {
-		return err
 	}
 	for i := range list {
 		file, ok := mst.Includes.Exists(list[i].file)
@@ -284,7 +294,7 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 
 func (d *Decoder) decodeDelete(mst *Maestro) error {
 	d.next()
-	for !d.done() && d.curr().Type != Eol {
+	for !d.done() && !d.curr().IsEOL() {
 		if !d.curr().IsValue() {
 			return d.unexpected()
 		}
