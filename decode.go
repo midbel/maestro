@@ -322,7 +322,6 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 			d.skipBlank()
 		}
 		d.alias[ident.Literal] = strings.Join(str, " ")
-		fmt.Println(">> alias:", strings.Join(str, " "))
 		return nil
 	}
 	d.next()
@@ -1147,14 +1146,6 @@ func (d *Decoder) skip(kind rune) {
 	for d.curr().Type == kind {
 		d.next()
 	}
-}
-
-func (d *Decoder) scanner() *Scanner {
-	z := len(d.frames)
-	if z == 1 {
-		return d.frames[0].scan
-	}
-	return nil
 }
 
 func (d *Decoder) next() {

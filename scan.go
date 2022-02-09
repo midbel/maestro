@@ -41,14 +41,6 @@ const (
 	star       = '*'
 )
 
-func IsValue(r rune) bool {
-	return !isVariable(r) && !isBlank(r) && !isNL(r) && r != comma
-}
-
-func IsLine(r rune) bool {
-	return !isNL(r)
-}
-
 type Scanner struct {
 	input []byte
 	curr  int
@@ -333,7 +325,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 
 func (s *Scanner) scanLiteral(tok *Token) {
 	ident := true
-	for isValue(s.char) {
+	for isLiteral(s.char) {
 		if ident && !isIdent(s.char) {
 			ident = !ident
 		}
@@ -493,7 +485,7 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	}
 }
 
-func isValue(b rune) bool {
+func isLiteral(b rune) bool {
 	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b)
 }
 
