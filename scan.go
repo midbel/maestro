@@ -102,8 +102,6 @@ func (s *Scanner) Scan() Token {
 		s.scanVariable(&tok)
 	case isQuote(s.char):
 		s.scanString(&tok)
-	case isDigit(s.char):
-		s.scanInteger(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
 	case isMeta(s.char):
@@ -275,15 +273,6 @@ func (s *Scanner) scanString(tok *Token) {
 	s.read()
 	tok.Literal = s.str.String()
 	tok.Type = String
-}
-
-func (s *Scanner) scanInteger(tok *Token) {
-	for isDigit(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Type = Integer
-	tok.Literal = s.str.String()
 }
 
 func (s *Scanner) scanVariable(tok *Token) {

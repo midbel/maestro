@@ -38,8 +38,8 @@ tmpdir = /tmp
 incl   = "include"
 
 include (
-	$tmpdir/${incl}"1.mf"?
-	$tmpdir/${incl}"2.mf"?
+	$tmpdir/${incl}1.mf?
+	$tmpdir/${incl}2.mf?
 )
 
 alias print = echo

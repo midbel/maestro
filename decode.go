@@ -724,10 +724,10 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 		if d.curr().Type == BegList {
 			d.next()
 			for !d.done() && d.curr().Type != EndList {
-				switch curr := d.curr(); curr.Type {
-				case Ident, String, Boolean, Integer:
+				switch curr := d.curr(); {
+				case curr.IsPrimitive():
 					args = append(args, curr.Literal)
-				case Variable:
+				case curr.IsVariable():
 					vs, err := d.locals.Resolve(curr.Literal)
 					if err != nil {
 						return nil, err

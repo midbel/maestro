@@ -21,7 +21,6 @@ const (
 	Ident
 	Keyword
 	String
-	Integer
 	Boolean
 	Variable
 	Meta
@@ -121,8 +120,6 @@ func (t Token) String() string {
 		prefix = "string"
 	case Boolean:
 		prefix = "boolean"
-	case Integer:
-		prefix = "integer"
 	case Meta:
 		prefix = "meta"
 	case Variable:
@@ -156,7 +153,7 @@ func (t Token) IsScript() bool {
 }
 
 func (t Token) IsPrimitive() bool {
-	return t.Type == Ident || t.Type == String || t.Type == Boolean || t.Type == Integer
+	return t.Type == Ident || t.Type == String || t.Type == Boolean
 }
 
 func (t Token) IsEOF() bool {
