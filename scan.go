@@ -80,39 +80,6 @@ func Scan(r io.Reader) (*Scanner, error) {
 	return &s, nil
 }
 
-func (s *Scanner) CurrentLine() string {
-	var (
-		pos = s.curr - s.column
-		off = bytes.IndexByte(s.input[s.curr:], nl)
-	)
-	if off < 0 {
-		off = len(s.input[s.curr:])
-	}
-	if pos < 0 {
-		pos = 0
-	}
-	b := s.input[pos : s.curr+off]
-	for i := 0; i < len(b); i++ {
-		if b[i] != nl {
-			b = b[i:]
-			break
-		}
-	}
-	for i := 0; i < len(b); i++ {
-		if b[i] == tab {
-			b[i] = space
-		}
-	}
-	return string(b)
-}
-
-func (s *Scanner) ResetMode() {
-	for s.state.Len() > 0 {
-		s.state.Pop()
-	}
-	s.state.Push(scanDefault)
-}
-
 func (s *Scanner) Scan() Token {
 	var tok Token
 	tok.Position = s.currentPosition()
@@ -130,6 +97,9 @@ func (s *Scanner) Scan() Token {
 	if s.char != rcurly && s.state.Script() {
 		s.scanScript(&tok)
 		return tok
+	}
+	if s.state.Line() {
+		defer s.state.Pop()
 	}
 	switch {
 	case isHeredoc(s.char, s.peek()):
@@ -155,6 +125,36 @@ func (s *Scanner) Scan() Token {
 	}
 	s.toggleBlank(tok)
 	return tok
+}
+
+func (s *Scanner) EnterLineMode() {
+	s.state.Push(scanLine)
+}
+
+func (s *Scanner) CurrentLine() string {
+	var (
+		pos = s.curr - s.column
+		off = bytes.IndexByte(s.input[s.curr:], nl)
+	)
+	if off < 0 {
+		off = len(s.input[s.curr:])
+	}
+	if pos < 0 {
+		pos = 0
+	}
+	b := s.input[pos : s.curr+off]
+	for i := 0; i < len(b); i++ {
+		if b[i] != nl {
+			b = b[i:]
+			break
+		}
+	}
+	for i := 0; i < len(b); i++ {
+		if b[i] == tab {
+			b[i] = space
+		}
+	}
+	return string(b)
 }
 
 func (s *Scanner) scanModifier(tok *Token) {

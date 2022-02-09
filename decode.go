@@ -301,27 +301,20 @@ func (d *Decoder) decodeDelete(mst *Maestro) error {
 
 func (d *Decoder) decodeAlias(mst *Maestro) error {
 	decode := func() error {
-		var (
-			ident = d.curr()
-			str   []string
-		)
+		if s := d.scanner(); s != nil {
+			s.EnterLineMode()
+		}
+		ident := d.curr()
 		d.next()
 		if !d.curr().IsAssign() {
 			return d.unexpected()
 		}
 		d.next()
-		for !d.done() {
-			vs, err := d.decodeValue()
-			if err != nil {
-				return err
-			}
-			str = append(str, vs...)
-			if !d.curr().IsBlank() {
-				break
-			}
-			d.skipBlank()
+		if !d.curr().IsValue() {
+			return d.unexpected()
 		}
-		d.alias[ident.Literal] = strings.Join(str, " ")
+		d.alias[ident.Literal] = d.curr().Literal
+		d.next()
 		return nil
 	}
 	d.next()
@@ -1297,5 +1290,5 @@ func (e UnexpectedError) Error() string {
 	if str == "" {
 		str = e.Invalid.String()
 	}
-	return fmt.Sprintf("%s %s at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
+	return fmt.Sprintf("%s %q at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
 }
