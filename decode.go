@@ -59,6 +59,14 @@ const (
 )
 
 const (
+	schedTime    = "time"
+	schedOverlap = "overlap"
+	schedNotify  = "notify"
+	schedOut     = "stdout"
+	schedErr     = "stderr"
+)
+
+const (
 	optShort    = "short"
 	optLong     = "long"
 	optRequired = "required"
@@ -544,6 +552,42 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 			sort.Strings(cmd.Groups)
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
+		case propSchedule:
+			err = d.decodeCommandSchedule(cmd)
+		}
+		return err
+	})
+}
+
+func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
+	return d.decodeObject(func() error {
+		var (
+			curr = d.curr()
+			err  error
+		)
+		if curr.Type != Ident {
+			return d.unexpected()
+		}
+		d.next()
+		if d.curr().Type != Assign {
+			return d.unexpected()
+		}
+		d.next()
+		switch curr.Literal {
+		default:
+			return fmt.Errorf("%s: unknown schedule property", curr.Literal)
+		case schedTime:
+			var list []string
+			list, err = d.parseStringList()
+			fmt.Println(list)
+		case schedOverlap:
+			_, err = d.parseBool()
+		case schedNotify:
+			_, err = d.parseStringList()
+		case schedOut:
+			_, err = d.parseString()
+		case schedErr:
+			_, err = d.parseString()
 		}
 		return err
 	})
@@ -994,6 +1038,16 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		err = d.ensureEOL()
 	}
 	return err
+}
+
+func (d *Decoder) ensureNext(list ...rune) error {
+	for i := range list {
+		d.next()
+		if list[i] != d.curr().Type {
+			return d.unexpected()
+		}
+	}
+	return nil
 }
 
 func (d *Decoder) ensureEOL() error {

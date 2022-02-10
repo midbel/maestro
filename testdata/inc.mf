@@ -1,0 +1,21 @@
+%loc(
+	short = "count LoC",
+	tag   = info,
+): {
+	!-find -type f -exec cat {} \; | wc -l
+}
+
+todo(
+	short = "count todo",
+	tag   = info,
+): {
+	@find -type f -exec cat {} \; | grep TODO | wc -l
+}
+
+count(
+	short = "count all",
+	tag   = info,
+): {
+	<todo
+	<loc
+}

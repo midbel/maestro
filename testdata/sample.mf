@@ -1,5 +1,7 @@
 # a comment
 
+domain = midbel.org
+
 about = <<HELP
 demo help text
 
@@ -9,7 +11,7 @@ blank lines are kept as is!
 HELP
 
 .AUTHOR       = midbel
-.EMAIL        = noreply@midbel.org
+.EMAIL        = noreply@$domain
 .VERSION      = 0.1.0
 .HELP         = $about
 .ALL          = action1 action2
@@ -20,6 +22,8 @@ HELP
 single   = foobar
 multiple = foo bar
 replace  = pre-${single}-post prefix-${multiple}-suffix
+
+multiple += $single
 
 dquote = "print ${single} in string"
 squote = 'print ${single} in string'
@@ -40,7 +44,7 @@ export (
 tmpdir = /tmp
 incl   = "include"
 
-include /var/maestro/definition.mf?
+include testdata/inc.mf
 
 include (
 	$tmpdir/${incl}1.mf?
@@ -55,7 +59,18 @@ alias (
 	list = ls -l
 )
 
-action1(short="basic command", tag=demo, alias=aa1): {
+action1(
+	short="basic command",
+	tag=demo, alias=aa1,
+	hosts = "dev.$domain" prod.$domain,
+	schedule = (
+		time    = '4' '5' '2/3' '5-11' '*',
+		overlap = false,
+		notify  = cron@$domain,
+		stdout  = /tmp/stdout,
+		stderr  = /tmp/stderr,
+	)
+): {
 	print $single
 	print $multiple
 }
@@ -79,7 +94,7 @@ action2(
 	@echo $single
 	@echo $multiple
 
-	.repeat("$tmpdir/file", arg1, arg2, $single) {
+	.repeat("$tmpdir/file", arg1, arg2, $single, $multiple+) {
 		@echo <var>
 	}
 	.sequence{

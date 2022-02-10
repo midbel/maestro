@@ -75,7 +75,7 @@ func Scan(r io.Reader) (*Scanner, error) {
 func (s *Scanner) Scan() Token {
 	var tok Token
 	tok.Position = s.currentPosition()
-	if s.char == zero || s.char == utf8.RuneError {
+	if isEOF(s.char) {
 		tok.Type = Eof
 		return tok
 	}
@@ -456,14 +456,6 @@ func (s *Scanner) peek() rune {
 	return r
 }
 
-func (s *Scanner) prev() rune {
-	if s.curr == 0 {
-		return zero
-	}
-	r, _ := utf8.DecodeLastRune(s.input[:s.curr])
-	return r
-}
-
 func (s *Scanner) read() {
 	if s.curr >= len(s.input) {
 		s.char = 0
@@ -582,21 +574,6 @@ const (
 	scanMacro
 	scanQuote
 )
-
-func (s scanState) String() string {
-	switch s {
-	case scanDefault:
-		return "default"
-	case scanScript:
-		return "script"
-	case scanMacro:
-		return "macro"
-	case scanQuote:
-		return "quoted"
-	default:
-		return "unknown"
-	}
-}
 
 type stack []scanState
 
