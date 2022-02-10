@@ -110,6 +110,8 @@ func (s *Scanner) Scan() Token {
 		s.scanString(&tok)
 	case isDouble(s.char):
 		s.scanQuote(&tok)
+	case isOperator(s.char):
+		s.scanOperator(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
 	case isMeta(s.char):
@@ -362,10 +364,24 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	}
 }
 
-func (s *Scanner) scanDelimiter(tok *Token) {
+func (s *Scanner) scanOperator(tok *Token) {
 	switch s.char {
 	case ampersand:
 		tok.Type = Background
+	case question:
+		tok.Type = Optional
+	case star:
+		tok.Type = Mandatory
+	case percent:
+		tok.Type = Hidden
+	default:
+		tok.Type = Invalid
+	}
+	s.read()
+}
+
+func (s *Scanner) scanDelimiter(tok *Token) {
+	switch s.char {
 	case colon:
 		tok.Type = Dependency
 	case plus:
@@ -392,13 +408,8 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	case rcurly:
 		tok.Type = EndScript
 		s.state.Pop()
-	case question:
-		tok.Type = Optional
-	case star:
-		tok.Type = Mandatory
-	case percent:
-		tok.Type = Hidden
 	default:
+		tok.Type = Invalid
 	}
 	s.read()
 	if (s.state.Script() || s.state.Macro()) && isNL(s.char) {
@@ -492,7 +503,7 @@ func (s *Scanner) skip(fn func(rune) bool) {
 }
 
 func isLiteral(b rune) bool {
-	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b)
+	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b) && !isOperator(b)
 }
 
 func isHeredoc(c, p rune) bool {
@@ -551,10 +562,13 @@ func isVariable(b rune) bool {
 	return b == dollar
 }
 
+func isOperator(b rune) bool {
+	return b == ampersand || b == question || b == star || b == percent
+}
+
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
-		b == lcurly || b == rcurly || b == equal || b == ampersand ||
-		b == question || b == percent || b == plus || b == star
+		b == lcurly || b == rcurly || b == equal || b == plus
 }
 
 func isModifier(b rune) bool {

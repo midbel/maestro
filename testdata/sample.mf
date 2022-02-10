@@ -1,7 +1,7 @@
 # a comment
 
-star  = *
-minus = -
+# star  = *
+# minus = -
 
 domain = midbel.org
 
