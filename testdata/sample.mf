@@ -1,5 +1,8 @@
 # a comment
 
+star  = *
+minus = -
+
 domain = midbel.org
 
 about = <<HELP
@@ -94,7 +97,7 @@ action2(
 	@echo $single
 	@echo $multiple
 
-	.repeat("$tmpdir/file", arg1, arg2, $single, $multiple+) {
+	.repeat("$tmpdir/file", arg1, arg2, $single, $multiple) {
 		@echo <var>
 	}
 	.sequence{
@@ -112,11 +115,13 @@ action3(
 		short = "a",
 		long  = "all",
 		flag  = true,
+		help  = 'get all'
 	), (
 		short    = b,
 		long     = bind,
 		default  = "localhost:22",
 		required =  true,
+		help     = 'bind to address',
 		check    = notempty ipport not(oneof("localhost:22" ":22" "0.0.0.0:22")),
 	),
 	args = arg1 arg2(file),
