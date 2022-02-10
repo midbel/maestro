@@ -79,7 +79,7 @@ func (s *Scanner) Scan() Token {
 		tok.Type = Eof
 		return tok
 	}
-	if s.keepBlank && isBlank(s.char) && s.state.Default() {
+	if s.keepBlank && isBlank(s.char) && s.state.KeepBlank() {
 		s.skipBlank()
 		tok.Type = Blank
 		return tok
@@ -110,7 +110,7 @@ func (s *Scanner) Scan() Token {
 		s.scanString(&tok)
 	case isDouble(s.char):
 		s.scanQuote(&tok)
-	case isOperator(s.char):
+	case s.state.Default() && isOperator(s.char):
 		s.scanOperator(&tok)
 	case isDelimiter(s.char):
 		s.scanDelimiter(&tok)
@@ -341,8 +341,14 @@ func (s *Scanner) scanVariable(tok *Token) {
 }
 
 func (s *Scanner) scanLiteral(tok *Token) {
-	ident := true
-	for isLiteral(s.char) {
+	var (
+		ident = true
+		accept = isValue
+	)
+	if s.state.Default() {
+		accept = isLiteral
+	}
+	for accept(s.char) {
 		if ident && !isIdent(s.char) {
 			ident = !ident
 		}
@@ -437,16 +443,18 @@ func (s *Scanner) done() bool {
 }
 
 func (s *Scanner) toggleBlank(tok Token) {
-	if !s.state.Default() {
+	if !s.state.Default() && !s.state.Value() {
 		return
 	}
 	switch tok.Type {
 	case Assign, Append:
 		s.keepBlank = true
 		s.skipBlank()
+		s.state.Push(scanValue)
 	case Comment, Comma, BegList, EndList, Dependency, Eol:
 		s.keepBlank = false
 		s.skipBlank()
+		s.state.Pop()
 	default:
 	}
 }
@@ -502,8 +510,12 @@ func (s *Scanner) skip(fn func(rune) bool) {
 	}
 }
 
+func isValue(b rune) bool {
+	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b)
+}
+
 func isLiteral(b rune) bool {
-	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b) && !isOperator(b)
+	return isValue(b) && !isOperator(b)
 }
 
 func isHeredoc(c, p rune) bool {
@@ -584,6 +596,7 @@ type scanState int8
 
 const (
 	scanDefault scanState = iota
+	scanValue
 	scanScript
 	scanMacro
 	scanQuote
@@ -615,8 +628,17 @@ func (s *stack) Push(st scanState) {
 	*s = append(*s, st)
 }
 
+func (s *stack) KeepBlank() bool {
+	curr := s.Curr()
+	return curr == scanDefault || curr == scanValue
+}
+
 func (s *stack) Default() bool {
 	return s.Curr() == scanDefault
+}
+
+func (s *stack) Value() bool {
+	return s.Curr() == scanValue
 }
 
 func (s *stack) Quote() bool {

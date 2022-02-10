@@ -579,7 +579,7 @@ func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
 		case schedTime:
 			var list []string
 			list, err = d.parseStringList()
-			fmt.Println(list)
+			fmt.Println(list, len(list))
 		case schedOverlap:
 			_, err = d.parseBool()
 		case schedNotify:
