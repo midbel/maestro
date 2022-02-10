@@ -211,6 +211,7 @@ func (s *Scanner) scanScript(tok *Token) {
 	tok.Literal = s.str.String()
 	tok.Type = Script
 	s.skipNL()
+	s.skipBlank()
 }
 
 func (s *Scanner) scanEol(tok *Token) {

@@ -24,7 +24,7 @@ test(
 	tag   = build test,
 ): format {
 	@go clean -testcache
-	.repeat($package, "$package/shlex", "$package/shell", "$package/distance") {
+	.repeat($package, '$package/shlex', '$package/shell', '$package/distance') {
 		@go test -v -cover <var>
 	}
 }

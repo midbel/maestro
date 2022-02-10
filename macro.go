@@ -57,10 +57,16 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 	d.next()
 	var list []Token
 	for !d.done() && d.curr().Type != EndList {
-		switch curr := d.curr(); {
-		case curr.IsPrimitive():
+		switch curr := d.curr(); curr.Type {
+		case Quote:
+			s, err := d.decodeQuote()
+			if err != nil {
+				return err
+			}
+			list = append(list, createToken(s, String))
+		case String, Ident, Boolean:
 			list = append(list, curr)
-		case curr.IsVariable():
+		case Variable:
 			if d.peek().Type == Expand {
 				vs, _ := d.locals.Resolve(curr.Literal)
 				for i := range vs {

@@ -29,27 +29,27 @@ func testDecodeFile(t *testing.T) {
 const multiline = `
 var = foobar
 classic = (
-	"classic-prop1" = value1, # a comment
-	"classic-prop2" = value2,
+	classic_prop1 = value1, # a comment
+	classic_prop2 = value2,
 	# comment should be skipped
-	"classic-nested" = (
-		"classic-sub1" = value1,
-		"classic-sub2" = value2
+	classic_nested = (
+		classic_sub1 = value1,
+		classic_sub2 = value2
 	)
 )
 obj = (
-	"obj-prop1"  = value1
-	"obj-prop2"  = value2 # a comment
-	"obj-prop3"  = 100
-	"obj-prop4"  = false
-	"obj-nested" = (
-		"obj-subprop1" = subvalue1
-		"obj-subprop2" = subvalue2
+	obj_prop1  = value1
+	obj_prop2  = value2 # a comment
+	obj_prop3  = 100
+	obj_prop4  = false
+	obj_nested = (
+		obj_subprop1 = subvalue1
+		obj_subprop2 = subvalue2
 		nested   = (
-			"obj-last" = $var
+			obj_las" = $var
 		)
 	) # a comment
-	"obj-prop5" = $var
+	obj_prop5 = $var
 )
 action(
 	short = "basic action"

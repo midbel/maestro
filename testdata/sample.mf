@@ -79,8 +79,12 @@ action2(
 	@echo $single
 	@echo $multiple
 
-	.repeat(arg1, arg2, $single) {
+	.repeat("$tmpdir/file", arg1, arg2, $single) {
 		@echo <var>
+	}
+	.sequence{
+		echo line1
+		echo line2
 	}
 }
 
