@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var days = []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+
 type Scheduler struct {
 	min   Extender
 	hour  Extender
@@ -41,7 +43,6 @@ func Schedule(min, hour, dom, month, dow string) (*Scheduler, error) {
 }
 
 func (s *Scheduler) Reset(when time.Time) {
-	// s.when = when.Add(time.Minute).Truncate(time.Minute)
 	s.when = when.Truncate(time.Minute)
 	s.min.reset()
 	s.hour.reset()
@@ -80,9 +81,16 @@ func (s *Scheduler) reset() {
 		}
 	}
 	advance(s.month, int(s.when.Month()))
-	advance(s.dom, s.when.Day())
-	advance(s.hour, s.when.Hour())
-	advance(s.min, s.when.Minute())
+	if s.month.Curr() <= int(s.when.Month()) {
+		advance(s.dom, s.when.Day())
+	}
+	if s.dom.Curr() <= s.when.Day() {
+		advance(s.hour, s.when.Hour())
+	}
+	if s.hour.Curr() <= s.when.Hour() {
+		advance(s.min, s.when.Minute())
+	}
+	fmt.Println(s.month.Curr(), s.dom.Curr(), s.hour.Curr(), s.min.Curr())
 }
 
 func hasError(es ...error) error {
