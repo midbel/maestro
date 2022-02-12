@@ -63,11 +63,11 @@ func (s *Scheduler) Next() time.Time {
 	if s.dom.Curr() < s.when.Day() || s.dom.One() {
 		s.month.Next()
 	}
-	year := s.when.Year()
-	if s.month.Curr() < int(s.when.Month()) || s.month.One() {
-		year++
+	when := time.Date(s.when.Year(), time.Month(s.month.Curr()), s.dom.Curr(), s.hour.Curr(), s.min.Curr(), 0, 0, s.when.Location())
+	if when.Before(s.when) {
+		when = when.AddDate(1, 0, 0)
 	}
-	s.when = time.Date(year, time.Month(s.month.Curr()), s.dom.Curr(), s.hour.Curr(), s.min.Curr(), 0, 0, s.when.Location())
+	s.when = when
 	return s.when
 }
 
@@ -90,7 +90,6 @@ func (s *Scheduler) reset() {
 	if s.hour.Curr() <= s.when.Hour() {
 		advance(s.min, s.when.Minute())
 	}
-	fmt.Println(s.month.Curr(), s.dom.Curr(), s.hour.Curr(), s.min.Curr())
 }
 
 func hasError(es ...error) error {
