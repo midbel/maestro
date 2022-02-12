@@ -16,6 +16,26 @@ func TestScheduler(t *testing.T) {
 		Want []time.Time
 	}{
 		{
+			Tab: []string{"*/5", "10", "*", "3-4", "*"},
+			Want: []time.Time{
+				parseTime("2022-03-01 10:00:00"),
+				parseTime("2022-03-01 10:05:00"),
+				parseTime("2022-03-01 10:10:00"),
+				parseTime("2022-03-01 10:15:00"),
+				parseTime("2022-03-01 10:20:00"),
+			},
+		},
+		{
+			Tab: []string{"*/5", "10", "3-11/2", "*", "*"},
+			Want: []time.Time{
+				parseTime("2022-03-03 10:00:00"),
+				parseTime("2022-03-03 10:05:00"),
+				parseTime("2022-03-03 10:10:00"),
+				parseTime("2022-03-03 10:15:00"),
+				parseTime("2022-03-03 10:20:00"),
+			},
+		},
+		{
 			Tab: []string{"*", "*", "*", "*", "*"},
 			Want: []time.Time{
 				parseTime("2022-02-12 14:51:00"),
