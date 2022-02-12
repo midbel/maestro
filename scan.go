@@ -342,7 +342,7 @@ func (s *Scanner) scanVariable(tok *Token) {
 
 func (s *Scanner) scanLiteral(tok *Token) {
 	var (
-		ident = true
+		ident  = true
 		accept = isValue
 	)
 	if s.state.Default() {
