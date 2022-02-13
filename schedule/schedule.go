@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-var days = []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
-
 type Scheduler struct {
 	min   Extender
 	hour  Extender
@@ -53,17 +51,24 @@ func (s *Scheduler) Reset(when time.Time) {
 }
 
 func (s *Scheduler) Next() time.Time {
-	s.min.Next()
-	if s.min.Curr() < s.when.Minute() || s.min.One() {
-		s.hour.Next()
+	defer s.next()
+	return s.when
+}
+
+func (s *Scheduler) next() time.Time {
+	list := []Extender{
+		s.min,
+		s.hour,
+		s.dom,
+		s.month,
 	}
-	if s.hour.Curr() < s.when.Hour() || s.hour.One() {
-		s.dom.Next()
+	for _, x := range list {
+		x.Next()
+		if !x.one() && !x.can() {
+			break
+		}
 	}
-	if s.dom.Curr() < s.when.Day() || s.dom.One() {
-		s.month.Next()
-	}
-	when := time.Date(s.when.Year(), time.Month(s.month.Curr()), s.dom.Curr(), s.hour.Curr(), s.min.Curr(), 0, 0, s.when.Location())
+	when := s.get()
 	if when.Before(s.when) {
 		when = when.AddDate(1, 0, 0)
 	}
@@ -72,24 +77,25 @@ func (s *Scheduler) Next() time.Time {
 }
 
 func (s *Scheduler) reset() {
-	advance := func(ex Extender, n int) {
-		if ex.One() {
-			return
+	now := s.when
+	for {
+		s.when = s.get()
+		if s.when.Equal(now) || s.when.After(now) {
+			break
 		}
-		for ex.Curr() < n {
-			ex.Next()
-		}
+		s.next()
 	}
-	advance(s.month, int(s.when.Month()))
-	if s.month.Curr() <= int(s.when.Month()) {
-		advance(s.dom, s.when.Day())
-	}
-	if s.dom.Curr() <= s.when.Day() {
-		advance(s.hour, s.when.Hour())
-	}
-	if s.hour.Curr() <= s.when.Hour() {
-		advance(s.min, s.when.Minute())
-	}
+}
+
+func (s *Scheduler) get() time.Time {
+	var (
+		year  = s.when.Year()
+		month = time.Month(s.month.Curr())
+		day   = s.dom.Curr()
+		hour  = s.hour.Curr()
+		min   = s.min.Curr()
+	)
+	return time.Date(year, month, day, hour, min, 0, 0, s.when.Location())
 }
 
 func hasError(es ...error) error {
@@ -164,8 +170,10 @@ type Extender interface {
 	Next() int
 	Curr() int
 	By(int)
-	One() bool
+	one() bool
+
 	reset()
+	can() bool
 }
 
 type single struct {
@@ -197,7 +205,7 @@ func All(min, max int) Extender {
 	}
 }
 
-func (s *single) One() bool {
+func (s *single) one() bool {
 	return s.step == 0
 }
 
@@ -219,6 +227,10 @@ func (s *single) Next() int {
 
 func (s *single) By(by int) {
 	s.step = by
+}
+
+func (s *single) can() bool {
+	return s.curr - s.step < s.lower
 }
 
 func (s *single) reset() {
@@ -248,7 +260,7 @@ func Interval(from, to, min, max int) Extender {
 	}
 }
 
-func (i *interval) One() bool {
+func (i *interval) one() bool {
 	return false
 }
 
@@ -267,6 +279,10 @@ func (i *interval) Next() int {
 
 func (i *interval) By(by int) {
 	i.step = by
+}
+
+func (i *interval) can() bool {
+	return i.curr - i.step < i.min
 }
 
 func (i *interval) reset() {

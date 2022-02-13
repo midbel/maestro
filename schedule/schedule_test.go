@@ -38,11 +38,11 @@ func TestScheduler(t *testing.T) {
 		{
 			Tab: []string{"*", "*", "*", "*", "*"},
 			Want: []time.Time{
+				parseTime("2022-02-12 14:50:00"),
 				parseTime("2022-02-12 14:51:00"),
 				parseTime("2022-02-12 14:52:00"),
 				parseTime("2022-02-12 14:53:00"),
 				parseTime("2022-02-12 14:54:00"),
-				parseTime("2022-02-12 14:55:00"),
 			},
 		},
 		{
@@ -85,10 +85,10 @@ func TestScheduler(t *testing.T) {
 				t.Fatalf("unexpected error: %s", err)
 			}
 			sched.Reset(today)
-			for _, want := range d.Want {
+			for j, want := range d.Want {
 				got := sched.Next()
 				if !want.Equal(got) {
-					t.Fatalf("time mismatched! want %s, got %s", want, got)
+					t.Fatalf("time mismatched at %d! want %s, got %s", j+1, want, got)
 				}
 			}
 		})
