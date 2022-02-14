@@ -76,6 +76,18 @@ func TestScheduler(t *testing.T) {
 				parseTime("2022-02-13 04:23:00"),
 			},
 		},
+		{
+			Tab: []string{"5", "10", "23", "2;6;9-11", "*"},
+			Want: []time.Time{
+				parseTime("2022-02-23 10:05:00"),
+				parseTime("2022-06-23 10:05:00"),
+				parseTime("2022-09-23 10:05:00"),
+				parseTime("2022-10-23 10:05:00"),
+				parseTime("2022-11-23 10:05:00"),
+				parseTime("2023-02-23 10:05:00"),
+				parseTime("2023-06-23 10:05:00"),
+			},
+		},
 	}
 	for _, d := range data {
 		name := strings.Join(d.Tab, " ")

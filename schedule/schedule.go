@@ -27,11 +27,11 @@ func Schedule(min, hour, dom, month, dow string) (*Scheduler, error) {
 		sched Scheduler
 	)
 
-	sched.min, err1 = ParseCron(min, 0, 59)
-	sched.hour, err2 = ParseCron(hour, 0, 23)
-	sched.dom, err3 = ParseCron(dom, 1, 31)
-	sched.month, err4 = ParseCron(month, 1, 12)
-	sched.dow, err5 = ParseCron(dow, 1, 7)
+	sched.min, err1 = Parse(min, 0, 59)
+	sched.hour, err2 = Parse(hour, 0, 23)
+	sched.dom, err3 = Parse(dom, 1, 31)
+	sched.month, err4 = Parse(month, 1, 12)
+	sched.dow, err5 = Parse(dow, 1, 7)
 
 	if err := hasError(err1, err2, err3, err4, err5); err != nil {
 		return nil, err
@@ -107,7 +107,27 @@ func hasError(es ...error) error {
 	return nil
 }
 
-func ParseCron(cron string, min, max int) (Extender, error) {
+func Parse(cron string, min, max int) (Extender, error) {
+	var list []Extender
+	for {
+		str, rest, ok := strings.Cut(cron, ";")
+		ex, err := parse(str, min, max)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, ex)
+		if !ok {
+			break
+		}
+		cron = rest
+	}
+	if len(list) > 1 {
+		return List(list), nil
+	}
+	return list[0], nil
+}
+
+func parse(cron string, min, max int) (Extender, error) {
 	if cron == "" {
 		return nil, fmt.Errorf("syntax error: empty")
 	}
@@ -230,7 +250,7 @@ func (s *single) By(by int) {
 }
 
 func (s *single) can() bool {
-	return s.curr - s.step < s.lower
+	return s.curr-s.step < s.lower
 }
 
 func (s *single) reset() {
@@ -282,9 +302,49 @@ func (i *interval) By(by int) {
 }
 
 func (i *interval) can() bool {
-	return i.curr - i.step < i.min
+	return i.curr-i.step < i.min
 }
 
 func (i *interval) reset() {
 	i.curr = i.min
+}
+
+type list struct {
+	ptr int
+	es  []Extender
+}
+
+func List(es []Extender) Extender {
+	return &list{
+		es: es,
+	}
+}
+
+func (i *list) Next() int {
+	old := i.es[i.ptr].Curr()
+	if i.es[i.ptr].one() || !i.es[i.ptr].can() {
+		i.ptr = (i.ptr + 1) % len(i.es)
+	} else {
+		i.es[i.ptr].Next()
+	}
+	return old
+}
+
+func (i *list) Curr() int {
+	return i.es[i.ptr].Curr()
+}
+
+func (i *list) By(s int) {
+}
+
+func (i *list) one() bool {
+	return false
+}
+
+func (i *list) reset() {
+	i.ptr = 0
+}
+
+func (i *list) can() bool {
+	return i.ptr == len(i.es)-1 && i.es[i.ptr].can()
 }
