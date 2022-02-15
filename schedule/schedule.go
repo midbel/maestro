@@ -68,7 +68,10 @@ func (s *Scheduler) next() time.Time {
 			break
 		}
 	}
-	when := s.get()
+	when, ok := s.get()
+	if !ok {
+		return s.next()
+	}
 	if when.Before(s.when) {
 		when = when.AddDate(1, 0, 0)
 	}
@@ -77,17 +80,20 @@ func (s *Scheduler) next() time.Time {
 }
 
 func (s *Scheduler) reset() {
-	now := s.when
+	var (
+		now = s.when
+		ok bool
+	)
 	for {
-		s.when = s.get()
-		if s.when.Equal(now) || s.when.After(now) {
+		s.when, ok = s.get()
+		if ok && (s.when.Equal(now) || s.when.After(now)) {
 			break
 		}
 		s.next()
 	}
 }
 
-func (s *Scheduler) get() time.Time {
+func (s *Scheduler) get() (time.Time, bool) {
 	var (
 		year  = s.when.Year()
 		month = time.Month(s.month.Curr())
@@ -95,7 +101,14 @@ func (s *Scheduler) get() time.Time {
 		hour  = s.hour.Curr()
 		min   = s.min.Curr()
 	)
-	return time.Date(year, month, day, hour, min, 0, 0, s.when.Location())
+	n := days[month-1]
+	if month == 2 && isLeap(year) {
+		n++
+	}
+	if day > n {
+		return time.Time{}, false
+	}
+	return time.Date(year, month, day, hour, min, 0, 0, s.when.Location()), true
 }
 
 func Parse(cron string, min, max int) (Extender, error) {
@@ -342,4 +355,10 @@ func (i *list) reset() {
 
 func (i *list) isReset() bool {
 	return i.ptr < len(i.es) || i.es[i.ptr].isReset()
+}
+
+var days = []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+
+func isLeap(y int) bool {
+	return y % 4 == 0 && y % 100 == 0 && y % 400 == 0
 }
