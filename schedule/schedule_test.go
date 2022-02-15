@@ -86,6 +86,28 @@ func TestScheduler(t *testing.T) {
 				parseTime("2022-11-23 10:05:00"),
 				parseTime("2023-02-23 10:05:00"),
 				parseTime("2023-06-23 10:05:00"),
+				parseTime("2023-09-23 10:05:00"),
+				parseTime("2023-10-23 10:05:00"),
+				parseTime("2023-11-23 10:05:00"),
+				parseTime("2024-02-23 10:05:00"),
+			},
+		},
+		{
+			Tab: []string{"5", "10", "23", "2-6;10", "*"},
+			Want: []time.Time{
+				parseTime("2022-02-23 10:05:00"),
+				parseTime("2022-03-23 10:05:00"),
+				parseTime("2022-04-23 10:05:00"),
+				parseTime("2022-05-23 10:05:00"),
+				parseTime("2022-06-23 10:05:00"),
+				parseTime("2022-10-23 10:05:00"),
+				parseTime("2023-02-23 10:05:00"),
+				parseTime("2023-03-23 10:05:00"),
+				parseTime("2023-04-23 10:05:00"),
+				parseTime("2023-05-23 10:05:00"),
+				parseTime("2023-06-23 10:05:00"),
+				parseTime("2023-10-23 10:05:00"),
+				parseTime("2024-02-23 10:05:00"),
 			},
 		},
 	}
@@ -100,7 +122,7 @@ func TestScheduler(t *testing.T) {
 			for j, want := range d.Want {
 				got := sched.Next()
 				if !want.Equal(got) {
-					t.Fatalf("time mismatched at %d! want %s, got %s", j+1, want, got)
+					t.Errorf("time mismatched at %d! want %s, got %s", j+1, want, got)
 				}
 			}
 		})
