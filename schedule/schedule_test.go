@@ -13,6 +13,7 @@ var today = parseTime("2022-02-12 14:50:45")
 func TestScheduler(t *testing.T) {
 	data := []struct {
 		Tab  []string
+		Base string
 		Want []time.Time
 	}{
 		{
@@ -121,14 +122,32 @@ func TestScheduler(t *testing.T) {
 			},
 		},
 		{
-			Tab: []string{"20/20", "10", "*", "*", "*"},
+			Tab: []string{"20/20", "10;11", "*", "*", "*"},
 			Want: []time.Time{
 				parseTime("2022-02-13 10:20:00"),
 				parseTime("2022-02-13 10:40:00"),
+				parseTime("2022-02-13 11:20:00"),
+				parseTime("2022-02-13 11:40:00"),
 				parseTime("2022-02-14 10:20:00"),
 				parseTime("2022-02-14 10:40:00"),
+				parseTime("2022-02-14 11:20:00"),
+				parseTime("2022-02-14 11:40:00"),
 				parseTime("2022-02-15 10:20:00"),
 				parseTime("2022-02-15 10:40:00"),
+			},
+		},
+		{
+			Tab:  []string{"10", "10", "3-10", "*", "*"},
+			Base: "2022-12-24 19:55:00",
+			Want: []time.Time{
+				parseTime("2023-01-03 10:10:00"),
+				parseTime("2023-01-04 10:10:00"),
+				parseTime("2023-01-05 10:10:00"),
+				parseTime("2023-01-06 10:10:00"),
+				parseTime("2023-01-07 10:10:00"),
+				parseTime("2023-01-08 10:10:00"),
+				parseTime("2023-01-09 10:10:00"),
+				parseTime("2023-01-10 10:10:00"),
 			},
 		},
 	}
@@ -136,10 +155,15 @@ func TestScheduler(t *testing.T) {
 		name := strings.Join(d.Tab, " ")
 		t.Run(name, func(t *testing.T) {
 			sched, err := schedule.Schedule(d.Tab[0], d.Tab[1], d.Tab[2], d.Tab[3], d.Tab[4])
+			if d.Base != "" {
+				w := parseTime(d.Base)
+				sched.Reset(w)
+			} else {
+				sched.Reset(today)
+			}
 			if err != nil {
 				t.Fatalf("unexpected error: %s", err)
 			}
-			sched.Reset(today)
 			for j, want := range d.Want {
 				got := sched.Next()
 				if !want.Equal(got) {
