@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
 )
 
@@ -101,6 +102,15 @@ type Line struct {
 	Subshell bool
 }
 
+type Schedule struct {
+	Sched   *schedule.Scheduler
+	Args    []string
+	Stdout  string
+	Stderr  string
+	Notify  []string
+	Overlap bool
+}
+
 type Single struct {
 	Visible bool
 
@@ -117,11 +127,12 @@ type Single struct {
 	WorkDir string
 	Timeout time.Duration
 
-	Hosts   []string
-	Deps    []Dep
-	Scripts []Line
-	Options []Option
-	Args    []Arg
+	Hosts     []string
+	Deps      []Dep
+	Scripts   []Line
+	Options   []Option
+	Args      []Arg
+	Schedules []Schedule
 
 	locals *Env
 	shell  *shell.Shell

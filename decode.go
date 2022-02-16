@@ -14,6 +14,7 @@ import (
 
 	"github.com/midbel/maestro/shell"
 	"github.com/midbel/maestro/shlex"
+	"github.com/midbel/maestro/schedule"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -62,6 +63,7 @@ const (
 	schedTime    = "time"
 	schedOverlap = "overlap"
 	schedNotify  = "notify"
+	schedArgs    = "args"
 	schedOut     = "stdout"
 	schedErr     = "stderr"
 )
@@ -560,7 +562,11 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 }
 
 func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
-	return d.decodeObject(func() error {
+	var (
+		sched Schedule
+		err   error
+	)
+	err = d.decodeObject(func() error {
 		var (
 			curr = d.curr()
 			err  error
@@ -577,20 +583,24 @@ func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
 		default:
 			return fmt.Errorf("%s: unknown schedule property", curr.Literal)
 		case schedTime:
-			var list []string
-			list, err = d.parseStringList()
-			fmt.Println(list, len(list))
+			sched.Sched, err = d.parseCrontab()
 		case schedOverlap:
-			_, err = d.parseBool()
+			sched.Overlap, err = d.parseBool()
 		case schedNotify:
-			_, err = d.parseStringList()
+			sched.Notify, err = d.parseStringList()
+		case schedArgs:
+			sched.Args, err = d.parseStringList()
 		case schedOut:
-			_, err = d.parseString()
+			sched.Stdout, err = d.parseString()
 		case schedErr:
-			_, err = d.parseString()
+			sched.Stderr, err = d.parseString()
 		}
 		return err
 	})
+	if err == nil {
+		cmd.Schedules = append(cmd.Schedules, sched)
+	}
+	return err
 }
 
 func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
@@ -1148,6 +1158,14 @@ func (d *Decoder) parseString() (string, error) {
 		return "", fmt.Errorf("too many values")
 	}
 	return str[0], nil
+}
+
+func (d *Decoder) parseCrontab() (*schedule.Scheduler, error) {
+	list, err := d.parseStringList()
+	if err != nil {
+		return nil, err
+	}
+	return schedule.ScheduleFromList(list)
 }
 
 func (d *Decoder) parseKnownHosts() ([]hostEntry, error) {

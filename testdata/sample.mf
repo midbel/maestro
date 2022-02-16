@@ -67,7 +67,7 @@ action1(
 	tag=demo, alias=aa1,
 	hosts = "dev.$domain" prod.$domain,
 	schedule = (
-		time    = 4 5 2/3 5-11 *,
+		time    = 4-10/2 5;7;10 2/3 5-11 *,
 		overlap = false,
 		notify  = cron@$domain,
 		stdout  = /tmp/stdout,

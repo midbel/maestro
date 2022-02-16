@@ -17,6 +17,13 @@ type Scheduler struct {
 	when time.Time
 }
 
+func ScheduleFromList(ls []string) (*Scheduler, error) {
+	if len(ls) != 5 {
+		return nil, fmt.Errorf("schedule: not enough argument given! expected 5, got %d", len(ls))
+	}
+	return Schedule(ls[0], ls[1], ls[2], ls[3], ls[4])
+}
+
 func Schedule(min, hour, day, month, week string) (*Scheduler, error) {
 	var (
 		err1  error
@@ -82,7 +89,7 @@ func (s *Scheduler) next() time.Time {
 func (s *Scheduler) reset() {
 	var (
 		now = s.when
-		ok bool
+		ok  bool
 	)
 	for {
 		s.when, ok = s.get()
@@ -360,5 +367,5 @@ func (i *list) isReset() bool {
 var days = []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
 
 func isLeap(y int) bool {
-	return y % 4 == 0 && y % 100 == 0 && y % 400 == 0
+	return y%4 == 0 && y%100 == 0 && y%400 == 0
 }
