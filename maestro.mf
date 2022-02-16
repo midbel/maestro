@@ -33,6 +33,9 @@ deploy(
 	short = "copy binaries in PATH",
 	tag   = build deploy,
 	alias = install,
+	schedule = (
+		time = 20/20 9-16 * * *,
+	),
 ): ?build {
 	cp ${bindir,,}/${maestro} /home/nico/go/bin
 	cp ${bindir,,}/${tish} /home/nico/go/bin
@@ -48,7 +51,10 @@ build(
 		long  = clean,
 		flag  = true,
 		help  = "run go clean before compiling binaries"
-	)
+	),
+	schedule = (
+	time = */5 10-18 * * *,
+	),
 ): tidy, format, test, verify {
 	# build the maestro binary and the tish shell
 	rm -f ${bindir,,}/${maestro,,}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -28,14 +29,15 @@ const (
 )
 
 const (
-	CmdHelp     = "help"
-	CmdVersion  = "version"
-	CmdAll      = "all"
-	CmdDefault  = "default"
-	CmdListen   = "listen"
-	CmdServe    = "serve"
-	CmdGraph    = "graph"
-	CmdSchedule = "schedule"
+	CmdHelp         = "help"
+	CmdVersion      = "version"
+	CmdAll          = "all"
+	CmdDefault      = "default"
+	CmdListen       = "listen"
+	CmdServe        = "serve"
+	CmdGraph        = "graph"
+	CmdSchedule     = "schedule"
+	CmdScheduleShow = "show"
 )
 
 const (
@@ -152,7 +154,22 @@ func (m *Maestro) Graph(name string) error {
 	return err
 }
 
-func (m *Maestro) Schedule() error {
+func (m *Maestro) Schedule(args []string) error {
+	set := flag.NewFlagSet(CmdSchedule, flag.ExitOnError)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	switch set.Arg(0) {
+	case CmdScheduleShow:
+		return m.scheduleShow(set.Args())
+	case "":
+		return m.schedule()
+	default:
+		return fmt.Errorf("%s: unknown sub command %s", CmdSchedule, set.Arg(0))
+	}
+}
+
+func (m *Maestro) schedule() error {
 	var grp errgroup.Group
 	for _, c := range m.Commands {
 		e, ok := c.(Scheduler)
@@ -164,6 +181,33 @@ func (m *Maestro) Schedule() error {
 		})
 	}
 	return grp.Wait()
+}
+
+func (m *Maestro) scheduleShow(args []string) error {
+	var (
+		set   = flag.NewFlagSet(CmdScheduleShow, flag.ExitOnError)
+		limit = set.Int("n", 5, "limit")
+	)
+	if err := set.Parse(args[1:]); err != nil {
+		return err
+	}
+	for _, c := range m.Commands {
+		s, ok := c.(*Single)
+		if !ok || len(s.Schedules) == 0 {
+			continue
+		}
+		fmt.Fprintln(stdout, "*", c.Command())
+		for _, s := range s.Schedules {
+			prefix := "next"
+			for i := 0; i < *limit; i++ {
+				w := s.Sched.Next()
+				fmt.Fprintf(stdout, "  %s at %s", prefix, w.Format("2006-01-02 15:04:05"))
+				fmt.Fprintln(stdout)
+				prefix = "then"
+			}
+		}
+	}
+	return nil
 }
 
 func (m *Maestro) Dry(name string, args []string) error {

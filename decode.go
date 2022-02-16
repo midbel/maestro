@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
 	"github.com/midbel/maestro/shlex"
-	"github.com/midbel/maestro/schedule"
 	"golang.org/x/crypto/ssh"
 )
 

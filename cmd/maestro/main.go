@@ -116,7 +116,7 @@ func main() {
 	case maestro.CmdDefault:
 		err = mst.ExecuteDefault(args)
 	case maestro.CmdSchedule:
-		err = mst.Schedule()
+		err = mst.Schedule(args)
 	case maestro.CmdGraph:
 		if len(args) > 0 {
 			cmd = args[0]
