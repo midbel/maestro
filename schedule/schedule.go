@@ -214,7 +214,6 @@ type Extender interface {
 	one() bool
 	reset()
 	isReset() bool
-	isLast() bool
 }
 
 type single struct {
@@ -273,12 +272,7 @@ func (s *single) reset() {
 }
 
 func (s *single) isReset() bool {
-	// return s.curr-s.step < s.lower
 	return s.curr == s.lower || s.curr == s.base
-}
-
-func (s *single) isLast() bool {
-	return s.curr == s.upper || s.curr+s.step >= s.upper
 }
 
 type interval struct {
@@ -332,10 +326,6 @@ func (i *interval) isReset() bool {
 	return i.curr-i.step < i.min
 }
 
-func (i *interval) isLast() bool {
-	return i.curr == i.max || i.curr+i.step >= i.max
-}
-
 type list struct {
 	ptr int
 	es  []Extender
@@ -371,10 +361,6 @@ func (i *list) reset() {
 
 func (i *list) isReset() bool {
 	return i.ptr == 0 && i.es[0].isReset()
-}
-
-func (i *list) isLast() bool {
-	return i.ptr == len(i.es)-1 || i.es[i.ptr].isLast()
 }
 
 var days = []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
