@@ -153,7 +153,17 @@ func (m *Maestro) Graph(name string) error {
 }
 
 func (m *Maestro) Schedule() error {
-	return nil
+	var grp errgroup.Group
+	for _, c := range m.Commands {
+		e, ok := c.(Scheduler)
+		if !ok {
+			continue
+		}
+		grp.Go(func() error {
+			return e.Schedule(context.TODO())
+		})
+	}
+	return grp.Wait()
 }
 
 func (m *Maestro) Dry(name string, args []string) error {

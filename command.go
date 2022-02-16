@@ -15,6 +15,7 @@ import (
 
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
+	"golang.org/x/sync/errgroup"
 )
 
 const DefaultSSHPort = 22
@@ -28,6 +29,10 @@ type Executer interface {
 	Execute(context.Context, []string) error
 	SetOut(w io.Writer)
 	SetErr(w io.Writer)
+}
+
+type Scheduler interface {
+	Schedule(context.Context) error
 }
 
 type Command interface {
@@ -303,6 +308,24 @@ func (s *Single) SetOut(w io.Writer) {
 
 func (s *Single) SetErr(w io.Writer) {
 	s.shell.SetErr(w)
+}
+
+func (s *Single) Schedule(ctx context.Context) error {
+	if len(s.Schedules) == 0 {
+		return nil
+	}
+	var grp errgroup.Group
+	for i := range s.Schedules {
+		e := s.Schedules[i]
+		grp.Go(func() error {
+			return s.executeSchedule(ctx, e)
+		})
+	}
+	return grp.Wait()
+}
+
+func (s *Single) executeSchedule(ctx context.Context, sc Schedule) error {
+	return nil
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
