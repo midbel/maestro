@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var Separator = ";"
+
 type Scheduler struct {
 	min   Extender
 	hour  Extender
@@ -200,7 +202,7 @@ type Extender interface {
 func Parse(cron string, min, max int, names []string) (Extender, error) {
 	var list []Extender
 	for {
-		str, rest, ok := strings.Cut(cron, ";")
+		str, rest, ok := strings.Cut(cron, Separator)
 		ex, err := parse(str, min, max, names)
 		if err != nil {
 			return nil, err
@@ -466,7 +468,10 @@ var monthnames = []string{
 	"dec",
 }
 
-var ErrInvalid = errors.New("invalid")
+var (
+	ErrInvalid = errors.New("invalid")
+	ErrRange   = errors.New("not in range")
+)
 
 func parse(cron string, min, max int, names []string) (Extender, error) {
 	if cron == "" {
@@ -504,6 +509,9 @@ func createSingle(base, step string, names []string, min, max int) (Extender, er
 	if err != nil {
 		return nil, err
 	}
+	if b < min || b > max {
+		return nil, rangeError(base, min, max)
+	}
 	e := Single(b, min, max)
 	e.By(s)
 	return e, nil
@@ -522,12 +530,22 @@ func createInterval(from, to, step string, names []string, min, max int) (Extend
 		}
 		s = s1
 	}
+	if f < min || f > max {
+		return nil, rangeError(from, min, max)
+	}
+	if t < min || t > max {
+		return nil, rangeError(to, min, max)
+	}
 	if err := hasError(err1, err2); err != nil {
 		return nil, err
 	}
 	e := Interval(f, t, min, max)
 	e.By(s)
 	return e, nil
+}
+
+func rangeError(v string, min, max int) error {
+	return fmt.Errorf("%s %w [%d,%d]", v, ErrRange, min, max)
 }
 
 func atoi(x string, names []string) (int, error) {
@@ -538,7 +556,7 @@ func atoi(x string, names []string) (int, error) {
 	x = strings.ToLower(x)
 	for i := range names {
 		if x == names[i] {
-			return i+1, nil
+			return i + 1, nil
 		}
 	}
 	return 0, fmt.Errorf("%s: %w", x, ErrInvalid)
