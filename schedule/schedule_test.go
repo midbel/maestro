@@ -151,7 +151,8 @@ func TestScheduler(t *testing.T) {
 			},
 		},
 		{
-			Tab: []string{"10", "10", "19;28-30", "2;3", "1;3;5-7"},
+			Tab:  []string{"10", "10", "19;28-30", "2;3", "1;3;5-7"},
+			Base: "2022-02-18 20:08:00",
 			Want: []time.Time{
 				parseTime("2022-02-19 10:10:00"),
 				parseTime("2022-02-20 10:10:00"),
@@ -176,6 +177,18 @@ func TestScheduler(t *testing.T) {
 				parseTime("2022-03-19 10:10:00"),
 			},
 		},
+		{
+			Tab:  []string{"5", "4", "*", "2-4", "1;5/2"},
+			Base: "2022-02-19 16:31:00",
+			Want: []time.Time{
+				parseTime("2022-02-20 04:05:00"),
+				parseTime("2022-02-21 04:05:00"),
+				parseTime("2022-02-25 04:05:00"),
+				parseTime("2022-02-27 04:05:00"),
+				parseTime("2022-02-28 04:05:00"),
+				parseTime("2022-03-04 04:05:00"),
+			},
+		},
 	}
 	for _, d := range data {
 		name := strings.Join(d.Tab, " ")
@@ -193,7 +206,7 @@ func TestScheduler(t *testing.T) {
 			for j, want := range d.Want {
 				got := sched.Next()
 				if !want.Equal(got) {
-					t.Errorf("time mismatched at %d! want %s, got %s", j+1, want, got)
+					t.Fatalf("time mismatched at %d! want %s, got %s", j+1, want, got)
 				}
 			}
 		})
