@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -34,11 +35,11 @@ func Schedule(min, hour, day, month, week string) (*Scheduler, error) {
 		sched Scheduler
 	)
 
-	sched.min, err1 = Parse(min, 0, 59)
-	sched.hour, err2 = Parse(hour, 0, 23)
-	sched.day, err3 = Parse(day, 1, 31)
-	sched.month, err4 = Parse(month, 1, 12)
-	sched.week, err5 = Parse(week, 1, 7)
+	sched.min, err1 = Parse(min, 0, 59, nil)
+	sched.hour, err2 = Parse(hour, 0, 23, nil)
+	sched.day, err3 = Parse(day, 1, 31, nil)
+	sched.month, err4 = Parse(month, 1, 12, monthnames)
+	sched.week, err5 = Parse(week, 1, 7, daynames)
 
 	if err := hasError(err1, err2, err3, err4, err5); err != nil {
 		return nil, err
@@ -47,9 +48,13 @@ func Schedule(min, hour, day, month, week string) (*Scheduler, error) {
 	return &sched, nil
 }
 
+func (s *Scheduler) Now() time.Time {
+	return s.when
+}
+
 func (s *Scheduler) Next() time.Time {
 	defer s.next()
-	return s.when
+	return s.Now()
 }
 
 func (s *Scheduler) Reset(when time.Time) {
@@ -192,11 +197,11 @@ type Extender interface {
 	All() bool
 }
 
-func Parse(cron string, min, max int) (Extender, error) {
+func Parse(cron string, min, max int, names []string) (Extender, error) {
 	var list []Extender
 	for {
 		str, rest, ok := strings.Cut(cron, ";")
-		ex, err := parse(str, min, max)
+		ex, err := parse(str, min, max, names)
 		if err != nil {
 			return nil, err
 		}
@@ -429,14 +434,41 @@ func freeze(x Extender) Extender {
 }
 
 func (f *frozen) Next() {
-	// pass
+	// noop
 }
 
 func (f *frozen) Unfreeze() Extender {
 	return f.Extender
 }
 
-func parse(cron string, min, max int) (Extender, error) {
+var daynames = []string{
+	"mon",
+	"tue",
+	"wed",
+	"thu",
+	"fri",
+	"sat",
+	"sun",
+}
+
+var monthnames = []string{
+	"jan",
+	"feb",
+	"mar",
+	"apr",
+	"mai",
+	"jun",
+	"jul",
+	"aug",
+	"sep",
+	"oct",
+	"nov",
+	"dec",
+}
+
+var ErrInvalid = errors.New("invalid")
+
+func parse(cron string, min, max int, names []string) (Extender, error) {
 	if cron == "" {
 		return nil, fmt.Errorf("syntax error: empty")
 	}
@@ -444,19 +476,19 @@ func parse(cron string, min, max int) (Extender, error) {
 	if !ok {
 		str, rest, ok = strings.Cut(cron, "/")
 		if ok {
-			return createSingle(str, rest, min, max)
+			return createSingle(str, rest, names, min, max)
 		}
-		return createSingle(cron, "", min, max)
+		return createSingle(cron, "", names, min, max)
 	}
 	old := str
 	str, rest, ok = strings.Cut(rest, "/")
 	if !ok {
-		return createInterval(old, str, "", min, max)
+		return createInterval(old, str, "", names, min, max)
 	}
-	return createInterval(old, str, rest, min, max)
+	return createInterval(old, str, rest, names, min, max)
 }
 
-func createSingle(base, step string, min, max int) (Extender, error) {
+func createSingle(base, step string, names []string, min, max int) (Extender, error) {
 	s, err := strconv.Atoi(step)
 	if err != nil && step != "" {
 		return nil, err
@@ -468,16 +500,19 @@ func createSingle(base, step string, min, max int) (Extender, error) {
 		}
 		return e, nil
 	}
-	b, _ := strconv.Atoi(base)
+	b, err := atoi(base, names)
+	if err != nil {
+		return nil, err
+	}
 	e := Single(b, min, max)
 	e.By(s)
 	return e, nil
 }
 
-func createInterval(from, to, step string, min, max int) (Extender, error) {
+func createInterval(from, to, step string, names []string, min, max int) (Extender, error) {
 	var (
-		f, err1 = strconv.Atoi(from)
-		t, err2 = strconv.Atoi(to)
+		f, err1 = atoi(from, names)
+		t, err2 = atoi(to, names)
 		s       = 1
 	)
 	if step != "" {
@@ -493,6 +528,20 @@ func createInterval(from, to, step string, min, max int) (Extender, error) {
 	e := Interval(f, t, min, max)
 	e.By(s)
 	return e, nil
+}
+
+func atoi(x string, names []string) (int, error) {
+	n, err := strconv.Atoi(x)
+	if err == nil {
+		return n, err
+	}
+	x = strings.ToLower(x)
+	for i := range names {
+		if x == names[i] {
+			return i+1, nil
+		}
+	}
+	return 0, fmt.Errorf("%s: %w", x, ErrInvalid)
 }
 
 var days = []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
