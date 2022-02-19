@@ -253,10 +253,6 @@ func All(min, max int) Extender {
 	return &s
 }
 
-func (s *single) String() string {
-	return fmt.Sprintf("%d:%d/%d", s.curr, s.base, s.step)
-}
-
 func (s *single) All() bool {
 	return s.all
 }
@@ -317,10 +313,6 @@ func Interval(from, to, min, max int) Extender {
 	return &i
 }
 
-func (i *interval) String() string {
-	return fmt.Sprintf("%d:%d-%d/%d", i.curr, i.min, i.max, i.step)
-}
-
 func (_ *interval) All() bool {
 	return false
 }
@@ -363,18 +355,6 @@ func List(es []Extender) Extender {
 	return &list{
 		es: es,
 	}
-}
-
-func (i *list) String() string {
-	var str []string
-	for _, x := range i.es {
-		s, ok := x.(fmt.Stringer)
-		if !ok {
-			continue
-		}
-		str = append(str, s.String())
-	}
-	return strings.Join(str, ", ")
 }
 
 func (_ *list) All() bool {
