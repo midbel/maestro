@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
@@ -29,15 +30,14 @@ const (
 )
 
 const (
-	CmdHelp         = "help"
-	CmdVersion      = "version"
-	CmdAll          = "all"
-	CmdDefault      = "default"
-	CmdListen       = "listen"
-	CmdServe        = "serve"
-	CmdGraph        = "graph"
-	CmdSchedule     = "schedule"
-	CmdScheduleShow = "show"
+	CmdHelp     = "help"
+	CmdVersion  = "version"
+	CmdAll      = "all"
+	CmdDefault  = "default"
+	CmdListen   = "listen"
+	CmdServe    = "serve"
+	CmdGraph    = "graph"
+	CmdSchedule = "schedule"
 )
 
 const (
@@ -157,8 +157,8 @@ func (m *Maestro) Graph(name string) error {
 func (m *Maestro) Schedule(args []string) error {
 	var (
 		set   = flag.NewFlagSet(CmdSchedule, flag.ExitOnError)
-		list  = flag.Bool("l", false, "show list of schedule command")
-		limit = flag.Int("n", 0, "show next schedule time")
+		list  = set.Bool("l", false, "show list of schedule command")
+		limit = set.Int("n", 0, "show next schedule time")
 	)
 	if err := set.Parse(args); err != nil {
 		return err
@@ -184,26 +184,39 @@ func (m *Maestro) schedule() error {
 }
 
 func (m *Maestro) scheduleList(args []string, limit int) error {
+	if limit == 0 {
+		m.showScheduleShort(args)
+	} else {
+		m.showScheduleLong(args, limit)
+	}
 	return nil
 }
 
-func (m *Maestro) scheduleShow(args []string) error {
-	var (
-		set   = flag.NewFlagSet(CmdScheduleShow, flag.ExitOnError)
-		limit = set.Int("n", 5, "limit")
-	)
-	if err := set.Parse(args[1:]); err != nil {
-		return err
-	}
-	for _, c := range m.Commands {
+func (m *Maestro) showScheduleShort(args []string) {
+	now := time.Now()
+	for _, c := range m.getCommandByNames(args) {
 		s, ok := c.(*Single)
 		if !ok || len(s.Schedules) == 0 {
 			continue
 		}
-		fmt.Fprintln(stdout, "*", c.Command())
 		for _, s := range s.Schedules {
+			next := s.Sched.Next()
+			fmt.Fprintf(stdout, "- %s in %s", c.Command(), next.Sub(now))
+			fmt.Fprintln(stdout)
+		}
+	}
+}
+
+func (m *Maestro) showScheduleLong(args []string, limit int) {
+	for _, c := range m.getCommandByNames(args) {
+		s, ok := c.(*Single)
+		if !ok || len(s.Schedules) == 0 {
+			continue
+		}
+		for _, s := range s.Schedules {
+			fmt.Fprintln(stdout, "*", c.Command())
 			prefix := "next"
-			for i := 0; i < *limit; i++ {
+			for i := 0; i < limit; i++ {
 				w := s.Sched.Next()
 				fmt.Fprintf(stdout, "  %s at %s", prefix, w.Format("2006-01-02 15:04:05"))
 				fmt.Fprintln(stdout)
@@ -211,7 +224,25 @@ func (m *Maestro) scheduleShow(args []string) error {
 			}
 		}
 	}
-	return nil
+}
+
+func (m *Maestro) getCommandByNames(names []string) []Command {
+	var (
+		cs  []Command
+		all []Command
+	)
+	sort.Strings(names)
+	for n, c := range m.Commands {
+		all = append(all, c)
+		x := sort.SearchStrings(names, n)
+		if x < len(names) && names[x] == n {
+			cs = append(cs, c)
+		}
+	}
+	if len(cs) == 0 {
+		return all
+	}
+	return cs
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
