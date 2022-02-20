@@ -32,7 +32,7 @@ type Executer interface {
 }
 
 type Scheduler interface {
-	Schedule(context.Context) error
+	Schedule(context.Context, io.Writer, io.Writer) error
 }
 
 type Command interface {
@@ -310,7 +310,7 @@ func (s *Single) SetErr(w io.Writer) {
 	s.shell.SetErr(w)
 }
 
-func (s *Single) Schedule(ctx context.Context) error {
+func (s *Single) Schedule(ctx context.Context, stdout, stderr io.Writer) error {
 	if len(s.Schedules) == 0 {
 		return nil
 	}
@@ -318,13 +318,30 @@ func (s *Single) Schedule(ctx context.Context) error {
 	for i := range s.Schedules {
 		e := s.Schedules[i]
 		grp.Go(func() error {
-			return s.executeSchedule(ctx, e)
+			return s.executeSchedule(ctx, e, stdout, stderr)
 		})
 	}
 	return grp.Wait()
 }
 
-func (s *Single) executeSchedule(ctx context.Context, sc Schedule) error {
+func (s *Single) executeSchedule(ctx context.Context, sc Schedule, stdout, stderr io.Writer) error {
+	var (
+		now  time.Time
+		next time.Time
+		wait time.Duration
+	)
+	for {
+		now, next = time.Now(), sc.Sched.Next()
+		wait = next.Sub(now)
+		if wait <= 0 {
+			continue
+		}
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	return nil
 }
 

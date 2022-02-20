@@ -170,14 +170,17 @@ func (m *Maestro) Schedule(args []string) error {
 }
 
 func (m *Maestro) schedule() error {
-	var grp errgroup.Group
+	var (
+		parent   = interruptContext()
+		grp, ctx = errgroup.WithContext(parent)
+	)
 	for _, c := range m.Commands {
 		e, ok := c.(Scheduler)
 		if !ok {
 			continue
 		}
 		grp.Go(func() error {
-			return e.Schedule(context.TODO())
+			return e.Schedule(ctx, stdout, stderr)
 		})
 	}
 	return grp.Wait()
@@ -200,8 +203,12 @@ func (m *Maestro) showScheduleShort(args []string) {
 			continue
 		}
 		for _, s := range s.Schedules {
-			next := s.Sched.Next()
-			fmt.Fprintf(stdout, "- %s in %s", c.Command(), next.Sub(now))
+			var wait time.Duration
+			for wait <= 0 {
+				next := s.Sched.Next()
+				wait = next.Sub(now)
+			}
+			fmt.Fprintf(stdout, "- %s in %s", c.Command(), wait)
 			fmt.Fprintln(stdout)
 		}
 	}

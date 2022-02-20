@@ -64,6 +64,7 @@ const (
 	schedOverlap = "overlap"
 	schedNotify  = "notify"
 	schedArgs    = "args"
+	schedEnv     = "env"
 	schedOut     = "stdout"
 	schedErr     = "stderr"
 )
@@ -623,6 +624,8 @@ func (d *Decoder) decodeScheduleObject() (Schedule, error) {
 			sched.Notify, err = d.parseStringList()
 		case schedArgs:
 			sched.Args, err = d.parseStringList()
+		case schedEnv:
+			// TODO
 		case schedOut:
 			sched.Stdout, err = d.parseString()
 		case schedErr:

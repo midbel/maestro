@@ -24,7 +24,7 @@ test(
 	tag   = build test,
 ): format {
 	@go clean -testcache
-	.repeat($package, '$package/shlex', '$package/shell', '$package/distance') {
+	.repeat($package, '$package/shlex', '$package/shell', '$package/schedule') {
 		@go test -v -cover <var>
 	}
 }
@@ -87,8 +87,8 @@ verify(
 	@go vet "$package/shell"
 	echo "run vet on $package/shlex"
 	@go vet "$package/shlex"
-	echo "run vet on $package/distance"
-	@go vet "$package/distance"
+	echo "run vet on $package/schedule"
+	@go vet "$package/schedule"
 }
 
 commit(
@@ -152,6 +152,9 @@ commit(
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
+	schedule = (
+		time = * * * * *,
+	)
 ): format {
 	# reports the number of lines and remaining todos in the project
 	loc
