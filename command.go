@@ -107,13 +107,65 @@ type Line struct {
 	Subshell bool
 }
 
+type ScheduleWriter struct {
+	File      string
+	Duplicate bool
+	Overwrite bool
+}
+
+func (s ScheduleWriter) Writer(w io.Writer) (io.Writer, error) {
+	return w, nil
+}
+
 type Schedule struct {
-	Sched   *schedule.Scheduler
-	Args    []string
-	Stdout  string
-	Stderr  string
-	Notify  []string
-	Overlap bool
+	Sched     *schedule.Scheduler
+	Args      []string
+	Stdout    string
+	Stderr    string
+	Notify    []string
+	Overlap   bool
+	Duplicate bool
+	Overwrite bool
+}
+
+func (s Schedule) Out(w io.Writer) (io.Writer, error) {
+	if s.Stdout == "" {
+		return w, nil
+	}
+	std, err := os.OpenFile(s.Stdout, s.Option(), 0644)
+	if err != nil {
+		return nil, err
+	}
+	if s.Duplicate {
+		w = io.MultiWriter(w, std)
+	} else {
+		w = std
+	}
+	return w, nil
+}
+
+func (s Schedule) Err(w io.Writer) (io.Writer, error) {
+	if s.Stderr == "" {
+		return w, nil
+	}
+	std, err := os.OpenFile(s.Stderr, s.Option(), 0644)
+	if err != nil {
+		return nil, err
+	}
+	if s.Duplicate {
+		w = io.MultiWriter(w, std)
+	} else {
+		w = std
+	}
+	return w, nil
+}
+
+func (s Schedule) Option() int {
+	base := os.O_CREATE | os.O_WRONLY
+	if !s.Overwrite {
+		base |= os.O_APPEND
+	}
+	return base
 }
 
 type Single struct {
@@ -326,10 +378,29 @@ func (s *Single) Schedule(ctx context.Context, stdout, stderr io.Writer) error {
 
 func (s *Single) executeSchedule(ctx context.Context, sc Schedule, stdout, stderr io.Writer) error {
 	var (
-		now  time.Time
-		next time.Time
-		wait time.Duration
+		now     time.Time
+		next    time.Time
+		wait    time.Duration
+		running bool
+		grp     errgroup.Group
+		err     error
 	)
+	stdout, err = sc.Out(stdout)
+	if err != nil {
+		return err
+	}
+	if c, ok := stdout.(io.Closer); ok {
+		defer c.Close()
+	}
+	s.SetOut(stdout)
+	stderr, err = sc.Err(stderr)
+	if c, ok := stderr.(io.Closer); ok {
+		defer c.Close()
+	}
+	if err != nil {
+		return err
+	}
+	s.SetErr(stderr)
 	for {
 		now, next = time.Now(), sc.Sched.Next()
 		wait = next.Sub(now)
@@ -339,10 +410,23 @@ func (s *Single) executeSchedule(ctx context.Context, sc Schedule, stdout, stder
 		select {
 		case <-time.After(wait):
 		case <-ctx.Done():
-			return ctx.Err()
+			err := grp.Wait()
+			if err == nil {
+				err = ctx.Err()
+			}
+			return err
 		}
+		if !sc.Overlap && running {
+			continue
+		}
+		grp.Go(func() error {
+			defer func() {
+				running = false
+			}()
+			return s.Execute(ctx, sc.Args)
+		})
 	}
-	return nil
+	return grp.Wait()
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {

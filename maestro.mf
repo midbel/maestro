@@ -152,11 +152,28 @@ commit(
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
-	schedule = (
-		time = * * * * *,
-	)
 ): format {
 	# reports the number of lines and remaining todos in the project
 	loc
 	todo
+}
+
+countbis(
+	short = "count LOC and todos",
+	tag   = info verify,
+	schedule = (
+		time = 1/2 * * * *,
+		args = first
+	),
+	schedule = (
+		time = 2/2 * * * *,
+		args = second,
+		stdout = "/tmp/count.snd.out",
+		stderr = "/tmp/count.snd.err",
+	),
+): format {
+	# reports the number of lines and remaining todos in the project
+	echo "args: $@"
+	<loc
+	<todo
 }
