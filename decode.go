@@ -562,6 +562,39 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 }
 
 func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
+	var done bool
+	for !d.done() && !done {
+		if t := d.curr().Type; t != BegList {
+			if t == Ident || t == String {
+				return nil
+			}
+			return d.unexpected()
+		}
+		sched, err := d.decodeScheduleObject()
+		if err != nil {
+			return err
+		}
+		cmd.Schedules = append(cmd.Schedules, sched)
+		switch d.curr().Type {
+		case Comma:
+			d.next()
+			d.skipComment()
+			d.skipNL()
+		case Eol:
+			d.skipNL()
+		case EndList:
+		default:
+			return d.unexpected()
+		}
+		done = d.curr().Type == EndList
+	}
+	if d.curr().Type != EndList {
+		return d.unexpected()
+	}
+	return nil
+}
+
+func (d *Decoder) decodeScheduleObject() (Schedule, error) {
 	var (
 		sched Schedule
 		err   error
@@ -597,10 +630,7 @@ func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
 		}
 		return err
 	})
-	if err == nil {
-		cmd.Schedules = append(cmd.Schedules, sched)
-	}
-	return err
+	return sched, err
 }
 
 func (d *Decoder) decodeCommandArguments() ([]Arg, error) {

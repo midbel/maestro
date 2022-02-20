@@ -155,18 +155,18 @@ func (m *Maestro) Graph(name string) error {
 }
 
 func (m *Maestro) Schedule(args []string) error {
-	set := flag.NewFlagSet(CmdSchedule, flag.ExitOnError)
+	var (
+		set   = flag.NewFlagSet(CmdSchedule, flag.ExitOnError)
+		list  = flag.Bool("l", false, "show list of schedule command")
+		limit = flag.Int("n", 0, "show next schedule time")
+	)
 	if err := set.Parse(args); err != nil {
 		return err
 	}
-	switch set.Arg(0) {
-	case CmdScheduleShow:
-		return m.scheduleShow(set.Args())
-	case "":
-		return m.schedule()
-	default:
-		return fmt.Errorf("%s: unknown sub command %s", CmdSchedule, set.Arg(0))
+	if *list {
+		return m.scheduleList(args, *limit)
 	}
+	return m.schedule()
 }
 
 func (m *Maestro) schedule() error {
@@ -181,6 +181,10 @@ func (m *Maestro) schedule() error {
 		})
 	}
 	return grp.Wait()
+}
+
+func (m *Maestro) scheduleList(args []string, limit int) error {
+	return nil
 }
 
 func (m *Maestro) scheduleShow(args []string) error {

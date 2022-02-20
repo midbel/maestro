@@ -53,8 +53,10 @@ build(
 		help  = "run go clean before compiling binaries"
 	),
 	schedule = (
-	time = */5 10-18 * * *,
-	),
+		time = */5 10-18 * * mon-fri,
+	), (
+		time = 10 23 * * sat;sun,
+	)
 ): tidy, format, test, verify {
 	# build the maestro binary and the tish shell
 	rm -f ${bindir,,}/${maestro,,}
