@@ -14,10 +14,11 @@ func (s *Stack[T]) Len() int {
 }
 
 func (s *Stack[T]) Pop() {
-	if len(s.list) == 0 {
+	n := s.Len() - 1
+	if n < 0 {
 		return
 	}
-	s.list = s.list[:s.Len()-1]
+	s.list = s.list[:n]
 }
 
 func (s *Stack[T]) Push(item T) {

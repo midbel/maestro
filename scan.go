@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/midbel/maestro/internal/stack"
 )
 
 const (
@@ -54,7 +56,7 @@ type Scanner struct {
 	seen   int
 
 	keepBlank bool
-	state     scanstack
+	state     *scanstack
 }
 
 func Scan(r io.Reader) (*Scanner, error) {
@@ -602,84 +604,74 @@ const (
 	scanQuote
 )
 
-type scanstack []scanState
+type scanstack struct {
+	stack.Stack[scanState]
+}
 
-func defaultStack() scanstack {
+func defaultStack() *scanstack {
 	var s scanstack
-	s.Push(scanDefault)
-	return s
+	s.Stack = stack.New[scanState]()
+	s.Stack.Push(scanDefault)
+	return &s
 }
 
 func (s *scanstack) Pop() {
-	n := s.Len()
-	if n == 0 {
-		return
-	}
-	n--
+	s.Stack.Pop()
 	if s.Macro() {
-		n--
-	}
-	if n >= 0 {
-		*s = (*s)[:n]
+		s.Stack.Pop()
 	}
 }
 
-func (s *scanstack) Push(st scanState) {
-	*s = append(*s, st)
+func (s *scanstack) Push(state scanState) {
+	s.Stack.Push(state)
 }
 
 func (s *scanstack) KeepBlank() bool {
-	curr := s.Curr()
+	curr := s.Stack.Curr()
 	return curr == scanDefault || curr == scanValue
 }
 
 func (s *scanstack) Default() bool {
-	return s.Curr() == scanDefault
+	return s.Stack.Curr() == scanDefault
 }
 
 func (s *scanstack) Value() bool {
-	return s.Curr() == scanValue
+	return s.Stack.Curr() == scanValue
 }
 
 func (s *scanstack) Quote() bool {
-	return s.Curr() == scanQuote
+	return s.Stack.Curr() == scanQuote
 }
 
 func (s *scanstack) ToggleQuote() {
 	if s.Quote() {
-		s.Pop()
+		s.Stack.Pop()
 		return
 	}
-	s.Push(scanQuote)
+	s.Stack.Push(scanQuote)
 }
 
 func (s *scanstack) Script() bool {
-	return s.Curr() == scanScript
+	return s.Stack.Curr() == scanScript
 }
 
 func (s *scanstack) Macro() bool {
-	return s.Curr() == scanMacro || (s.Script() && s.Prev() == scanMacro)
-}
-
-func (s *scanstack) Len() int {
-	return len(*s)
+	return s.Stack.Curr() == scanMacro || (s.Script() && s.Prev() == scanMacro)
 }
 
 func (s *scanstack) Curr() scanState {
-	n := s.Len()
-	if n == 0 {
+	if s.Len() == 0 {
 		return scanDefault
 	}
-	n--
-	return (*s)[n]
+	return s.Stack.Curr()
 }
 
 func (s *scanstack) Prev() scanState {
-	n := s.Len()
+	n := s.Stack.Len()
 	n--
 	n--
 	if n >= 0 {
-		return (*s)[n]
+		return s.Stack.At(n)
 	}
 	return scanDefault
 }
