@@ -363,7 +363,7 @@ func (s *Scanner) scanLiteral(tok *Token) {
 	switch tok.Literal {
 	case kwTrue, kwFalse:
 		tok.Type = Boolean
-	case kwInclude, kwExport, kwDelete, kwAlias:
+	case kwInclude, kwExport, kwDelete, kwAlias, kwNamespace:
 		tok.Type = Keyword
 	default:
 		tok.Type = Ident

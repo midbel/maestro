@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	// "github.com/midbel/maestro/internal/stack"
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
 	"github.com/midbel/maestro/shlex"
@@ -84,6 +85,7 @@ type Decoder struct {
 	env    map[string]string
 	alias  map[string]string
 	frames []*frame
+	// stack  stack.Stack[string]
 }
 
 func Decode(r io.Reader) (*Maestro, error) {

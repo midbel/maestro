@@ -31,6 +31,10 @@ type Executer interface {
 	SetErr(w io.Writer)
 }
 
+type Cloner interface {
+	Clone() Executer
+}
+
 type Scheduler interface {
 	Schedule(context.Context, io.Writer, io.Writer) error
 }
@@ -704,7 +708,6 @@ func (c Combined) Usage() string {
 	return ""
 }
 
-// TODO: implements shell.Command functions
 type shellCommand struct {
 	cmd  Command
 	args []string

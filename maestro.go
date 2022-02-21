@@ -55,7 +55,7 @@ type Maestro struct {
 	Includes  Dirs
 	Locals    *Env
 	Duplicate string
-	Commands  map[string]Command
+	Commands  map[commandKey]Command
 
 	Remote     bool
 	NoDeps     bool
@@ -75,7 +75,7 @@ func New() *Maestro {
 		MetaAbout: about,
 		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
-		Commands:  make(map[string]Command),
+		Commands:  make(map[commandKey]Command),
 	}
 }
 
@@ -102,16 +102,19 @@ func (m *Maestro) Load(file string) error {
 }
 
 func (m *Maestro) Register(cmd *Single) error {
-	curr, ok := m.Commands[cmd.Name]
+	var (
+		key      = defaultKey(cmd.Name)
+		curr, ok = m.Commands[key]
+	)
 	if !ok {
-		m.Commands[cmd.Name] = cmd
+		m.Commands[key] = cmd
 		return nil
 	}
 	switch m.Duplicate {
 	case dupError:
 		return fmt.Errorf("%s %w", cmd.Name, ErrDuplicate)
 	case dupReplace, "":
-		m.Commands[cmd.Name] = cmd
+		m.Commands[key] = cmd
 	case dupAppend:
 		if mul, ok := curr.(Combined); ok {
 			curr = append(mul, cmd)
@@ -120,7 +123,7 @@ func (m *Maestro) Register(cmd *Single) error {
 		mul := make(Combined, 0, 2)
 		mul = append(mul, curr)
 		mul = append(mul, cmd)
-		m.Commands[cmd.Name] = mul
+		m.Commands[key] = mul
 	default:
 		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
 	}
@@ -241,8 +244,8 @@ func (m *Maestro) getCommandByNames(names []string) []Command {
 	sort.Strings(names)
 	for n, c := range m.Commands {
 		all = append(all, c)
-		x := sort.SearchStrings(names, n)
-		if x < len(names) && names[x] == n {
+		x := sort.SearchStrings(names, n.Name)
+		if x < len(names) && names[x] == n.Name {
 			cs = append(cs, c)
 		}
 	}
@@ -598,7 +601,7 @@ func (m *Maestro) lookup(name string) (Command, error) {
 	if name == "" {
 		name = m.MetaExec.Default
 	}
-	cmd, ok := m.Commands[name]
+	cmd, ok := m.Commands[defaultKey(name)]
 	if ok {
 		return cmd, nil
 	}
@@ -712,6 +715,22 @@ type MetaHttp struct {
 	Patch  []string
 	Put    []string
 	Head   []string
+}
+
+type commandKey struct {
+	Space string
+	Name  string
+}
+
+func defaultKey(name string) commandKey {
+	return makeKey("", name)
+}
+
+func makeKey(ns, name string) commandKey {
+	return commandKey{
+		Space: ns,
+		Name:  name,
+	}
 }
 
 const defaultKnownHost = "~/.ssh/known_hosts"
