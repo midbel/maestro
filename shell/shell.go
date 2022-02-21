@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/copyslice"
 	"github.com/midbel/maestro/shlex"
 	"golang.org/x/sync/errgroup"
 )
@@ -125,6 +126,23 @@ func New(options ...ShellOption) (*Shell, error) {
 		s.locals = EmptyEnv()
 	}
 	return &s, nil
+}
+
+func (s *Shell) Clone() *Shell {
+	x := *s
+	x.stdin = nil
+	x.stdout = nil
+	x.stderr = nil
+	x.now = time.Now()
+	x.rand = rand.New(rand.NewSource(x.now.Unix()))
+	x.alias = copyslice.CopyMap[string, []string](s.alias)
+	for k, arr := range x.alias {
+		x.alias[k] = copyslice.Copy[string](arr)
+	}
+	x.commands = copyslice.CopyMap[string, Command](s.commands)
+	x.builtins = copyslice.CopyMap[string, Builtin](s.builtins)
+	x.env = copyslice.CopyMap[string, string](s.env)
+	return &x
 }
 
 func (s *Shell) Exit() {

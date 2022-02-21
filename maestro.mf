@@ -168,8 +168,6 @@ countbis(
 	schedule = (
 		time = 2/2 * * * *,
 		args = second,
-		stdout = "/tmp/count.snd.out",
-		stderr = "/tmp/count.snd.err",
 	),
 ): format {
 	# reports the number of lines and remaining todos in the project

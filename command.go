@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/copyslice"
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
 	"golang.org/x/sync/errgroup"
@@ -201,6 +202,22 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 		locals: locals,
 	}
 	return &cmd, nil
+}
+
+func (s *Single) Clone() Executer {
+	x := *s
+	x.Alias = copyslice.Copy[string](s.Alias)
+	x.Categories = copyslice.Copy[string](s.Categories)
+	x.Users = copyslice.Copy[string](s.Users)
+	x.Groups = copyslice.Copy[string](s.Groups)
+	x.Hosts = copyslice.Copy[string](s.Hosts)
+	x.Deps = copyslice.Copy[Dep](s.Deps)
+	x.Scripts = copyslice.Copy[Line](s.Scripts)
+	x.Options = copyslice.Copy[Option](s.Options)
+	x.Args = copyslice.Copy[Arg](s.Args)
+	x.Schedules = copyslice.Copy[Schedule](s.Schedules)
+	x.shell = s.shell.Clone()
+	return &x
 }
 
 func (s *Single) Command() string {
