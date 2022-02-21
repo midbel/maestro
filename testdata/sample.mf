@@ -74,6 +74,19 @@ action1(
 		notify  = cron@$domain,
 		stdout  = /tmp/stdout,
 		stderr  = /tmp/stderr,
+	), (
+		time = "10" "2/7" "*" "*" 1-5,
+		stdout = (
+			file = /tmp/std.out,
+			duplicate = true,
+			overwrite = false,
+			compress = true,
+		),
+		stderr = (
+			file = /tmp/std.err,
+			duplicate = false,
+			compress = true,
+		),
 	)
 ): {
 	print $single

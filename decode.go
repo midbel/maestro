@@ -61,13 +61,17 @@ const (
 )
 
 const (
-	schedTime    = "time"
-	schedOverlap = "overlap"
-	schedNotify  = "notify"
-	schedArgs    = "args"
-	schedEnv     = "env"
-	schedOut     = "stdout"
-	schedErr     = "stderr"
+	schedTime              = "time"
+	schedOverlap           = "overlap"
+	schedNotify            = "notify"
+	schedArgs              = "args"
+	schedEnv               = "env"
+	schedOut               = "stdout"
+	schedErr               = "stderr"
+	schedRedirectFile      = "file"
+	schedRedirectCompress  = "compress"
+	schedRedirectDuplicate = "duplicate"
+	schedRedirectOverwrite = "overwrite"
 )
 
 const (
@@ -174,7 +178,6 @@ func (d *Decoder) decodeNamespace(mst *Maestro) error {
 	if d.curr().Type != Ident {
 		return d.unexpected()
 	}
-
 	if d.ns.Len() > 0 {
 		d.locals = d.locals.Unwrap()
 	}
@@ -650,13 +653,62 @@ func (d *Decoder) decodeScheduleObject() (Schedule, error) {
 		case schedEnv:
 			// TODO
 		case schedOut:
-			sched.Stdout, err = d.parseString()
+			curr = d.curr()
+			if curr.Type == String || curr.Type == Ident {
+				sched.Stdout.File, err = d.parseString()
+			} else if curr.Type == BegList {
+				sched.Stdout, err = d.decodeScheduleRedirect()
+			} else {
+				err = d.unexpected()
+			}
 		case schedErr:
-			sched.Stderr, err = d.parseString()
+			curr = d.curr()
+			if curr.Type == String || curr.Type == Ident {
+				sched.Stderr.File, err = d.parseString()
+			} else if curr.Type == BegList {
+				sched.Stderr, err = d.decodeScheduleRedirect()
+			} else {
+				err = d.unexpected()
+			}
 		}
 		return err
 	})
 	return sched, err
+}
+
+func (d *Decoder) decodeScheduleRedirect() (ScheduleRedirect, error) {
+	var (
+		redirect ScheduleRedirect
+		err      error
+	)
+	err = d.decodeObject(func() error {
+		var (
+			curr = d.curr()
+			err  error
+		)
+		if curr.Type != Ident {
+			return d.unexpected()
+		}
+		d.next()
+		if d.curr().Type != Assign {
+			return d.unexpected()
+		}
+		d.next()
+		switch curr.Literal {
+		default:
+			return fmt.Errorf("%s: unknown schedule property", curr.Literal)
+		case schedRedirectFile:
+			redirect.File, err = d.parseString()
+		case schedRedirectCompress:
+			redirect.Compress, err = d.parseBool()
+		case schedRedirectDuplicate:
+			redirect.Duplicate, err = d.parseBool()
+		case schedRedirectOverwrite:
+			redirect.Overwrite, err = d.parseBool()
+		}
+		return err
+	})
+	return redirect, err
 }
 
 func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
@@ -1136,6 +1188,7 @@ func (d *Decoder) decodeQuote() (string, error) {
 				return "", err
 			}
 			if len(vs) != 1 {
+				fmt.Println(d.curr(), vs)
 				return "", fmt.Errorf("quote: too many values")
 			}
 			str = append(str, vs[0])
@@ -1346,7 +1399,7 @@ func (d *Decoder) push(r io.Reader) error {
 	}
 	d.frames = append(d.frames, f)
 	d.locals = EnclosedEnv(d.locals)
-	d.ns.Push("")
+	// d.ns.Push("")
 	return nil
 }
 
@@ -1358,7 +1411,7 @@ func (d *Decoder) pop() error {
 	z--
 	d.frames = d.frames[:z]
 	d.locals = d.locals.Unwrap()
-	d.ns.Pop()
+	// d.ns.Pop()
 	return nil
 }
 

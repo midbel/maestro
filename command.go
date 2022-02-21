@@ -111,65 +111,34 @@ type Line struct {
 	Subshell bool
 }
 
-type ScheduleWriter struct {
+type ScheduleRedirect struct {
 	File      string
+	Compress  bool
 	Duplicate bool
 	Overwrite bool
 }
 
-func (s ScheduleWriter) Writer(w io.Writer) (io.Writer, error) {
+func (s ScheduleRedirect) Writer(w io.Writer) (io.Writer, error) {
 	return w, nil
 }
 
-type Schedule struct {
-	Sched     *schedule.Scheduler
-	Args      []string
-	Stdout    string
-	Stderr    string
-	Notify    []string
-	Overlap   bool
-	Duplicate bool
-	Overwrite bool
-}
-
-func (s Schedule) Out(w io.Writer) (io.Writer, error) {
-	if s.Stdout == "" {
-		return w, nil
-	}
-	std, err := os.OpenFile(s.Stdout, s.Option(), 0644)
-	if err != nil {
-		return nil, err
-	}
-	if s.Duplicate {
-		w = io.MultiWriter(w, std)
-	} else {
-		w = std
-	}
-	return w, nil
-}
-
-func (s Schedule) Err(w io.Writer) (io.Writer, error) {
-	if s.Stderr == "" {
-		return w, nil
-	}
-	std, err := os.OpenFile(s.Stderr, s.Option(), 0644)
-	if err != nil {
-		return nil, err
-	}
-	if s.Duplicate {
-		w = io.MultiWriter(w, std)
-	} else {
-		w = std
-	}
-	return w, nil
-}
-
-func (s Schedule) Option() int {
+func (s ScheduleRedirect) Option() int {
 	base := os.O_CREATE | os.O_WRONLY
 	if !s.Overwrite {
 		base |= os.O_APPEND
 	}
 	return base
+}
+
+type Schedule struct {
+	Sched     *schedule.Scheduler
+	Args      []string
+	Stdout    ScheduleRedirect
+	Stderr    ScheduleRedirect
+	Notify    []string
+	Overlap   bool
+	Duplicate bool
+	Overwrite bool
 }
 
 type Single struct {
@@ -389,7 +358,7 @@ func (s *Single) executeSchedule(ctx context.Context, sc Schedule, stdout, stder
 		grp     errgroup.Group
 		err     error
 	)
-	stdout, err = sc.Out(stdout)
+	stdout, err = sc.Stdout.Writer(stdout)
 	if err != nil {
 		return err
 	}
@@ -397,7 +366,7 @@ func (s *Single) executeSchedule(ctx context.Context, sc Schedule, stdout, stder
 		defer c.Close()
 	}
 	s.SetOut(stdout)
-	stderr, err = sc.Err(stderr)
+	stderr, err = sc.Stderr.Writer(stderr)
 	if c, ok := stderr.(io.Closer); ok {
 		defer c.Close()
 	}
