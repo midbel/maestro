@@ -653,23 +653,9 @@ func (d *Decoder) decodeScheduleObject() (Schedule, error) {
 		case schedEnv:
 			// TODO
 		case schedOut:
-			curr = d.curr()
-			if curr.Type == String || curr.Type == Ident {
-				sched.Stdout.File, err = d.parseString()
-			} else if curr.Type == BegList {
-				sched.Stdout, err = d.decodeScheduleRedirect()
-			} else {
-				err = d.unexpected()
-			}
+			sched.Stdout, err = d.decodeScheduleRedirect()
 		case schedErr:
-			curr = d.curr()
-			if curr.Type == String || curr.Type == Ident {
-				sched.Stderr.File, err = d.parseString()
-			} else if curr.Type == BegList {
-				sched.Stderr, err = d.decodeScheduleRedirect()
-			} else {
-				err = d.unexpected()
-			}
+			sched.Stderr, err = d.decodeScheduleRedirect()
 		}
 		return err
 	})
@@ -681,6 +667,14 @@ func (d *Decoder) decodeScheduleRedirect() (ScheduleRedirect, error) {
 		redirect ScheduleRedirect
 		err      error
 	)
+	switch d.curr().Type {
+	case Ident, String:
+		redirect.File, err = d.parseString()
+		return redirect, err
+	case BegList:
+	default:
+		return redirect, d.unexpected()
+	}
 	err = d.decodeObject(func() error {
 		var (
 			curr = d.curr()

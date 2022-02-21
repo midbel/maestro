@@ -119,6 +119,18 @@ type ScheduleRedirect struct {
 }
 
 func (s ScheduleRedirect) Writer(w io.Writer) (io.Writer, error) {
+	if s.File == "" {
+		return w, nil
+	}
+	std, err := os.OpenFile(s.File, s.Option(), 0644)
+	if err != nil {
+		return nil, err
+	}
+	if s.Duplicate {
+		w = io.MultiWriter(w, std)
+	} else {
+		w = std
+	}
 	return w, nil
 }
 
