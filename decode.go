@@ -1346,6 +1346,7 @@ func (d *Decoder) push(r io.Reader) error {
 	}
 	d.frames = append(d.frames, f)
 	d.locals = EnclosedEnv(d.locals)
+	d.ns.Push("")
 	return nil
 }
 
@@ -1357,6 +1358,7 @@ func (d *Decoder) pop() error {
 	z--
 	d.frames = d.frames[:z]
 	d.locals = d.locals.Unwrap()
+	d.ns.Pop()
 	return nil
 }
 
