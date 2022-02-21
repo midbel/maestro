@@ -601,17 +601,23 @@ func (m *Maestro) lookup(name string) (Command, error) {
 	if name == "" {
 		name = m.MetaExec.Default
 	}
-	cmd, ok := m.Commands[defaultKey(name)]
+	var (
+		key     = defaultKey(name)
+		cmd, ok = m.Commands[key]
+	)
 	if ok {
 		return cmd, nil
 	}
-	for _, c := range m.Commands {
+	for k, c := range m.Commands {
+		if k.Space != key.Space {
+			continue
+		}
 		s, ok := c.(*Single)
 		if !ok {
 			continue
 		}
-		i := sort.SearchStrings(s.Alias, name)
-		if i < len(s.Alias) && s.Alias[i] == name {
+		i := sort.SearchStrings(s.Alias, key.Name)
+		if i < len(s.Alias) && s.Alias[i] == key.Name {
 			return c, nil
 		}
 	}
