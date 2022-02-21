@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/midbel/maestro/internal/stack"
+	"github.com/midbel/maestro/internal/stack"
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
 	"github.com/midbel/maestro/shlex"
@@ -85,7 +85,7 @@ type Decoder struct {
 	env    map[string]string
 	alias  map[string]string
 	frames []*frame
-	// stack  stack.Stack[string]
+	ns     stack.Stack[string]
 }
 
 func Decode(r io.Reader) (*Maestro, error) {
@@ -108,6 +108,7 @@ func NewDecoderWithEnv(r io.Reader, env *Env) (*Decoder, error) {
 		locals: env,
 		env:    make(map[string]string),
 		alias:  make(map[string]string),
+		ns: stack.New[string](),
 	}
 	if err := d.push(r); err != nil {
 		return nil, err
@@ -160,10 +161,30 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 		err = d.decodeDelete(mst)
 	case kwAlias:
 		err = d.decodeAlias(mst)
+	case kwNamespace:
+		err = d.decodeNamespace(mst)
 	default:
 		err = d.unexpected()
 	}
 	return err
+}
+
+func (d *Decoder) decodeNamespace(mst *Maestro) error {
+	d.next()
+	if d.curr().Type != Ident {
+		return d.unexpected()
+	}
+	
+	if d.ns.Len() > 0 {
+		d.locals = d.locals.Unwrap()
+	}
+	d.locals = EnclosedEnv(d.locals)
+
+	d.ns.Pop()
+	d.ns.Push(d.curr().Literal)
+	d.next()
+
+	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeInclude(mst *Maestro) error {
@@ -503,7 +524,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 			return err
 		}
 	}
-	if err := mst.Register(cmd); err != nil {
+	if err := mst.Register("", cmd); err != nil {
 		return err
 	}
 	return nil

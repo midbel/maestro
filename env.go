@@ -36,10 +36,6 @@ func (e *Env) Set(str string) error {
 	return nil
 }
 
-func (e *Env) String() string {
-	return "locals"
-}
-
 func (e *Env) Define(key string, vs []string) error {
 	e.locals[key] = append(e.locals[key][:0], vs...)
 	return nil

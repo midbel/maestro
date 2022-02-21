@@ -4,6 +4,11 @@ type Stack[T any] struct {
 	list []T
 }
 
+func New[T any]() Stack[T] {
+  var stk Stack[T]
+  return stk
+}
+
 func (s *Stack[T]) Len() int {
 	return len(s.list)
 }

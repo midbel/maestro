@@ -62,6 +62,8 @@ alias (
 	list = ls -l
 )
 
+namespace public
+
 action1(
 	short="basic command",
 	tag=demo, alias=aa1,
@@ -77,6 +79,8 @@ action1(
 	print $single
 	print $multiple
 }
+
+namespace private
 
 action2(
 	short = "basic command", # a comment after property should be accepted
@@ -130,6 +134,6 @@ action3(
 		|| echo "bind not set"
 }
 
-%hidden(short="hidden command", tag = default): {}
-
 delete single multiple
+
+%hidden(short="hidden command", tag = default): {}
