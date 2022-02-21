@@ -54,7 +54,7 @@ type Scanner struct {
 	seen   int
 
 	keepBlank bool
-	state     stack
+	state     scanstack
 }
 
 func Scan(r io.Reader) (*Scanner, error) {
@@ -602,15 +602,15 @@ const (
 	scanQuote
 )
 
-type stack []scanState
+type scanstack []scanState
 
-func defaultStack() stack {
-	var s stack
+func defaultStack() scanstack {
+	var s scanstack
 	s.Push(scanDefault)
 	return s
 }
 
-func (s *stack) Pop() {
+func (s *scanstack) Pop() {
 	n := s.Len()
 	if n == 0 {
 		return
@@ -624,28 +624,28 @@ func (s *stack) Pop() {
 	}
 }
 
-func (s *stack) Push(st scanState) {
+func (s *scanstack) Push(st scanState) {
 	*s = append(*s, st)
 }
 
-func (s *stack) KeepBlank() bool {
+func (s *scanstack) KeepBlank() bool {
 	curr := s.Curr()
 	return curr == scanDefault || curr == scanValue
 }
 
-func (s *stack) Default() bool {
+func (s *scanstack) Default() bool {
 	return s.Curr() == scanDefault
 }
 
-func (s *stack) Value() bool {
+func (s *scanstack) Value() bool {
 	return s.Curr() == scanValue
 }
 
-func (s *stack) Quote() bool {
+func (s *scanstack) Quote() bool {
 	return s.Curr() == scanQuote
 }
 
-func (s *stack) ToggleQuote() {
+func (s *scanstack) ToggleQuote() {
 	if s.Quote() {
 		s.Pop()
 		return
@@ -653,19 +653,19 @@ func (s *stack) ToggleQuote() {
 	s.Push(scanQuote)
 }
 
-func (s *stack) Script() bool {
+func (s *scanstack) Script() bool {
 	return s.Curr() == scanScript
 }
 
-func (s *stack) Macro() bool {
+func (s *scanstack) Macro() bool {
 	return s.Curr() == scanMacro || (s.Script() && s.Prev() == scanMacro)
 }
 
-func (s *stack) Len() int {
+func (s *scanstack) Len() int {
 	return len(*s)
 }
 
-func (s *stack) Curr() scanState {
+func (s *scanstack) Curr() scanState {
 	n := s.Len()
 	if n == 0 {
 		return scanDefault
@@ -674,7 +674,7 @@ func (s *stack) Curr() scanState {
 	return (*s)[n]
 }
 
-func (s *stack) Prev() scanState {
+func (s *scanstack) Prev() scanState {
 	n := s.Len()
 	n--
 	n--

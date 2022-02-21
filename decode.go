@@ -108,7 +108,7 @@ func NewDecoderWithEnv(r io.Reader, env *Env) (*Decoder, error) {
 		locals: env,
 		env:    make(map[string]string),
 		alias:  make(map[string]string),
-		ns: stack.New[string](),
+		ns:     stack.New[string](),
 	}
 	if err := d.push(r); err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (d *Decoder) decodeNamespace(mst *Maestro) error {
 	if d.curr().Type != Ident {
 		return d.unexpected()
 	}
-	
+
 	if d.ns.Len() > 0 {
 		d.locals = d.locals.Unwrap()
 	}

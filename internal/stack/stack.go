@@ -5,8 +5,8 @@ type Stack[T any] struct {
 }
 
 func New[T any]() Stack[T] {
-  var stk Stack[T]
-  return stk
+	var stk Stack[T]
+	return stk
 }
 
 func (s *Stack[T]) Len() int {
@@ -22,6 +22,14 @@ func (s *Stack[T]) Pop() {
 
 func (s *Stack[T]) Push(item T) {
 	s.list = append(s.list, item)
+}
+
+func (s *Stack[T]) At(n int) T {
+	var ret T
+	if n >= s.Len() {
+		return ret
+	}
+	return s.list[n]
 }
 
 func (s *Stack[T]) Curr() T {
