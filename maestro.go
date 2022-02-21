@@ -723,7 +723,13 @@ type commandKey struct {
 }
 
 func defaultKey(name string) commandKey {
-	return makeKey("", name)
+	ns, rest, ok := strings.Cut(name, "::")
+	if ok {
+		name = rest
+	} else {
+		ns = ""
+	}
+	return makeKey(ns, name)
 }
 
 func makeKey(ns, name string) commandKey {
