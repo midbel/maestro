@@ -26,6 +26,11 @@ const (
 )
 
 type Executer interface {
+	Blocked() bool
+	Can() bool
+	Script([]string) ([]string, error)
+
+	Dry([]string) error
 	Execute(context.Context, []string) error
 	SetOut(w io.Writer)
 	SetErr(w io.Writer)
@@ -41,11 +46,6 @@ type Command interface {
 	Usage() string
 	Tags() []string
 	Command() string
-	Blocked() bool
-	Can() bool
-	Combined() bool
-	Dry([]string) error
-	Script([]string) ([]string, error)
 	Remote() bool
 	Targets() []string
 	Executer
@@ -172,7 +172,6 @@ type Single struct {
 	Args      []Arg
 	Schedules []Schedule
 
-	locals *Env
 	shell  *shell.Shell
 }
 
@@ -194,7 +193,6 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 		Name:   name,
 		Error:  errSilent,
 		shell:  sh,
-		locals: locals,
 	}
 	return &cmd, nil
 }
@@ -244,10 +242,6 @@ func (s *Single) Usage() string {
 		str.WriteString(">")
 	}
 	return str.String()
-}
-
-func (_ *Single) Combined() bool {
-	return false
 }
 
 func (s *Single) Blocked() bool {
@@ -581,10 +575,6 @@ func (c Combined) About() string {
 
 func (c Combined) Help() (string, error) {
 	return c[0].Help()
-}
-
-func (_ Combined) Combined() bool {
-	return true
 }
 
 func (c Combined) Remote() bool {
