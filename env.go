@@ -62,18 +62,23 @@ func (e *Env) Unwrap() *Env {
 }
 
 func (e *Env) Copy() *Env {
-	locals := make(Values)
-	locals = copyLocals(locals, e.locals)
-	return &Env{locals: locals}
+	x := Env{
+		locals: copyLocals(e.locals),
+	}
+	if e.parent != nil {
+		x.parent = e.parent.Copy()
+	}
+	return &x
 }
 
 func (e *Env) register(ident string, v Values) {
 
 }
 
-func copyLocals(locals, others Values) Values {
-	for k, vs := range others {
-		locals[k] = append(locals[k], vs...)
+func copyLocals(locals Values) Values {
+	others := make(Values)
+	for k, vs := range locals {
+		others[k] = append(others[k], vs...)
 	}
-	return locals
+	return others
 }

@@ -177,14 +177,19 @@ func (m *Maestro) schedule() error {
 		parent   = interruptContext()
 		grp, ctx = errgroup.WithContext(parent)
 	)
+	_ = ctx
 	for _, c := range m.Commands {
-		e, ok := c.(Scheduler)
+		s, ok := c.(*Single)
 		if !ok {
 			continue
 		}
-		grp.Go(func() error {
-			return e.Schedule(ctx, stdout, stderr)
-		})
+		for i := range s.Schedules {
+			e := s.Schedules[i]
+			grp.Go(func() error {
+				_ = e
+				return nil
+			})
+		}
 	}
 	return grp.Wait()
 }

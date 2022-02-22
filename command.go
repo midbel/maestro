@@ -15,7 +15,6 @@ import (
 
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
-	"golang.org/x/sync/errgroup"
 )
 
 const DefaultSSHPort = 22
@@ -26,18 +25,9 @@ const (
 )
 
 type Executer interface {
-	Blocked() bool
-	Can() bool
-	Script([]string) ([]string, error)
-
-	Dry([]string) error
 	Execute(context.Context, []string) error
 	SetOut(w io.Writer)
 	SetErr(w io.Writer)
-}
-
-type Scheduler interface {
-	Schedule(context.Context, io.Writer, io.Writer) error
 }
 
 type Command interface {
@@ -48,6 +38,13 @@ type Command interface {
 	Command() string
 	Remote() bool
 	Targets() []string
+
+	Blocked() bool
+	Can() bool
+	Script([]string) ([]string, error)
+
+	Dry([]string) error
+
 	Executer
 }
 
@@ -139,13 +136,13 @@ func (s ScheduleRedirect) Option() int {
 }
 
 type Schedule struct {
-	Sched     *schedule.Scheduler
-	Args      []string
-	Stdout    ScheduleRedirect
-	Stderr    ScheduleRedirect
-	Notify    []string
-	Overlap   bool
-	Preserve  bool
+	Sched    *schedule.Scheduler
+	Args     []string
+	Stdout   ScheduleRedirect
+	Stderr   ScheduleRedirect
+	Notify   []string
+	Overlap  bool
+	Preserve bool
 }
 
 type Single struct {
@@ -171,6 +168,7 @@ type Single struct {
 	Args      []Arg
 	Schedules []Schedule
 
+	locals *Env
 	shell  *shell.Shell
 }
 
@@ -192,6 +190,7 @@ func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
 		Name:   name,
 		Error:  errSilent,
 		shell:  sh,
+		locals: locals,
 	}
 	return &cmd, nil
 }
@@ -334,73 +333,6 @@ func (s *Single) SetOut(w io.Writer) {
 
 func (s *Single) SetErr(w io.Writer) {
 	s.shell.SetErr(w)
-}
-
-func (s *Single) Schedule(ctx context.Context, stdout, stderr io.Writer) error {
-	if len(s.Schedules) == 0 {
-		return nil
-	}
-	var grp errgroup.Group
-	for i := range s.Schedules {
-		e := s.Schedules[i]
-		grp.Go(func() error {
-			return s.executeSchedule(ctx, e, stdout, stderr)
-		})
-	}
-	return grp.Wait()
-}
-
-func (s *Single) executeSchedule(ctx context.Context, sc Schedule, stdout, stderr io.Writer) error {
-	var (
-		now     time.Time
-		next    time.Time
-		wait    time.Duration
-		running bool
-		grp     errgroup.Group
-		err     error
-	)
-	stdout, err = sc.Stdout.Writer(stdout)
-	if err != nil {
-		return err
-	}
-	if c, ok := stdout.(io.Closer); ok {
-		defer c.Close()
-	}
-	s.SetOut(stdout)
-	stderr, err = sc.Stderr.Writer(stderr)
-	if c, ok := stderr.(io.Closer); ok {
-		defer c.Close()
-	}
-	if err != nil {
-		return err
-	}
-	s.SetErr(stderr)
-	for {
-		now, next = time.Now(), sc.Sched.Next()
-		wait = next.Sub(now)
-		if wait <= 0 {
-			continue
-		}
-		select {
-		case <-time.After(wait):
-		case <-ctx.Done():
-			err := grp.Wait()
-			if err == nil {
-				err = ctx.Err()
-			}
-			return err
-		}
-		if !sc.Overlap && running {
-			continue
-		}
-		grp.Go(func() error {
-			defer func() {
-				running = false
-			}()
-			return s.Execute(ctx, sc.Args)
-		})
-	}
-	return grp.Wait()
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
