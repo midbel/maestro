@@ -145,8 +145,7 @@ type Schedule struct {
 	Stderr    ScheduleRedirect
 	Notify    []string
 	Overlap   bool
-	Duplicate bool
-	Overwrite bool
+	Preserve  bool
 }
 
 type Single struct {
