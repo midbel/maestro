@@ -141,6 +141,7 @@ type Schedule struct {
 	Stdout   ScheduleRedirect
 	Stderr   ScheduleRedirect
 	Notify   []string
+	Process  bool
 	Overlap  bool
 	Preserve bool
 }
