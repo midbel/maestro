@@ -635,6 +635,9 @@ type noopCloseReader struct {
 }
 
 func noopReadCloser(r io.Reader) io.ReadCloser {
+	if r == nil {
+		r = emptyReader{}
+	}
 	return noopCloseReader{
 		Reader: r,
 	}
@@ -656,6 +659,12 @@ func noopWriteCloser(w io.Writer) io.WriteCloser {
 
 func (_ noopCloseWriter) Close() error {
 	return nil
+}
+
+type emptyReader struct {}
+
+func (r emptyReader) Read(_ []byte) (int, error) {
+	return 0, io.EOF
 }
 
 const (
