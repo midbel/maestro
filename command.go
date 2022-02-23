@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/midbel/maestro/schedule"
+	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/shell"
 )
 
@@ -104,48 +104,6 @@ type Line struct {
 	Subshell bool
 }
 
-type ScheduleRedirect struct {
-	File      string
-	Compress  bool
-	Duplicate bool
-	Overwrite bool
-}
-
-func (s ScheduleRedirect) Writer(w io.Writer) (io.Writer, error) {
-	if s.File == "" {
-		return w, nil
-	}
-	std, err := os.OpenFile(s.File, s.Option(), 0644)
-	if err != nil {
-		return nil, err
-	}
-	if s.Duplicate {
-		w = io.MultiWriter(w, std)
-	} else {
-		w = std
-	}
-	return w, nil
-}
-
-func (s ScheduleRedirect) Option() int {
-	base := os.O_CREATE | os.O_WRONLY
-	if !s.Overwrite {
-		base |= os.O_APPEND
-	}
-	return base
-}
-
-type Schedule struct {
-	Sched    *schedule.Scheduler
-	Args     []string
-	Stdout   ScheduleRedirect
-	Stderr   ScheduleRedirect
-	Notify   []string
-	Process  bool
-	Overlap  bool
-	Preserve bool
-}
-
 type Single struct {
 	Visible bool
 
@@ -169,17 +127,17 @@ type Single struct {
 	Args      []Arg
 	Schedules []Schedule
 
-	locals *Env
+	locals *env.Env
 	shell  *shell.Shell
 }
 
 func NewSingle(name string) (*Single, error) {
-	return NewSingleWithLocals(name, EmptyEnv())
+	return NewSingleWithLocals(name, env.EmptyEnv())
 }
 
-func NewSingleWithLocals(name string, locals *Env) (*Single, error) {
+func NewSingleWithLocals(name string, locals *env.Env) (*Single, error) {
 	if locals == nil {
-		locals = EmptyEnv()
+		locals = env.EmptyEnv()
 	} else {
 		locals = locals.Copy()
 	}

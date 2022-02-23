@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/stack"
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
@@ -87,7 +88,7 @@ const (
 )
 
 type Decoder struct {
-	locals *Env
+	locals *env.Env
 	env    map[string]string
 	alias  map[string]string
 	frames []*frame
@@ -103,15 +104,15 @@ func Decode(r io.Reader) (*Maestro, error) {
 }
 
 func NewDecoder(r io.Reader) (*Decoder, error) {
-	return NewDecoderWithEnv(r, EmptyEnv())
+	return NewDecoderWithEnv(r, env.EmptyEnv())
 }
 
-func NewDecoderWithEnv(r io.Reader, env *Env) (*Decoder, error) {
-	if env == nil {
-		env = EmptyEnv()
+func NewDecoderWithEnv(r io.Reader, ev *env.Env) (*Decoder, error) {
+	if ev == nil {
+		ev = env.EmptyEnv()
 	}
 	d := Decoder{
-		locals: env,
+		locals: ev,
 		env:    make(map[string]string),
 		alias:  make(map[string]string),
 		ns:     stack.New[string](),
@@ -183,7 +184,7 @@ func (d *Decoder) decodeNamespace(mst *Maestro) error {
 	if d.ns.Len() > 0 {
 		d.locals = d.locals.Unwrap()
 	}
-	d.locals = EnclosedEnv(d.locals)
+	d.locals = env.EnclosedEnv(d.locals)
 
 	d.ns.Pop()
 	d.ns.Push(d.curr().Literal)
@@ -393,7 +394,7 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeObjectVariable(ident string) error {
-	d.locals = EnclosedEnv(d.locals)
+	d.locals = env.EnclosedEnv(d.locals)
 	err := d.decodeObject(d.decodeAssignment)
 	if err != nil {
 		return err
@@ -1398,7 +1399,7 @@ func (d *Decoder) push(r io.Reader) error {
 		return err
 	}
 	d.frames = append(d.frames, f)
-	d.locals = EnclosedEnv(d.locals)
+	d.locals = env.EnclosedEnv(d.locals)
 	// d.ns.Push("")
 	return nil
 }

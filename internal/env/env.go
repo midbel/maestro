@@ -1,4 +1,4 @@
-package maestro
+package env
 
 import (
 	"fmt"

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/midbel/maestro/internal/env"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -53,7 +54,7 @@ type Maestro struct {
 	MetaHttp
 
 	Includes  Dirs
-	Locals    *Env
+	Locals    *env.Env
 	Duplicate string
 	Commands  map[commandKey]Command
 
@@ -71,7 +72,7 @@ func New() *Maestro {
 		Addr: DefaultHttpAddr,
 	}
 	return &Maestro{
-		Locals:    EmptyEnv(),
+		Locals:    env.EmptyEnv(),
 		MetaAbout: about,
 		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
@@ -186,8 +187,7 @@ func (m *Maestro) schedule() error {
 		for i := range s.Schedules {
 			e := s.Schedules[i]
 			grp.Go(func() error {
-				_ = e
-				return nil
+				return e.Run(ctx, stdout, stderr)
 			})
 		}
 	}
