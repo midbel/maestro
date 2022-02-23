@@ -77,15 +77,14 @@ func (s *Schedule) Run(ctx context.Context, ex Executer, stdout, stderr io.Write
 
 func (s *Schedule) run(ctx context.Context, ex Executer) error {
 	var (
-		now     time.Time
-		next    time.Time
 		grp     errgroup.Group
 		running bool
 	)
-	for {
-		now = time.Now()
-		next = s.Sched.Next()
-		wait := next.Sub(now)
+	for now := time.Now(); ; now = time.Now() {
+    var (
+      next = s.Sched.Next()
+      wait = next.Sub(now)
+    )
 		if wait <= 0 {
 			continue
 		}
@@ -96,12 +95,12 @@ func (s *Schedule) run(ctx context.Context, ex Executer) error {
 				err = ctx.Err()
 			}
 			return err
+    case <-time.After(wait):
 		}
+    if !s.Overlap && running {
+      return nil
+    }
 		grp.Go(func() error {
-			<-time.After(wait)
-			if !s.Overlap && running {
-				return nil
-			}
 			return ex.Execute(ctx, s.Args)
 		})
 	}

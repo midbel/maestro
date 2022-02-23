@@ -193,6 +193,9 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 			if err != nil {
 				return err
 			}
+			if r, ok := c.(interface{ Register(context.Context, Command) }); ok {
+				
+			}
 			grp.Go(func() error {
 				return e.Run(ctx, c, stdout, stderr)
 			})

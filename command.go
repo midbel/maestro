@@ -598,6 +598,11 @@ func (c *command) SetErr(w io.Writer) {
 	c.shell.SetErr(w)
 }
 
+func (c *command) Register(ctx context.Context, other Command) {
+	cmd := makeShellCommand(ctx, other)
+	c.shell.Register(cmd)
+}
+
 func (c *command) Execute(ctx context.Context, args []string) error {
 	args, err := c.parseArgs(args)
 	if err != nil {
