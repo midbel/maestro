@@ -5,10 +5,13 @@ import (
 	"io"
 	"os"
 	"time"
+	"fmt"
 
 	"github.com/midbel/maestro/schedule"
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
+
+const maxParallelJob = 120
 
 type ScheduleRedirect struct {
 	File      string
@@ -76,33 +79,31 @@ func (s *Schedule) Run(ctx context.Context, ex Executer, stdout, stderr io.Write
 }
 
 func (s *Schedule) run(ctx context.Context, ex Executer) error {
-	var (
-		grp     errgroup.Group
-		running bool
-	)
+	max := maxParallelJob
+	if !s.Overlap {
+		max = 1
+	}
+	sema := semaphore.NewWeighted(int64(max))
 	for now := time.Now(); ; now = time.Now() {
-    var (
-      next = s.Sched.Next()
-      wait = next.Sub(now)
-    )
+		var (
+			next = s.Sched.Next()
+			wait = next.Sub(now)
+		)
 		if wait <= 0 {
 			continue
 		}
 		select {
 		case <-ctx.Done():
-			err := grp.Wait()
-			if err == nil {
-				err = ctx.Err()
-			}
-			return err
-    case <-time.After(wait):
+			return ctx.Err()
+		case <-time.After(wait):
 		}
-    if !s.Overlap && running {
-      return nil
-    }
-		grp.Go(func() error {
-			return ex.Execute(ctx, s.Args)
-		})
+		if err := sema.Acquire(ctx, 1); err != nil {
+			return err
+		}
+		go func() {
+			defer sema.Release(1)
+			ex.Execute(ctx, s.Args)
+		}()
 	}
-	return grp.Wait()
+	return sema.Acquire(ctx, int64(max))
 }

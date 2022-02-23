@@ -26,6 +26,9 @@ const (
 )
 
 type Executer interface {
+	Script([]string) ([]string, error)
+	Dry([]string) error
+
 	Execute(context.Context, []string) error
 	SetOut(w io.Writer)
 	SetErr(w io.Writer)
@@ -42,9 +45,6 @@ type Command interface {
 
 	Blocked() bool
 	Can() bool
-	Script([]string) ([]string, error)
-
-	Dry([]string) error
 
 	Executer
 }
@@ -272,15 +272,15 @@ func (s *Single) Script(args []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var shellCommands []string
+	var list []string
 	for _, i := range s.Scripts {
 		rs, err := shell.Expand(i.Line, args, s.shell)
 		if err != nil {
 			return nil, err
 		}
-		shellCommands = append(shellCommands, rs...)
+		list = append(list, rs...)
 	}
-	return shellCommands, nil
+	return list, nil
 }
 
 func (s *Single) SetIn(r io.Reader) {
@@ -601,6 +601,36 @@ func (c *command) SetErr(w io.Writer) {
 func (c *command) Register(ctx context.Context, other Command) {
 	cmd := makeShellCommand(ctx, other)
 	c.shell.Register(cmd)
+}
+
+func (c *command) Dry(args []string) error {
+	args, err := c.parseArgs(args)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range c.lines {
+		err = c.shell.Dry(cmd.Line, c.name, args)
+		if err != nil {
+			break
+		}
+	}
+	return err
+}
+
+func (c *command) Script(args []string) ([]string, error) {
+	args, err := c.parseArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	var list []string
+	for _, i := range c.lines {
+		rs, err := shell.Expand(i.Line, args, c.shell)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, rs...)
+	}
+	return list, nil
 }
 
 func (c *command) Execute(ctx context.Context, args []string) error {

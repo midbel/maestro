@@ -133,16 +133,24 @@ func (m *Maestro) Register(ns string, cmd *Single) error {
 	return nil
 }
 
-func (m *Maestro) ListenAndServe() error {
+func (m *Maestro) ListenAndServe(args []string) error {
+	var (
+		set  = flag.NewFlagSet(CmdServe, flag.ExitOnError)
+		addr = set.String("a", m.MetaHttp.Addr, "listening address")
+	)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
 	setupRoutes(m)
 	server := http.Server{
-		Addr: m.MetaHttp.Addr,
+		Addr: *addr,
 	}
 	return server.ListenAndServe()
 }
 
 func (m *Maestro) Graph(name string) error {
 	all, err := m.traverseGraph(name, 0)
+
 	var (
 		seen = make(map[string]struct{})
 		deps = make([]string, 0, len(all))
@@ -193,8 +201,10 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 			if err != nil {
 				return err
 			}
-			if r, ok := c.(interface{ Register(context.Context, Command) }); ok {
-				
+			if r, ok := c.(interface {
+				Register(context.Context, Command)
+			}); ok {
+				_ = r
 			}
 			grp.Go(func() error {
 				return e.Run(ctx, c, stdout, stderr)
@@ -592,9 +602,6 @@ func (m *Maestro) prepare(name string) (Command, error) {
 	}
 	if curr, ok := cmd.(*Single); ok {
 		for _, c := range m.Commands {
-			// if n == name {
-			// 	continue
-			// }
 			s := makeShellCommand(context.TODO(), c)
 			curr.shell.Register(s)
 		}
