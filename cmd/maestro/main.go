@@ -48,7 +48,6 @@ listen:  run a HTTP server and execute command from the name available in the
 
 Options:
 
-  -a ADDR, --address ADDR                 use given address to listen for HTTP requests
   -d, --dry                               only print commands that will be executed
   -D NAME[=VALUE], --define NAME[=VALUE]  define NAME with optional value
   -f FILE, --file FILE                    read FILE as a maestro file
@@ -85,7 +84,6 @@ func main() {
 		{Short: "t", Long: "trace", Desc: "add tracing information command execution", Ptr: &mst.MetaExec.Trace},
 		{Short: "v", Long: "version", Desc: "print maestro version and exit", Ptr: &version},
 		{Short: "D", Long: "define", Desc: "set variables", Ptr: &mst.Locals},
-		{Short: "a", Long: "address", Desc: "listen http", Ptr: &mst.MetaHttp.Addr},
 		{Short: "p", Long: "with-prefix", Desc: "add a prefix to each output line", Ptr: &mst.WithPrefix},
 	}
 
@@ -103,7 +101,7 @@ func main() {
 	}
 	switch cmd, args := arguments(); cmd {
 	case maestro.CmdListen, maestro.CmdServe:
-		err = mst.ListenAndServe()
+		err = mst.ListenAndServe(args)
 	case maestro.CmdHelp:
 		if cmd = ""; len(args) > 0 {
 			cmd = args[0]
