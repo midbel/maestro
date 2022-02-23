@@ -52,7 +52,7 @@ type Schedule struct {
 	Preserve bool
 }
 
-func (s *Schedule) Run(ctx context.Context, stdout, stderr io.Writer) error {
+func (s *Schedule) Run(ctx context.Context, ex Executer, stdout, stderr io.Writer) error {
 	var err error
 
 	stdout, err = s.Stdout.Writer(stdout)
@@ -70,22 +70,22 @@ func (s *Schedule) Run(ctx context.Context, stdout, stderr io.Writer) error {
 	if c, ok := stderr.(io.Closer); ok {
 		defer c.Close()
 	}
-
-	return s.run(ctx, stdout, stderr)
+	ex.SetOut(stdout)
+	ex.SetErr(stderr)
+	return s.run(ctx, ex)
 }
 
-func (s *Schedule) run(ctx context.Context, stdout, stderr io.Writer) error {
+func (s *Schedule) run(ctx context.Context, ex Executer) error {
 	var (
 		now     time.Time
 		next    time.Time
-		wait    time.Duration
 		grp     errgroup.Group
 		running bool
 	)
 	for {
 		now = time.Now()
 		next = s.Sched.Next()
-		wait = next.Sub(now)
+		wait := next.Sub(now)
 		if wait <= 0 {
 			continue
 		}
@@ -96,15 +96,13 @@ func (s *Schedule) run(ctx context.Context, stdout, stderr io.Writer) error {
 				err = ctx.Err()
 			}
 			return err
-		case <-time.After(wait):
-		}
-		if !s.Overlap && running {
-			continue
 		}
 		grp.Go(func() error {
-			running = true
-			running = false
-			return nil
+			<-time.After(wait)
+			if !s.Overlap && running {
+				return nil
+			}
+			return ex.Execute(ctx, s.Args)
 		})
 	}
 	return grp.Wait()

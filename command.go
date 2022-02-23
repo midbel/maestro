@@ -296,9 +296,9 @@ func (s *Single) SetErr(w io.Writer) {
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
-	if err := s.shell.Chdir(s.WorkDir); err != nil {
-		return err
-	}
+	// if err := s.shell.Chdir(s.WorkDir); err != nil {
+	// 	return err
+	// }
 	args, err := s.parseArgs(args)
 	if err != nil {
 		return err
@@ -439,13 +439,23 @@ func (s *Single) prepareArgs(name string, args []string, options []Option) (*fla
 	return set, nil
 }
 
-func hasError(errs ...error) error {
-	for _, e := range errs {
-		if e != nil {
-			return e
-		}
+func (s *Single) prepare() (Executer, error) {
+	sh, err := shell.New(shell.WithEnv(s.locals.Copy()))
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	cmd := command{
+		name:    s.Command(),
+		retry:   s.Retry,
+		timeout: s.Timeout,
+		shell:   sh,
+	}
+	cmd.help, _ = s.Help()
+	cmd.lines = append(cmd.lines, s.Scripts...)
+	cmd.options = append(cmd.options, s.Options...)
+	cmd.args = append(cmd.args, s.Args...)
+
+	return &cmd, nil
 }
 
 // TODO: replace current Combined type by this one
@@ -564,6 +574,166 @@ func (c Combined) Script(args []string) ([]string, error) {
 
 func (c Combined) Usage() string {
 	return ""
+}
+
+type command struct {
+	name string
+	help string
+
+	retry   int64
+	timeout time.Duration
+
+	lines   []Line
+	args    []Arg
+	options []Option
+
+	shell *shell.Shell
+}
+
+func (c *command) SetOut(w io.Writer) {
+	c.shell.SetOut(w)
+}
+
+func (c *command) SetErr(w io.Writer) {
+	c.shell.SetErr(w)
+}
+
+func (c *command) Execute(ctx context.Context, args []string) error {
+	args, err := c.parseArgs(args)
+	if err != nil {
+		return err
+	}
+	if c.retry <= 0 {
+		c.retry = 1
+	}
+	if c.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+	for i := int64(0); i < c.retry; i++ {
+		err = c.execute(ctx, args)
+		if err == nil {
+			break
+		}
+	}
+	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	return err
+}
+
+func (c *command) execute(ctx context.Context, args []string) error {
+	for _, cmd := range c.lines {
+		if err := ctx.Err(); err != nil {
+			break
+		}
+		sh := c.shell
+		if cmd.Subshell {
+			sh, _ = sh.Subshell()
+		}
+		sh.SetEcho(cmd.Echo)
+		err := sh.Execute(ctx, cmd.Line, c.name, args)
+		if cmd.Reverse {
+			if err == nil {
+				err = fmt.Errorf("command succeed")
+			} else {
+				err = nil
+			}
+		}
+		if !cmd.Ignore && err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *command) parseArgs(args []string) ([]string, error) {
+	set, err := c.prepareArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	define := func(name, value string) error {
+		if name == "" {
+			return nil
+		}
+		return c.shell.Define(name, []string{value})
+	}
+	defineFlag := func(name string, value bool) error {
+		return define(name, strconv.FormatBool(value))
+	}
+	for _, o := range c.options {
+		if err := o.Validate(); err != nil {
+			return nil, err
+		}
+		var e1, e2 error
+		if o.Flag {
+			e1 = defineFlag(o.Short, o.TargetFlag)
+			e2 = defineFlag(o.Long, o.TargetFlag)
+		} else {
+			e1 = define(o.Short, o.Target)
+			e2 = define(o.Long, o.Target)
+		}
+		if err := hasError(e1, e2); err != nil {
+			return nil, err
+		}
+	}
+	if z := len(c.args); z > 0 && set.NArg() < z {
+		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", c.name, z, set.NArg())
+	}
+	return set.Args(), nil
+}
+
+func (c *command) prepareArgs(args []string) (*flag.FlagSet, error) {
+	var (
+		set  = flag.NewFlagSet(c.name, flag.ExitOnError)
+		seen = make(map[string]struct{})
+	)
+	set.Usage = func() {
+		fmt.Fprintln(os.Stdout, strings.TrimSpace(c.help))
+		os.Exit(1)
+	}
+	check := func(name string) error {
+		if name == "" {
+			return nil
+		}
+		if _, ok := seen[name]; ok {
+			return fmt.Errorf("%s: option already defined", name)
+		}
+		seen[name] = struct{}{}
+		return nil
+	}
+	attach := func(name, help, value string, target *string) error {
+		err := check(name)
+		if err == nil {
+			set.StringVar(target, name, value, help)
+		}
+		return err
+	}
+	attachFlag := func(name, help string, value bool, target *bool) error {
+		err := check(name)
+		if err == nil {
+			set.BoolVar(target, name, value, help)
+		}
+		return err
+	}
+	for i, o := range c.options {
+		var e1, e2 error
+		if o.Flag {
+			e1 = attachFlag(o.Short, o.Help, o.DefaultFlag, &c.options[i].TargetFlag)
+			e2 = attachFlag(o.Long, o.Help, o.DefaultFlag, &c.options[i].TargetFlag)
+		} else {
+			e1 = attach(o.Short, o.Help, o.Default, &c.options[i].Target)
+			e2 = attach(o.Long, o.Help, o.Default, &c.options[i].Target)
+		}
+		if err := hasError(e1, e2); err != nil {
+			return nil, err
+		}
+	}
+	if err := set.Parse(args); err != nil {
+		return nil, err
+	}
+	return set, nil
 }
 
 type shellCommand struct {

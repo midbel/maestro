@@ -1,9 +1,9 @@
 package stdio
 
 import (
-  "io"
-  "os"
-  "sync"
+	"io"
+	"os"
+	"sync"
 )
 
 var (
@@ -17,7 +17,7 @@ type lockedWriter struct {
 }
 
 func Lock(w io.Writer) io.Writer {
-  return createLock(w)
+	return createLock(w)
 }
 
 func createLock(w io.Writer) io.Writer {

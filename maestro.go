@@ -180,16 +180,21 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 		parent   = interruptContext()
 		grp, ctx = errgroup.WithContext(parent)
 	)
-	_ = ctx
 	for _, c := range m.Commands {
 		s, ok := c.(*Single)
 		if !ok {
 			continue
 		}
 		for i := range s.Schedules {
-			e := s.Schedules[i]
+			var (
+				e      = s.Schedules[i]
+				c, err = s.prepare()
+			)
+			if err != nil {
+				return err
+			}
 			grp.Go(func() error {
-				return e.Run(ctx, stdout, stderr)
+				return e.Run(ctx, c, stdout, stderr)
 			})
 		}
 	}
@@ -786,4 +791,13 @@ func interruptContext() context.Context {
 		cancel()
 	}()
 	return ctx
+}
+
+func hasError(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }

@@ -162,12 +162,8 @@ countbis(
 	short = "count LOC and todos",
 	tag   = info verify,
 	schedule = (
-		time = 1/2 * * * *,
-		args = first
-	),
-	schedule = (
-		time = 2/2 * * * *,
-		args = second,
+		time = * * * * *,
+		args = first second third
 	),
 ): format {
 	# reports the number of lines and remaining todos in the project
