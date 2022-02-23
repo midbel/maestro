@@ -1,4 +1,4 @@
-package maestro
+package help
 
 import (
 	"strings"
@@ -43,8 +43,16 @@ usage: {{.Usage}}
 {{end -}}
 `
 
-func renderTemplate(name string, ctx interface{}) (string, error) {
-	t, err := template.New("template").Funcs(funcmap).Parse(name)
+func Maestro(ctx interface{}) (string, error) {
+	return render(helptext, ctx)
+}
+
+func Command(ctx interface{}) (string, error) {
+	return render(cmdhelp, ctx)
+}
+
+func render(src string, ctx interface{}) (string, error) {
+	t, err := template.New("template").Funcs(funcmap).Parse(src)
 	if err != nil {
 		return "", err
 	}

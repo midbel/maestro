@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/env"
+	"github.com/midbel/maestro/internal/help"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -445,7 +446,13 @@ func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scr
 }
 
 func (m *Maestro) help() (string, error) {
-	h := help{
+	h := struct {
+		File     string
+		Help     string
+		Usage    string
+		Version  string
+		Commands map[string][]Command
+	}{
 		Version:  m.Version,
 		File:     m.Name(),
 		Usage:    m.Usage,
@@ -465,7 +472,7 @@ func (m *Maestro) help() (string, error) {
 			return cs[i].Command() < cs[j].Command()
 		})
 	}
-	return renderTemplate(helptext, h)
+	return help.Maestro(h)
 }
 
 func (m *Maestro) canExecute(cmd Command) error {
@@ -762,14 +769,6 @@ func createEntry(host string, key ssh.PublicKey) hostEntry {
 		Host: host,
 		Key:  key,
 	}
-}
-
-type help struct {
-	File     string
-	Help     string
-	Usage    string
-	Version  string
-	Commands map[string][]Command
 }
 
 type lockedWriter struct {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/env"
+	"github.com/midbel/maestro/internal/help"
 	"github.com/midbel/maestro/shell"
 )
 
@@ -163,7 +164,7 @@ func (s *Single) About() string {
 }
 
 func (s *Single) Help() (string, error) {
-	return renderTemplate(cmdhelp, s)
+	return help.Command(s)
 }
 
 func (s *Single) Tags() []string {
