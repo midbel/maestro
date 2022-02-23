@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/copyslice"
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/stack"
 	"github.com/midbel/maestro/schedule"
@@ -1225,7 +1226,7 @@ func (d *Decoder) decodeValue() ([]string, error) {
 			tmp = append(tmp, d.curr().Literal)
 		}
 		d.next()
-		str = copyStringArray(str, tmp)
+		str = copyslice.CopyValues[string](str, tmp)
 	}
 	ret := make([]string, len(str))
 	for i := range str {

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -724,15 +725,6 @@ type MetaHttp struct {
 	KeyFile  string
 	Addr     string
 	Base     string
-
-	// mapping of commands and http method
-	// commands not listed won't be available for execution
-	Get    []string
-	Post   []string
-	Delete []string
-	Patch  []string
-	Put    []string
-	Head   []string
 }
 
 type commandKey struct {
@@ -804,4 +796,16 @@ func hasHelp(args []string) bool {
 		return false
 	}
 	return as[i] == "-h" || as[i] == "-help" || as[i] == "--help"
+}
+
+func interruptContext() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		defer close(sig)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+		<-sig
+		cancel()
+	}()
+	return ctx
 }
