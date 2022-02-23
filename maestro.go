@@ -14,11 +14,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
+	"github.com/midbel/maestro/internal/stdio"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -155,8 +155,8 @@ func (m *Maestro) Graph(name string) error {
 		seen[n] = zero
 		deps = append(deps, n)
 	}
-	fmt.Fprintf(stdout, "order %s -> %s", strings.Join(deps, " -> "), name)
-	fmt.Fprintln(stdout)
+	fmt.Fprintf(stdio.Stdout, "order %s -> %s", strings.Join(deps, " -> "), name)
+	fmt.Fprintln(stdio.Stdout)
 	return err
 }
 
@@ -172,10 +172,10 @@ func (m *Maestro) Schedule(args []string) error {
 	if *list {
 		return m.scheduleList(args, *limit)
 	}
-	return m.schedule()
+	return m.schedule(stdio.Stdout, stdio.Stderr)
 }
 
-func (m *Maestro) schedule() error {
+func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 	var (
 		parent   = interruptContext()
 		grp, ctx = errgroup.WithContext(parent)
@@ -218,8 +218,8 @@ func (m *Maestro) showScheduleShort(args []string) {
 				next := s.Sched.Next()
 				wait = next.Sub(now)
 			}
-			fmt.Fprintf(stdout, "- %s in %s", c.Command(), wait)
-			fmt.Fprintln(stdout)
+			fmt.Fprintf(stdio.Stdout, "- %s in %s", c.Command(), wait)
+			fmt.Fprintln(stdio.Stdout)
 		}
 	}
 }
@@ -231,12 +231,12 @@ func (m *Maestro) showScheduleLong(args []string, limit int) {
 			continue
 		}
 		for _, s := range s.Schedules {
-			fmt.Fprintln(stdout, "*", c.Command())
+			fmt.Fprintln(stdio.Stdout, "*", c.Command())
 			prefix := "next"
 			for i := 0; i < limit; i++ {
 				w := s.Sched.Next()
-				fmt.Fprintf(stdout, "  %s at %s", prefix, w.Format("2006-01-02 15:04:05"))
-				fmt.Fprintln(stdout)
+				fmt.Fprintf(stdio.Stdout, "  %s at %s", prefix, w.Format("2006-01-02 15:04:05"))
+				fmt.Fprintln(stdio.Stdout)
 				prefix = "then"
 			}
 		}
@@ -271,14 +271,14 @@ func (m *Maestro) Dry(name string, args []string) error {
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
-	return m.execute(name, args, stdout, stderr)
+	return m.execute(name, args, stdio.Stdout, stdio.Stderr)
 }
 
 func (m *Maestro) ExecuteDefault(args []string) error {
 	if m.MetaExec.Default == "" {
 		return fmt.Errorf("default command not defined")
 	}
-	return m.execute(m.MetaExec.Default, args, stdout, stderr)
+	return m.execute(m.MetaExec.Default, args, stdio.Stdout, stdio.Stderr)
 }
 
 func (m *Maestro) ExecuteAll(args []string) error {
@@ -286,7 +286,7 @@ func (m *Maestro) ExecuteAll(args []string) error {
 		return fmt.Errorf("all command not defined")
 	}
 	for _, n := range m.MetaExec.All {
-		if err := m.execute(n, args, stdout, stderr); err != nil {
+		if err := m.execute(n, args, stdio.Stdout, stdio.Stderr); err != nil {
 			return err
 		}
 	}
@@ -294,11 +294,11 @@ func (m *Maestro) ExecuteAll(args []string) error {
 }
 
 func (m *Maestro) ExecuteHelp(name string) error {
-	return m.executeHelp(name, stdout)
+	return m.executeHelp(name, stdio.Stdout)
 }
 
 func (m *Maestro) ExecuteVersion() error {
-	return m.executeVersion(stdout)
+	return m.executeVersion(stdio.Stdout)
 }
 
 func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) error {
@@ -380,8 +380,8 @@ func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Wr
 		seen     = make(map[string]struct{})
 		pout, _  = createPipe()
 		perr, _  = createPipe()
-		sshout   = createLock(pout)
-		ssherr   = createLock(perr)
+		sshout   = stdio.Lock(pout)
+		ssherr   = stdio.Lock(perr)
 	)
 
 	go io.Copy(stdout, pout)
@@ -646,8 +646,8 @@ func (m *Maestro) traverseGraph(name string, level int) ([]string, error) {
 	if !ok {
 		return nil, nil
 	}
-	fmt.Fprintf(stdout, "%s- %s", strings.Repeat(" ", level*2), name)
-	fmt.Fprintln(stdout)
+	fmt.Fprintf(stdio.Stdout, "%s- %s", strings.Repeat(" ", level*2), name)
+	fmt.Fprintln(stdio.Stdout)
 	var list []string
 	for _, d := range s.Deps {
 		others, err := m.traverseGraph(d.Name, level+1)
@@ -762,28 +762,6 @@ func createEntry(host string, key ssh.PublicKey) hostEntry {
 		Key:  key,
 	}
 }
-
-type lockedWriter struct {
-	mu sync.Mutex
-	io.Writer
-}
-
-func createLock(w io.Writer) io.Writer {
-	return &lockedWriter{
-		Writer: w,
-	}
-}
-
-func (w *lockedWriter) Write(b []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.Writer.Write(b)
-}
-
-var (
-	stdout = createLock(os.Stdout)
-	stderr = createLock(os.Stderr)
-)
 
 func hasHelp(args []string) bool {
 	as := make([]string, len(args))
