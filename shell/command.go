@@ -31,8 +31,9 @@ type StdCmd struct {
 	name string
 }
 
-func StandardContext(ctx context.Context, name string, args []string) Command {
+func StandardContext(ctx context.Context, name, cwd string, args []string) Command {
 	c := exec.CommandContext(ctx, name, args...)
+	c.Dir = cwd
 	return &StdCmd{
 		Cmd:  c,
 		name: name,

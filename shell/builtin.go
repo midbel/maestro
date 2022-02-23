@@ -679,11 +679,7 @@ func runChdir(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	dir := set.Arg(0)
-	if dir == "-" {
-		dir = b.shell.old
-	}
-	if err := b.shell.Chdir(dir); err != nil {
+	if err := b.shell.Chdir(set.Arg(0)); err != nil {
 		fmt.Fprintf(b.stderr, err.Error())
 		fmt.Fprintln(b.stderr)
 	}
@@ -691,7 +687,7 @@ func runChdir(b Builtin) error {
 }
 
 func runPwd(b Builtin) error {
-	fmt.Fprintln(b.stdout, b.shell.cwd)
+	fmt.Fprintln(b.stdout, b.shell.Cwd())
 	return nil
 }
 

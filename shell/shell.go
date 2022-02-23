@@ -8,15 +8,23 @@ import (
 	"math/rand"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/stack"
 	"github.com/midbel/maestro/shlex"
 	"golang.org/x/sync/errgroup"
 )
 
 const shell = "tish"
+
+const (
+	dirCurr   = "."
+	dirParent = ".."
+	dirOld    = "-"
+)
 
 var (
 	ErrExit     = errors.New("exit")
@@ -76,8 +84,7 @@ type Shell struct {
 
 	env map[string]string
 
-	cwd  string
-	old  string
+	dirs stack.Stack[string]
 	now  time.Time
 	rand *rand.Rand
 
@@ -98,28 +105,19 @@ type Shell struct {
 func New(options ...ShellOption) (*Shell, error) {
 	s := Shell{
 		now:      time.Now(),
-		cwd:      ".",
-		old:      "..",
+		dirs:     stack.New[string](),
 		alias:    make(map[string][]string),
 		commands: make(map[string]Command),
 		env:      make(map[string]string),
 		builtins: builtins,
 	}
 	s.rand = rand.New(rand.NewSource(s.now.Unix()))
-	s.cwd, _ = os.Getwd()
+	cwd, _ := os.Getwd()
+	s.dirs.Push(cwd)
 	for i := range options {
 		if err := options[i](&s); err != nil {
 			return nil, err
 		}
-	}
-	if s.stdout == nil {
-		s.stdout = os.Stdout
-	}
-	if s.stderr == nil {
-		s.stderr = os.Stderr
-	}
-	if s.stdin == nil {
-		s.stdin = os.Stdin
 	}
 	if s.locals == nil {
 		s.locals = EmptyEnv()
@@ -144,15 +142,29 @@ func (s *Shell) SetErr(w io.Writer) {
 }
 
 func (s *Shell) Chdir(dir string) error {
-	if dir == "" {
-		return nil
+	switch dir {
+	case dirCurr:
+	case dirParent:
+		dir = s.dirs.Curr()
+		s.dirs.Push(filepath.Dir(dir))
+	case dirOld:
+		s.dirs.Pop()
+	case "":
+	default:
+		i, err := os.Stat(dir)
+		if err != nil {
+			return err
+		}
+		if !i.IsDir() {
+			return fmt.Errorf("%s: not a directory", dir)
+		}
+		s.dirs.Push(dir)
 	}
-	err := os.Chdir(dir)
-	if err == nil {
-		s.old = s.cwd
-		s.cwd = dir
-	}
-	return err
+	return nil
+}
+
+func (s *Shell) Cwd() string {
+	return s.dirs.Curr()
 }
 
 func (s *Shell) SetEcho(echo bool) {
@@ -183,7 +195,7 @@ func (s *Shell) Unalias(ident string) {
 func (s *Shell) Subshell() (*Shell, error) {
 	options := []ShellOption{
 		WithEnv(s),
-		WithCwd(s.cwd),
+		WithCwd(s.Cwd()),
 	}
 	if s.echo {
 		options = append(options, WithEcho())
@@ -540,7 +552,7 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 	if c, ok := s.commands[str[0]]; ok {
 		cmd = c
 	} else {
-		cmd = StandardContext(ctx, str[0], str[1:])
+		cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
 	}
 	if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
 		a.SetArgs(str[1:])
@@ -565,13 +577,9 @@ func (s *Shell) resolveSpecials(ident string) []string {
 		sec := time.Since(s.now).Seconds()
 		ret = append(ret, strconv.FormatInt(int64(sec), 10))
 	case "PWD":
-		cwd, err := os.Getwd()
-		if err != nil {
-			cwd = s.cwd
-		}
-		ret = append(ret, cwd)
+		ret = append(ret, s.Cwd())
 	case "OLDPWD":
-		ret = append(ret, s.old)
+		// ret = append(ret, s.old)
 	case "PID", "$":
 		str := strconv.Itoa(os.Getpid())
 		ret = append(ret, str)

@@ -84,7 +84,7 @@ type Scanner struct {
 	next  int
 
 	str   bytes.Buffer
-	state stack
+	state scanstack
 }
 
 func Scan(r io.Reader) *Scanner {
@@ -886,33 +886,33 @@ func (s scanState) String() string {
 	}
 }
 
-type stack []scanState
+type scanstack []scanState
 
-func defaultStack() stack {
-	var s stack
+func defaultStack() scanstack {
+	var s scanstack
 	s.Push(scanDefault)
 	return s
 }
 
-func (s *stack) Test() bool {
+func (s *scanstack) Test() bool {
 	return s.Curr() == scanTest
 }
 
-func (s *stack) EnterTest() {
+func (s *scanstack) EnterTest() {
 	s.Push(scanTest)
 }
 
-func (s *stack) LeaveTest() {
+func (s *scanstack) LeaveTest() {
 	if s.Test() {
 		s.Pop()
 	}
 }
 
-func (s *stack) Quoted() bool {
+func (s *scanstack) Quoted() bool {
 	return s.Curr() == scanQuote
 }
 
-func (s *stack) ToggleQuote() {
+func (s *scanstack) ToggleQuote() {
 	if s.Quoted() {
 		s.Pop()
 		return
@@ -920,25 +920,25 @@ func (s *stack) ToggleQuote() {
 	s.Push(scanQuote)
 }
 
-func (s *stack) Expansion() bool {
+func (s *scanstack) Expansion() bool {
 	return s.Curr() == scanExp
 }
 
-func (s *stack) EnterExpansion() {
+func (s *scanstack) EnterExpansion() {
 	s.Push(scanExp)
 }
 
-func (s *stack) LeaveExpansion() {
+func (s *scanstack) LeaveExpansion() {
 	if s.Expansion() {
 		s.Pop()
 	}
 }
 
-func (s *stack) Arithmetic() bool {
+func (s *scanstack) Arithmetic() bool {
 	return s.Curr() == scanMath
 }
 
-func (s *stack) Depth() int {
+func (s *scanstack) Depth() int {
 	var depth int
 	for i := len(*s) - 1; i >= 1; i-- {
 		if (*s)[i] != scanMath || ((*s)[i] == scanMath && (*s)[i-1] != scanMath) {
@@ -949,54 +949,54 @@ func (s *stack) Depth() int {
 	return depth
 }
 
-func (s *stack) EnterArithmetic() {
+func (s *scanstack) EnterArithmetic() {
 	s.Push(scanMath)
 }
 
-func (s *stack) LeaveArithmetic() {
+func (s *scanstack) LeaveArithmetic() {
 	if s.Arithmetic() {
 		s.Pop()
 	}
 }
 
-func (s *stack) Substitution() bool {
+func (s *scanstack) Substitution() bool {
 	return s.Curr() == scanSub
 }
 
-func (s *stack) EnterSubstitution() {
+func (s *scanstack) EnterSubstitution() {
 	s.Push(scanSub)
 }
 
-func (s *stack) LeaveSubstitution() {
+func (s *scanstack) LeaveSubstitution() {
 	if s.Substitution() {
 		s.Pop()
 	}
 }
 
-func (s *stack) Braces() bool {
+func (s *scanstack) Braces() bool {
 	return s.Curr() == scanBrace
 }
 
-func (s *stack) AcceptBraces() bool {
+func (s *scanstack) AcceptBraces() bool {
 	return !s.Quoted() && !s.Expansion()
 }
 
-func (s *stack) EnterBrace() {
+func (s *scanstack) EnterBrace() {
 	s.Push(scanBrace)
 }
 
-func (s *stack) LeaveBrace() {
+func (s *scanstack) LeaveBrace() {
 	if s.Braces() {
 		s.Pop()
 	}
 }
 
-func (s *stack) Default() bool {
+func (s *scanstack) Default() bool {
 	curr := s.Curr()
 	return curr == scanDefault || curr == scanSub
 }
 
-func (s *stack) Pop() {
+func (s *scanstack) Pop() {
 	n := s.Len()
 	if n == 0 {
 		return
@@ -1007,15 +1007,15 @@ func (s *stack) Pop() {
 	}
 }
 
-func (s *stack) Push(st scanState) {
+func (s *scanstack) Push(st scanState) {
 	*s = append(*s, st)
 }
 
-func (s *stack) Len() int {
+func (s *scanstack) Len() int {
 	return len(*s)
 }
 
-func (s *stack) Curr() scanState {
+func (s *scanstack) Curr() scanState {
 	n := s.Len()
 	if n == 0 {
 		return scanDefault
@@ -1024,7 +1024,7 @@ func (s *stack) Curr() scanState {
 	return (*s)[n]
 }
 
-func (s *stack) Prev() scanState {
+func (s *scanstack) Prev() scanState {
 	n := s.Len()
 	n--
 	n--
