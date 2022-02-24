@@ -50,7 +50,7 @@ type Command interface {
 	Executer
 }
 
-type Dep struct {
+type CommandDep struct {
 	Name      string
 	Args      []string
 	Bg        bool
@@ -58,7 +58,7 @@ type Dep struct {
 	Mandatory bool
 }
 
-type Option struct {
+type CommandOption struct {
 	Short    string
 	Long     string
 	Help     string
@@ -73,7 +73,7 @@ type Option struct {
 	Valid ValidateFunc
 }
 
-func (o Option) Validate() error {
+func (o CommandOption) Validate() error {
 	if o.Flag {
 		return nil
 	}
@@ -86,19 +86,19 @@ func (o Option) Validate() error {
 	return o.Valid(o.Target)
 }
 
-type Arg struct {
+type CommandArg struct {
 	Name  string
 	Valid ValidateFunc
 }
 
-func (a Arg) Validate(arg string) error {
+func (a CommandArg) Validate(arg string) error {
 	if a.Valid == nil {
 		return nil
 	}
 	return a.Valid(arg)
 }
 
-type Line struct {
+type CommandLine struct {
 	Line     string
 	Reverse  bool
 	Ignore   bool
@@ -123,10 +123,10 @@ type Single struct {
 	Timeout time.Duration
 
 	Hosts     []string
-	Deps      []Dep
-	Scripts   []Line
-	Options   []Option
-	Args      []Arg
+	Deps      []CommandDep
+	Lines     []CommandLine
+	Options   []CommandOption
+	Args      []CommandArg
 	Schedules []Schedule
 
 	locals *env.Env
@@ -263,7 +263,7 @@ func (s *Single) Dry(args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, cmd := range s.Scripts {
+	for _, cmd := range s.Lines {
 		err := s.shell.Dry(cmd.Line, s.Name, args)
 		if err != nil && s.Error == errRaise {
 			return err
@@ -278,7 +278,7 @@ func (s *Single) Script(args []string) ([]string, error) {
 		return nil, err
 	}
 	var list []string
-	for _, i := range s.Scripts {
+	for _, i := range s.Lines {
 		rs, err := shell.Expand(i.Line, args, s.shell)
 		if err != nil {
 			return nil, err
@@ -326,7 +326,7 @@ func (s *Single) Execute(ctx context.Context, args []string) error {
 }
 
 func (s *Single) execute(ctx context.Context, args []string) error {
-	for _, cmd := range s.Scripts {
+	for _, cmd := range s.Lines {
 		if err := ctx.Err(); err != nil {
 			break
 		}
@@ -451,7 +451,7 @@ func (s *Single) prepare() (Executer, error) {
 		shell:   sh,
 	}
 	cmd.help, _ = s.Help()
-	cmd.lines = append(cmd.lines, s.Scripts...)
+	cmd.lines = append(cmd.lines, s.Lines...)
 	cmd.options = append(cmd.options, s.Options...)
 	cmd.args = append(cmd.args, s.Args...)
 
@@ -461,33 +461,19 @@ func (s *Single) prepare() (Executer, error) {
 type command struct {
 	name string
 	help string
-	hosts []string
-	deps  []Dep
 
 	retry   int64
 	timeout time.Duration
 
-	lines   []Line
-	args    []Arg
-	options []Option
+	lines   []CommandLine
+	args    []CommandArg
+	options []CommandOption
 
 	shell *shell.Shell
 }
 
 func (c *command) Command() string {
 	return c.name
-}
-
-func (c *command) Remote() bool {
-	return len(c.hosts) > 0
-}
-
-func (c *command) Targets() []string {
-	return c.hosts
-}
-
-func (c *command) Dependencies() []Dep {
-	return c.deps
 }
 
 func (c *command) SetOut(w io.Writer) {

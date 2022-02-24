@@ -661,7 +661,7 @@ func (_ noopCloseWriter) Close() error {
 	return nil
 }
 
-type emptyReader struct {}
+type emptyReader struct{}
 
 func (r emptyReader) Read(_ []byte) (int, error) {
 	return 0, io.EOF

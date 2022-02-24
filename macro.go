@@ -21,7 +21,7 @@ func decodeMacroSequence(d *Decoder, cmd *Single) error {
 	}
 	d.next()
 
-	var lines []Line
+	var lines []CommandLine
 	for !d.done() && d.curr().Type != EndScript {
 		if d.curr().Type == Comment {
 			d.next()
@@ -45,7 +45,7 @@ func decodeMacroSequence(d *Decoder, cmd *Single) error {
 		list = append(list, lines[i].Line)
 	}
 	lines[0].Line = strings.Join(list, "; ")
-	cmd.Scripts = append(cmd.Scripts, lines[0])
+	cmd.Lines = append(cmd.Lines, lines[0])
 	return nil
 }
 
@@ -96,7 +96,7 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 		return d.unexpected()
 	}
 	d.next()
-	var lines []Line
+	var lines []CommandLine
 	for !d.done() && d.curr().Type != EndScript {
 		if d.curr().Type == Comment {
 			d.next()
@@ -124,7 +124,7 @@ func decodeMacroRepeat(d *Decoder, cmd *Single) error {
 			n.Line = strings.ReplaceAll(n.Line, macroVar, list[i].Literal)
 			n.Line = strings.ReplaceAll(n.Line, macroIter, iter)
 			n.Line = strings.ReplaceAll(n.Line, macroIter0, iter0)
-			cmd.Scripts = append(cmd.Scripts, n)
+			cmd.Lines = append(cmd.Lines, n)
 		}
 	}
 	return nil

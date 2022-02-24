@@ -106,8 +106,8 @@ func (m *Maestro) Load(file string) error {
 
 func (m *Maestro) Register(ns string, cmd *Single) error {
 	var (
-		key      = makeKey(ns, cmd.Name)
-		curr, ok = m.Commands[key]
+		key   = makeKey(ns, cmd.Name)
+		_, ok = m.Commands[key]
 	)
 	if !ok {
 		m.Commands[key] = cmd

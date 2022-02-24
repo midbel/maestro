@@ -713,13 +713,13 @@ func (d *Decoder) decodeScheduleRedirect() (ScheduleRedirect, error) {
 	return redirect, err
 }
 
-func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
-	var args []Arg
+func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
+	var args []CommandArg
 	for !d.done() && d.curr().Type != Comma {
 		if d.curr().Type != Ident {
 			return nil, d.unexpected()
 		}
-		arg := Arg{
+		arg := CommandArg{
 			Name: d.curr().Literal,
 		}
 		d.next()
@@ -746,8 +746,8 @@ func (d *Decoder) decodeCommandArguments() ([]Arg, error) {
 	return args, nil
 }
 
-func (d *Decoder) decodeOptionObject() (Option, error) {
-	var opt Option
+func (d *Decoder) decodeOptionObject() (CommandOption, error) {
+	var opt CommandOption
 	return opt, d.decodeObject(func() error {
 		var (
 			curr = d.curr()
@@ -933,7 +933,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 		if d.curr().Type != Ident {
 			return d.unexpected()
 		}
-		dep := Dep{
+		dep := CommandDep{
 			Name:      d.curr().Literal,
 			Optional:  optional,
 			Mandatory: mandatory,
@@ -1032,9 +1032,9 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			if !ok {
 				return fmt.Errorf("call can only be made for single command")
 			}
-			for _, s := range called.Scripts {
+			for _, s := range called.Lines {
 				// TODO: clone/copy shell env of called called to s
-				cmd.Scripts = append(cmd.Scripts, s)
+				cmd.Lines = append(cmd.Lines, s)
 			}
 			d.next()
 			continue
@@ -1043,7 +1043,7 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 		if err != nil {
 			return err
 		}
-		cmd.Scripts = append(cmd.Scripts, line)
+		cmd.Lines = append(cmd.Lines, line)
 	}
 	if d.curr().Type != EndScript {
 		return d.unexpected()
@@ -1052,9 +1052,9 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 	return d.ensureEOL()
 }
 
-func (d *Decoder) decodeScriptLine() (Line, error) {
+func (d *Decoder) decodeScriptLine() (CommandLine, error) {
 	var (
-		line Line
+		line CommandLine
 		seen = make(map[rune]struct{})
 	)
 	for d.curr().IsOperator() {
