@@ -26,6 +26,8 @@ const (
 )
 
 type Executer interface {
+	Command() string
+
 	Script([]string) ([]string, error)
 	Dry([]string) error
 
@@ -39,7 +41,6 @@ type Command interface {
 	Help() (string, error)
 	Usage() string
 	Tags() []string
-	Command() string
 	Remote() bool
 	Targets() []string
 
@@ -142,7 +143,10 @@ func NewSingleWithLocals(name string, locals *env.Env) (*Single, error) {
 	} else {
 		locals = locals.Copy()
 	}
-	sh, err := shell.New(shell.WithEnv(locals))
+	options := []shell.ShellOption{
+		shell.WithEnv(locals),
+	}
+	sh, err := shell.New(options...)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +264,8 @@ func (s *Single) Dry(args []string) error {
 		return err
 	}
 	for _, cmd := range s.Scripts {
-		if err := s.shell.Dry(cmd.Line, s.Name, args); err != nil && s.Error == errRaise {
+		err := s.shell.Dry(cmd.Line, s.Name, args)
+		if err != nil && s.Error == errRaise {
 			return err
 		}
 	}
@@ -296,30 +301,25 @@ func (s *Single) SetErr(w io.Writer) {
 }
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
-	// if err := s.shell.Chdir(s.WorkDir); err != nil {
-	// 	return err
-	// }
 	args, err := s.parseArgs(args)
 	if err != nil {
 		return err
 	}
-	retry := s.Retry
-	if retry <= 0 {
-		retry = 1
+	if s.Retry <= 0 {
+		s.Retry = 1
 	}
-	sub := ctx
 	if s.Timeout > 0 {
-		c, cancel := context.WithTimeout(ctx, s.Timeout)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.Timeout)
 		defer cancel()
-		sub = c
 	}
-	for i := int64(0); i < retry; i++ {
-		err = s.execute(sub, args)
+	for i := int64(0); i < s.Retry; i++ {
+		err = s.execute(ctx, args)
 		if err == nil {
 			break
 		}
 	}
-	if err := sub.Err(); errors.Is(err, context.DeadlineExceeded) {
+	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
 	return err
@@ -351,7 +351,7 @@ func (s *Single) execute(ctx context.Context, args []string) error {
 }
 
 func (s *Single) parseArgs(args []string) ([]string, error) {
-	set, err := s.prepareArgs(s.Name, args, s.Options)
+	set, err := s.prepareArgs(args)
 	if err != nil {
 		return nil, err
 	}
@@ -386,9 +386,9 @@ func (s *Single) parseArgs(args []string) ([]string, error) {
 	return set.Args(), nil
 }
 
-func (s *Single) prepareArgs(name string, args []string, options []Option) (*flag.FlagSet, error) {
+func (s *Single) prepareArgs(args []string) (*flag.FlagSet, error) {
 	var (
-		set  = flag.NewFlagSet(name, flag.ExitOnError)
+		set  = flag.NewFlagSet(s.Name, flag.ExitOnError)
 		seen = make(map[string]struct{})
 	)
 	set.Usage = func() {
@@ -420,14 +420,14 @@ func (s *Single) prepareArgs(name string, args []string, options []Option) (*fla
 		}
 		return err
 	}
-	for i, o := range options {
+	for i, o := range s.Options {
 		var e1, e2 error
 		if o.Flag {
-			e1 = attachFlag(o.Short, o.Help, o.DefaultFlag, &options[i].TargetFlag)
-			e2 = attachFlag(o.Long, o.Help, o.DefaultFlag, &options[i].TargetFlag)
+			e1 = attachFlag(o.Short, o.Help, o.DefaultFlag, &s.Options[i].TargetFlag)
+			e2 = attachFlag(o.Long, o.Help, o.DefaultFlag, &s.Options[i].TargetFlag)
 		} else {
-			e1 = attach(o.Short, o.Help, o.Default, &options[i].Target)
-			e2 = attach(o.Long, o.Help, o.Default, &options[i].Target)
+			e1 = attach(o.Short, o.Help, o.Default, &s.Options[i].Target)
+			e2 = attach(o.Long, o.Help, o.Default, &s.Options[i].Target)
 		}
 		if err := hasError(e1, e2); err != nil {
 			return nil, err
@@ -579,6 +579,8 @@ func (c Combined) Usage() string {
 type command struct {
 	name string
 	help string
+	hosts []string
+	deps  []Dep
 
 	retry   int64
 	timeout time.Duration
@@ -588,6 +590,22 @@ type command struct {
 	options []Option
 
 	shell *shell.Shell
+}
+
+func (c *command) Command() string {
+	return c.name
+}
+
+func (c *command) Remote() bool {
+	return len(c.hosts) > 0
+}
+
+func (c *command) Targets() []string {
+	return c.hosts
+}
+
+func (c *command) Dependencies() []Dep {
+	return c.deps
 }
 
 func (c *command) SetOut(w io.Writer) {
@@ -772,7 +790,7 @@ func (c *command) prepareArgs(args []string) (*flag.FlagSet, error) {
 }
 
 type shellCommand struct {
-	cmd  Command
+	cmd  Executer
 	args []string
 	ctx  context.Context
 
@@ -784,7 +802,7 @@ type shellCommand struct {
 	code    int
 }
 
-func makeShellCommand(ctx context.Context, cmd Command) shell.Command {
+func makeShellCommand(ctx context.Context, cmd Executer) shell.Command {
 	return &shellCommand{
 		cmd: cmd,
 		ctx: ctx,

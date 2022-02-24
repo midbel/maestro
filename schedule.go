@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"time"
-	"fmt"
 
 	"github.com/midbel/maestro/schedule"
 	"golang.org/x/sync/semaphore"
