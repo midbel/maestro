@@ -260,6 +260,8 @@ func (m *Maestro) Dry(name string, args []string) error {
 	if err != nil {
 		return err
 	}
+	cmd.SetOut(stdio.Stdout)
+	cmd.SetErr(stdio.Stderr)
 	return cmd.Dry(args)
 }
 

@@ -38,6 +38,7 @@ type Executer interface {
 }
 
 type CommandDep struct {
+	Space     string
 	Name      string
 	Args      []string
 	Bg        bool
