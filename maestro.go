@@ -323,6 +323,9 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 	if hasHelp(args) {
 		return m.ExecuteHelp(name)
 	}
+	if m.Remote {
+		return m.executeRemote(name, args, stdout, stderr)
+	}
 	if m.MetaExec.Dry {
 		return m.Dry(name, args)
 	}
@@ -332,9 +335,6 @@ func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) 
 	}
 	if err := m.canExecute(cmd); err != nil {
 		return err
-	}
-	if m.Remote {
-		return m.executeRemote(cmd, args, stdout, stderr)
 	}
 
 	var (
@@ -382,7 +382,11 @@ func (m *Maestro) executeVersion(w io.Writer) error {
 	return nil
 }
 
-func (m *Maestro) executeRemote(cmd Command, args []string, stdout, stderr io.Writer) error {
+func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Writer) error {
+	cmd, err := m.prepare(name)
+	if err != nil {
+		return err
+	}
 	scripts, err := cmd.Script(args)
 	if err != nil {
 		return err
