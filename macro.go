@@ -14,7 +14,7 @@ const (
 	macroIter0    = "<iter0>"
 )
 
-func decodeMacroSequence(d *Decoder, cmd *Single) error {
+func decodeMacroSequence(d *Decoder, cmd *CommandSettings) error {
 	d.next()
 	if d.curr().Type != BegScript {
 		return d.unexpected()
@@ -49,7 +49,7 @@ func decodeMacroSequence(d *Decoder, cmd *Single) error {
 	return nil
 }
 
-func decodeMacroRepeat(d *Decoder, cmd *Single) error {
+func decodeMacroRepeat(d *Decoder, cmd *CommandSettings) error {
 	d.next()
 	if d.curr().Type != BegList {
 		return d.unexpected()

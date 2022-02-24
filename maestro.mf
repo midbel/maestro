@@ -25,7 +25,7 @@ test(
 ): format {
 	@go clean -testcache
 	.repeat($package, '$package/shlex', '$package/shell', '$package/schedule') {
-		@go test -v -cover <var>
+		@-go test -v -cover <var>
 	}
 }
 
@@ -57,12 +57,12 @@ build(
 	), (
 		time = 10 23 * * sat;sun,
 	)
-): tidy, format, verify {
+): tidy, format, test, verify {
 	# build the maestro binary and the tish shell
 
-	$clean && rm -f ${bindir,,}/${maestro,,}
-	$clean && rm -f ${bindir,,}/${tish,,}
-	$clean && go clean -cache
+	rm -f ${bindir,,}/${maestro,,}
+	rm -f ${bindir,,}/${tish,,}
+	# go clean -cache
 
 	version = $(git tag | tail -n 1)
 	build   = $(date -I)
@@ -82,13 +82,13 @@ verify(
 ): format {
 	# run "go vet" on each package(s) in the project.
 	echo "run vet on $package"
-	@go vet $package
+	@-go vet $package
 	echo "run vet on $package/shell"
-	@go vet "$package/shell"
+	@-go vet "$package/shell"
 	echo "run vet on $package/shlex"
-	@go vet "$package/shlex"
+	@-go vet "$package/shlex"
 	echo "run vet on $package/schedule"
-	@go vet "$package/schedule"
+	@-go vet "$package/schedule"
 }
 
 commit(
@@ -146,7 +146,7 @@ commit(
 ): {
 	total = $(find -type f -name "*go" -exec cat {} \; | grep 'TODO' | wc -l)
 	echo "${total:>:5} remaining todos"
-	$show && grep 'TODO' *go shlex/*go shell/*go | cut -f 3 -d : | awk '{$1=$1};1'
+	# $show && grep 'TODO' *go shlex/*go shell/*go | cut -f 3 -d : | awk '{$1=$1};1'
 }
 
 count(

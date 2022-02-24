@@ -37,20 +37,6 @@ type Executer interface {
 	SetErr(w io.Writer)
 }
 
-type Command interface {
-	About() string
-	Help() (string, error)
-	Usage() string
-	Tags() []string
-	Remote() bool
-	Targets() []string
-
-	Blocked() bool
-	Can() bool
-
-	Executer
-}
-
 type CommandDep struct {
 	Name      string
 	Args      []string
@@ -107,7 +93,7 @@ type CommandLine struct {
 	Subshell bool
 }
 
-type Single struct {
+type CommandSettings struct {
 	Visible bool
 
 	Name       string
@@ -133,12 +119,12 @@ type Single struct {
 	locals *env.Env
 }
 
-func NewSingle(name string) (*Single, error) {
-	return NewSingleWithLocals(name, env.EmptyEnv())
+func NewCommmandSettings(name string) (CommandSettings, error) {
+	return NewCommandSettingsWithLocals(name, env.EmptyEnv())
 }
 
-func NewSingleWithLocals(name string, locals *env.Env) (*Single, error) {
-	cmd := Single{
+func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings, error) {
+	cmd := CommandSettings{
 		Name:   name,
 		Error:  errSilent,
 		locals: locals,
@@ -146,29 +132,29 @@ func NewSingleWithLocals(name string, locals *env.Env) (*Single, error) {
 	if cmd.locals == nil {
 		cmd.locals = env.EmptyEnv()
 	}
-	return &cmd, nil
+	return cmd, nil
 }
 
-func (s *Single) Command() string {
+func (s CommandSettings) Command() string {
 	return s.Name
 }
 
-func (s *Single) About() string {
+func (s CommandSettings) About() string {
 	return s.Short
 }
 
-func (s *Single) Help() (string, error) {
+func (s CommandSettings) Help() (string, error) {
 	return help.Command(s)
 }
 
-func (s *Single) Tags() []string {
+func (s CommandSettings) Tags() []string {
 	if len(s.Categories) == 0 {
 		return []string{"default"}
 	}
 	return s.Categories
 }
 
-func (s *Single) Usage() string {
+func (s CommandSettings) Usage() string {
 	var str strings.Builder
 	str.WriteString(s.Name)
 	for _, o := range s.Options {
@@ -196,11 +182,11 @@ func (s *Single) Usage() string {
 	return str.String()
 }
 
-func (s *Single) Blocked() bool {
+func (s CommandSettings) Blocked() bool {
 	return !s.Visible
 }
 
-func (s *Single) Can() bool {
+func (s CommandSettings) Can() bool {
 	if len(s.Users) == 0 && len(s.Groups) == 0 {
 		return true
 	}
@@ -210,7 +196,7 @@ func (s *Single) Can() bool {
 	return s.can(strconv.Itoa(os.Getuid()))
 }
 
-func (s *Single) can(uid string) bool {
+func (s CommandSettings) can(uid string) bool {
 	curr, err := user.LookupId(uid)
 	if err != nil {
 		return false
@@ -240,35 +226,11 @@ func (s *Single) can(uid string) bool {
 	return false
 }
 
-func (s *Single) Remote() bool {
+func (s CommandSettings) Remote() bool {
 	return len(s.Hosts) > 0
 }
 
-func (s *Single) Targets() []string {
-	return s.Hosts
-}
-
-func (s *Single) Dry(args []string) error {
-	return nil
-}
-
-func (s *Single) Dependencies() []CommandDep {
-	return nil
-}
-
-func (s *Single) Script(args []string) ([]string, error) {
-	return nil, nil
-}
-
-func (s *Single) SetIn(r io.Reader)  {}
-func (s *Single) SetOut(w io.Writer) {}
-func (s *Single) SetErr(w io.Writer) {}
-
-func (s *Single) Execute(ctx context.Context, args []string) error {
-	return nil
-}
-
-func (s *Single) Prepare() (Executer, error) {
+func (s CommandSettings) Prepare() (Executer, error) {
 	sh, err := shell.New(shell.WithEnv(s.locals.Copy()))
 	if err != nil {
 		return nil, err

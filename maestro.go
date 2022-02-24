@@ -105,7 +105,7 @@ func (m *Maestro) Load(file string) error {
 	return nil
 }
 
-func (m *Maestro) Register(ns string, cmd *Single) error {
+func (m *Maestro) Register(ns string, cmd CommandSettings) error {
 	var (
 		key   = makeKey(ns, cmd.Name)
 		_, ok = m.Commands[key]
@@ -183,18 +183,14 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 		grp, ctx = errgroup.WithContext(parent)
 	)
 	for _, c := range m.Commands {
-		s, ok := c.(*Single)
-		if !ok {
-			continue
-		}
-		for i := range s.Schedules {
-			c, err := s.Prepare()
+		for i := range c.Schedules {
+			x, err := c.Prepare()
 			if err != nil {
 				return err
 			}
-			e := s.Schedules[i]
+			e := c.Schedules[i]
 			grp.Go(func() error {
-				return e.Run(ctx, c, stdout, stderr)
+				return e.Run(ctx, x, stdout, stderr)
 			})
 		}
 	}
@@ -213,11 +209,7 @@ func (m *Maestro) scheduleList(args []string, limit int) error {
 func (m *Maestro) showScheduleShort(args []string) {
 	now := time.Now()
 	for _, c := range m.getCommandByNames(args) {
-		s, ok := c.(*Single)
-		if !ok || len(s.Schedules) == 0 {
-			continue
-		}
-		for _, s := range s.Schedules {
+		for _, s := range c.Schedules {
 			var wait time.Duration
 			for wait <= 0 {
 				next := s.Sched.Next()
@@ -231,11 +223,7 @@ func (m *Maestro) showScheduleShort(args []string) {
 
 func (m *Maestro) showScheduleLong(args []string, limit int) {
 	for _, c := range m.getCommandByNames(args) {
-		s, ok := c.(*Single)
-		if !ok || len(s.Schedules) == 0 {
-			continue
-		}
-		for _, s := range s.Schedules {
+		for _, s := range c.Schedules {
 			fmt.Fprintln(stdio.Stdout, "*", c.Command())
 			prefix := "next"
 			for i := 0; i < limit; i++ {
@@ -248,10 +236,10 @@ func (m *Maestro) showScheduleLong(args []string, limit int) {
 	}
 }
 
-func (m *Maestro) getCommandByNames(names []string) []Command {
+func (m *Maestro) getCommandByNames(names []string) []CommandSettings {
 	var (
-		cs  []Command
-		all []Command
+		cs  []CommandSettings
+		all []CommandSettings
 	)
 	sort.Strings(names)
 	for n, c := range m.Commands {
@@ -371,7 +359,7 @@ func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Wr
 	if !cmd.Remote() {
 		return fmt.Errorf("%s: command can not be executed on remote server", name)
 	}
-	ex, err := getExecuter(cmd)
+	ex, err := cmd.Prepare()
 	if err != nil {
 		return err
 	}
@@ -380,7 +368,7 @@ func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Wr
 		return err
 	}
 	if m.MetaSSH.Parallel <= 0 {
-		n := len(cmd.Targets())
+		n := len(cmd.Hosts)
 		m.MetaSSH.Parallel = int64(n)
 	}
 	var (
@@ -397,7 +385,7 @@ func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Wr
 	go io.Copy(stdout, pout)
 	go io.Copy(stderr, perr)
 
-	for _, h := range cmd.Targets() {
+	for _, h := range cmd.Hosts {
 		if _, ok := seen[h]; ok {
 			continue
 		}
@@ -408,14 +396,14 @@ func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Wr
 		host := h
 		grp.Go(func() error {
 			defer sema.Release(1)
-			return m.executeHost(ctx, cmd, host, scripts, sshout, ssherr)
+			return m.executeHost(ctx, ex, host, scripts, sshout, ssherr)
 		})
 	}
 	sema.Acquire(parent, m.MetaSSH.Parallel)
 	return grp.Wait()
 }
 
-func (m *Maestro) executeHost(ctx context.Context, cmd Command, addr string, scripts []string, stdout, stderr io.Writer) error {
+func (m *Maestro) executeHost(ctx context.Context, cmd Executer, addr string, scripts []string, stdout, stderr io.Writer) error {
 	var (
 		prefix = fmt.Sprintf("%s;%s;%s", m.MetaSSH.User, addr, cmd.Command())
 		exec   = func(sess *ssh.Session, line string) error {
@@ -462,13 +450,13 @@ func (m *Maestro) help() (string, error) {
 		Help     string
 		Usage    string
 		Version  string
-		Commands map[string][]Command
+		Commands map[string][]CommandSettings
 	}{
 		Version:  m.Version,
 		File:     m.Name(),
 		Usage:    m.Usage,
 		Help:     m.Help,
-		Commands: make(map[string][]Command),
+		Commands: make(map[string][]CommandSettings),
 	}
 	for _, c := range m.Commands {
 		if c.Blocked() || !c.Can() {
@@ -486,7 +474,7 @@ func (m *Maestro) help() (string, error) {
 	return help.Maestro(h)
 }
 
-func (m *Maestro) canExecute(cmd Command) error {
+func (m *Maestro) canExecute(cmd CommandSettings) error {
 	if cmd.Blocked() {
 		return fmt.Errorf("%s: command can not be called", cmd.Command())
 	}
@@ -534,11 +522,7 @@ func (m *Maestro) resolve(cmd Executer, args []string, option ctreeOption) (exec
 func (m *Maestro) resolveList(names []string) ([]Executer, error) {
 	var list []Executer
 	for _, n := range names {
-		c, err := m.Commands.Lookup(n)
-		if err != nil {
-			return nil, err
-		}
-		x, err := getExecuter(c)
+		x, err := m.Commands.Prepare(n)
 		if err != nil {
 			return nil, err
 		}
@@ -594,7 +578,7 @@ func (m *Maestro) setup(ctx context.Context, name string, can bool) (Executer, e
 	if err := m.canExecute(cmd); can && err != nil {
 		return nil, err
 	}
-	ex, err := getExecuter(cmd)
+	ex, err := cmd.Prepare()
 	if err != nil {
 		return nil, err
 	}
@@ -602,7 +586,7 @@ func (m *Maestro) setup(ctx context.Context, name string, can bool) (Executer, e
 		Register(context.Context, Executer)
 	}); ok {
 		for _, c := range m.Commands {
-			other, err := getExecuter(c)
+			other, err := c.Prepare()
 			if err != nil {
 				return nil, err
 			}
@@ -616,13 +600,7 @@ func (m *Maestro) suggest(err error, name string) error {
 	var all []string
 	for _, c := range m.Commands {
 		all = append(all, c.Command())
-		s, ok := c.(*Single)
-		if !ok {
-			continue
-		}
-		for _, a := range s.Alias {
-			all = append(all, a)
-		}
+		all = append(all, c.Alias...)
 	}
 	all = append(all, CmdHelp, CmdVersion, CmdAll, CmdDefault, CmdServe, CmdGraph, CmdSchedule)
 	return Suggest(err, name, all)
@@ -633,14 +611,11 @@ func (m *Maestro) traverseGraph(name string, level int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, ok := cmd.(*Single)
-	if !ok {
-		return nil, nil
-	}
+
 	fmt.Fprintf(stdio.Stdout, "%s- %s", strings.Repeat(" ", level*2), name)
 	fmt.Fprintln(stdio.Stdout)
 	var list []string
-	for _, d := range s.Deps {
+	for _, d := range cmd.Deps {
 		others, err := m.traverseGraph(d.Name, level+1)
 		if err != nil {
 			return nil, err
@@ -718,9 +693,17 @@ type MetaHttp struct {
 	Base     string
 }
 
-type Registry map[commandKey]Command
+type Registry map[commandKey]CommandSettings
 
-func (r Registry) Lookup(name string) (Command, error) {
+func (r Registry) Prepare(name string) (Executer, error) {
+	cmd, err := r.Lookup(name)
+	if err != nil {
+		return nil, err
+	}
+	return cmd.Prepare()
+}
+
+func (r Registry) Lookup(name string) (CommandSettings, error) {
 	var (
 		key     = defaultKey(name)
 		cmd, ok = r[key]
@@ -732,16 +715,12 @@ func (r Registry) Lookup(name string) (Command, error) {
 		if k.Space != key.Space {
 			continue
 		}
-		s, ok := c.(*Single)
-		if !ok {
-			continue
-		}
-		i := sort.SearchStrings(s.Alias, key.Name)
-		if i < len(s.Alias) && s.Alias[i] == key.Name {
+		i := sort.SearchStrings(c.Alias, key.Name)
+		if i < len(c.Alias) && c.Alias[i] == key.Name {
 			return c, nil
 		}
 	}
-	return nil, fmt.Errorf("%s: command not defined", name)
+	return cmd, fmt.Errorf("%s: command not defined", name)
 }
 
 type commandKey struct {
@@ -811,14 +790,6 @@ func hasHelp(args []string) bool {
 		return false
 	}
 	return as[i] == "-h" || as[i] == "-help" || as[i] == "--help"
-}
-
-func getExecuter(cmd Command) (Executer, error) {
-	s, ok := cmd.(*Single)
-	if !ok {
-		return nil, fmt.Errorf("%s: unsupported command type", cmd.Command())
-	}
-	return s.Prepare()
 }
 
 func interruptContext() context.Context {

@@ -504,7 +504,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if hidden = d.curr().Type == Hidden; hidden {
 		d.next()
 	}
-	cmd, err := NewSingleWithLocals(d.curr().Literal, d.locals)
+	cmd, err := NewCommandSettingsWithLocals(d.curr().Literal, d.locals)
 	if err != nil {
 		return err
 	}
@@ -517,17 +517,17 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	cmd.Visible = !hidden
 	d.next()
 	if d.curr().Type == BegList {
-		if err := d.decodeCommandProperties(cmd); err != nil {
+		if err := d.decodeCommandProperties(&cmd); err != nil {
 			return err
 		}
 	}
 	if d.curr().Type == Dependency {
-		if err := d.decodeCommandDependencies(cmd); err != nil {
+		if err := d.decodeCommandDependencies(&cmd); err != nil {
 			return err
 		}
 	}
 	if d.curr().Type == BegScript {
-		if err := d.decodeCommandScripts(cmd, mst); err != nil {
+		if err := d.decodeCommandScripts(&cmd, mst); err != nil {
 			return err
 		}
 	}
@@ -537,7 +537,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandProperties(cmd *Single) error {
+func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 	return d.decodeObject(func() error {
 		var (
 			curr = d.curr()
@@ -592,7 +592,7 @@ func (d *Decoder) decodeCommandProperties(cmd *Single) error {
 	})
 }
 
-func (d *Decoder) decodeCommandSchedule(cmd *Single) error {
+func (d *Decoder) decodeCommandSchedule(cmd *CommandSettings) error {
 	var done bool
 	for !d.done() && !done {
 		if t := d.curr().Type; t != BegList {
@@ -783,7 +783,7 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 	})
 }
 
-func (d *Decoder) decodeCommandOptions(cmd *Single) error {
+func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 	var done bool
 	for !d.done() && !done {
 		if t := d.curr().Type; t != BegList {
@@ -912,7 +912,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 	return list, nil
 }
 
-func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
+func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 	d.next()
 	for !d.done() {
 		if d.curr().Type == BegScript {
@@ -983,7 +983,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *Single) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandHelp(cmd *Single) error {
+func (d *Decoder) decodeCommandHelp(cmd *CommandSettings) error {
 	var (
 		help strings.Builder
 		prev string
@@ -1003,7 +1003,7 @@ func (d *Decoder) decodeCommandHelp(cmd *Single) error {
 	return nil
 }
 
-func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
+func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error {
 	d.next()
 	if err := d.decodeCommandHelp(cmd); err != nil {
 		return err
@@ -1028,11 +1028,7 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 			if err != nil {
 				return err
 			}
-			called, ok := other.(*Single)
-			if !ok {
-				return fmt.Errorf("call can only be made for single command")
-			}
-			for _, s := range called.Lines {
+			for _, s := range other.Lines {
 				// TODO: clone/copy shell env of called called to s
 				cmd.Lines = append(cmd.Lines, s)
 			}
@@ -1085,7 +1081,7 @@ func (d *Decoder) decodeScriptLine() (CommandLine, error) {
 	return line, nil
 }
 
-func (d *Decoder) decodeScriptMacro(cmd *Single, mst *Maestro) error {
+func (d *Decoder) decodeScriptMacro(cmd *CommandSettings, mst *Maestro) error {
 	var err error
 	switch macro := d.curr().Literal; macro {
 	case macroRepeat:
