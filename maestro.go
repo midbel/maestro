@@ -119,14 +119,7 @@ func (m *Maestro) Register(ns string, cmd *Single) error {
 	case dupReplace, "":
 		m.Commands[key] = cmd
 	case dupAppend:
-		if mul, ok := curr.(Combined); ok {
-			curr = append(mul, cmd)
-			break
-		}
-		mul := make(Combined, 0, 2)
-		mul = append(mul, curr)
-		mul = append(mul, cmd)
-		m.Commands[key] = mul
+		return fmt.Errorf("APPEND: not yet implemented")
 	default:
 		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
 	}
@@ -386,6 +379,9 @@ func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Wr
 	cmd, err := m.prepare(name)
 	if err != nil {
 		return err
+	}
+	if !cmd.Remote() {
+		return fmt.Errorf("%s: command can not be executed on remote server", name)
 	}
 	scripts, err := cmd.Script(args)
 	if err != nil {
