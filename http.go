@@ -3,7 +3,7 @@ package maestro
 import (
 	"context"
 	"errors"
-	"fmt"
+	// "fmt"
 	"io"
 	"net/http"
 	"path"
@@ -108,20 +108,21 @@ var (
 )
 
 func executeCommand(ctx context.Context, w io.Writer, name string, option ctreeOption, mst *Maestro) error {
-	cmd, err := mst.prepare(name)
-	if err != nil {
-		return errNotFound
-	}
-	ex, err := mst.resolve(cmd, nil, option)
-	if err != nil {
-		return errResolve
-	}
-	if c, ok := ex.(io.Closer); ok {
-		defer c.Close()
-	}
-	err = ex.Execute(ctx, w, w)
-	if err != nil {
-		err = fmt.Errorf("%w %s: %s", errExecute, name, err)
-	}
-	return err
+	// cmd, err := mst.prepare(name)
+	// if err != nil {
+	// 	return errNotFound
+	// }
+	// ex, err := mst.resolve(cmd, nil, option)
+	// if err != nil {
+	// 	return errResolve
+	// }
+	// if c, ok := ex.(io.Closer); ok {
+	// 	defer c.Close()
+	// }
+	// err = ex.Execute(ctx, w, w)
+	// if err != nil {
+	// 	err = fmt.Errorf("%w %s: %s", errExecute, name, err)
+	// }
+	// return err
+	return nil
 }

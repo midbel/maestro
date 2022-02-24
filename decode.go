@@ -508,12 +508,12 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range d.env {
-		cmd.shell.Export(k, v)
-	}
-	for k, v := range d.alias {
-		cmd.shell.Alias(k, v)
-	}
+	// for k, v := range d.env {
+	// 	cmd.shell.Export(k, v)
+	// }
+	// for k, v := range d.alias {
+	// 	cmd.shell.Alias(k, v)
+	// }
 	cmd.Visible = !hidden
 	d.next()
 	if d.curr().Type == BegList {
@@ -1024,7 +1024,7 @@ func (d *Decoder) decodeCommandScripts(cmd *Single, mst *Maestro) error {
 		}
 		if d.curr().Type == Copy {
 			d.next()
-			other, err := mst.lookup(d.curr().Literal)
+			other, err := mst.Commands.Lookup(d.curr().Literal)
 			if err != nil {
 				return err
 			}
@@ -1190,7 +1190,6 @@ func (d *Decoder) decodeQuote() (string, error) {
 				return "", err
 			}
 			if len(vs) != 1 {
-				fmt.Println(d.curr(), vs)
 				return "", fmt.Errorf("quote: too many values")
 			}
 			str = append(str, vs[0])

@@ -27,6 +27,7 @@ const (
 
 type Executer interface {
 	Command() string
+	Dependencies() []CommandDep
 
 	Script([]string) ([]string, error)
 	Dry([]string) error
@@ -130,7 +131,6 @@ type Single struct {
 	Schedules []Schedule
 
 	locals *env.Env
-	shell  *shell.Shell
 }
 
 func NewSingle(name string) (*Single, error) {
@@ -138,23 +138,13 @@ func NewSingle(name string) (*Single, error) {
 }
 
 func NewSingleWithLocals(name string, locals *env.Env) (*Single, error) {
-	if locals == nil {
-		locals = env.EmptyEnv()
-	} else {
-		locals = locals.Copy()
-	}
-	options := []shell.ShellOption{
-		shell.WithEnv(locals),
-	}
-	sh, err := shell.New(options...)
-	if err != nil {
-		return nil, err
-	}
 	cmd := Single{
 		Name:   name,
 		Error:  errSilent,
-		shell:  sh,
 		locals: locals,
+	}
+	if cmd.locals == nil {
+		cmd.locals = env.EmptyEnv()
 	}
 	return &cmd, nil
 }
@@ -259,184 +249,23 @@ func (s *Single) Targets() []string {
 }
 
 func (s *Single) Dry(args []string) error {
-	args, err := s.parseArgs(args)
-	if err != nil {
-		return err
-	}
-	for _, cmd := range s.Lines {
-		err := s.shell.Dry(cmd.Line, s.Name, args)
-		if err != nil && s.Error == errRaise {
-			return err
-		}
-	}
+	return nil
+}
+
+func (s *Single) Dependencies() []CommandDep {
 	return nil
 }
 
 func (s *Single) Script(args []string) ([]string, error) {
-	args, err := s.parseArgs(args)
-	if err != nil {
-		return nil, err
-	}
-	var list []string
-	for _, i := range s.Lines {
-		rs, err := shell.Expand(i.Line, args, s.shell)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, rs...)
-	}
-	return list, nil
+	return nil, nil
 }
 
-func (s *Single) SetIn(r io.Reader) {
-	s.shell.SetIn(r)
-}
-
-func (s *Single) SetOut(w io.Writer) {
-	s.shell.SetOut(w)
-}
-
-func (s *Single) SetErr(w io.Writer) {
-	s.shell.SetErr(w)
-}
+func (s *Single) SetIn(r io.Reader)  {}
+func (s *Single) SetOut(w io.Writer) {}
+func (s *Single) SetErr(w io.Writer) {}
 
 func (s *Single) Execute(ctx context.Context, args []string) error {
-	args, err := s.parseArgs(args)
-	if err != nil {
-		return err
-	}
-	if s.Retry <= 0 {
-		s.Retry = 1
-	}
-	if s.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.Timeout)
-		defer cancel()
-	}
-	for i := int64(0); i < s.Retry; i++ {
-		err = s.execute(ctx, args)
-		if err == nil {
-			break
-		}
-	}
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		return err
-	}
-	return err
-}
-
-func (s *Single) execute(ctx context.Context, args []string) error {
-	for _, cmd := range s.Lines {
-		if err := ctx.Err(); err != nil {
-			break
-		}
-		sh := s.shell
-		if cmd.Subshell {
-			sh, _ = sh.Subshell()
-		}
-		sh.SetEcho(cmd.Echo)
-		err := sh.Execute(ctx, cmd.Line, s.Name, args)
-		if cmd.Reverse {
-			if err == nil {
-				err = fmt.Errorf("command succeed")
-			} else {
-				err = nil
-			}
-		}
-		if !cmd.Ignore && err != nil && s.Error == errRaise {
-			return err
-		}
-	}
 	return nil
-}
-
-func (s *Single) parseArgs(args []string) ([]string, error) {
-	set, err := s.prepareArgs(args)
-	if err != nil {
-		return nil, err
-	}
-	define := func(name, value string) error {
-		if name == "" {
-			return nil
-		}
-		return s.shell.Define(name, []string{value})
-	}
-	defineFlag := func(name string, value bool) error {
-		return define(name, strconv.FormatBool(value))
-	}
-	for _, o := range s.Options {
-		if err := o.Validate(); err != nil {
-			return nil, err
-		}
-		var e1, e2 error
-		if o.Flag {
-			e1 = defineFlag(o.Short, o.TargetFlag)
-			e2 = defineFlag(o.Long, o.TargetFlag)
-		} else {
-			e1 = define(o.Short, o.Target)
-			e2 = define(o.Long, o.Target)
-		}
-		if err := hasError(e1, e2); err != nil {
-			return nil, err
-		}
-	}
-	if z := len(s.Args); z > 0 && set.NArg() < z {
-		return nil, fmt.Errorf("%s: no enough argument supplied! expected %d, got %d", s.Name, z, set.NArg())
-	}
-	return set.Args(), nil
-}
-
-func (s *Single) prepareArgs(args []string) (*flag.FlagSet, error) {
-	var (
-		set  = flag.NewFlagSet(s.Name, flag.ExitOnError)
-		seen = make(map[string]struct{})
-	)
-	set.Usage = func() {
-		help, _ := s.Help()
-		fmt.Fprintln(os.Stdout, strings.TrimSpace(help))
-		os.Exit(1)
-	}
-	check := func(name string) error {
-		if name == "" {
-			return nil
-		}
-		if _, ok := seen[name]; ok {
-			return fmt.Errorf("%s: option already defined", name)
-		}
-		seen[name] = struct{}{}
-		return nil
-	}
-	attach := func(name, help, value string, target *string) error {
-		err := check(name)
-		if err == nil {
-			set.StringVar(target, name, value, help)
-		}
-		return err
-	}
-	attachFlag := func(name, help string, value bool, target *bool) error {
-		err := check(name)
-		if err == nil {
-			set.BoolVar(target, name, value, help)
-		}
-		return err
-	}
-	for i, o := range s.Options {
-		var e1, e2 error
-		if o.Flag {
-			e1 = attachFlag(o.Short, o.Help, o.DefaultFlag, &s.Options[i].TargetFlag)
-			e2 = attachFlag(o.Long, o.Help, o.DefaultFlag, &s.Options[i].TargetFlag)
-		} else {
-			e1 = attach(o.Short, o.Help, o.Default, &s.Options[i].Target)
-			e2 = attach(o.Long, o.Help, o.Default, &s.Options[i].Target)
-		}
-		if err := hasError(e1, e2); err != nil {
-			return nil, err
-		}
-	}
-	if err := set.Parse(args); err != nil {
-		return nil, err
-	}
-	return set, nil
 }
 
 func (s *Single) Prepare() (Executer, error) {
@@ -454,6 +283,7 @@ func (s *Single) Prepare() (Executer, error) {
 	cmd.lines = append(cmd.lines, s.Lines...)
 	cmd.options = append(cmd.options, s.Options...)
 	cmd.args = append(cmd.args, s.Args...)
+	cmd.deps = append(cmd.deps, s.Deps...)
 
 	return &cmd, nil
 }
@@ -461,6 +291,7 @@ func (s *Single) Prepare() (Executer, error) {
 type command struct {
 	name string
 	help string
+	deps []CommandDep
 
 	retry   int64
 	timeout time.Duration
@@ -476,6 +307,10 @@ func (c *command) Command() string {
 	return c.name
 }
 
+func (c *command) Dependencies() []CommandDep {
+	return c.deps
+}
+
 func (c *command) SetOut(w io.Writer) {
 	c.shell.SetOut(w)
 }
@@ -484,7 +319,7 @@ func (c *command) SetErr(w io.Writer) {
 	c.shell.SetErr(w)
 }
 
-func (c *command) Register(ctx context.Context, other Command) {
+func (c *command) Register(ctx context.Context, other Executer) {
 	cmd := makeShellCommand(ctx, other)
 	c.shell.Register(cmd)
 }

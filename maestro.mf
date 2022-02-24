@@ -57,11 +57,11 @@ build(
 	), (
 		time = 10 23 * * sat;sun,
 	)
-): tidy, format, test, verify {
+): tidy, format, verify {
 	# build the maestro binary and the tish shell
-	rm -f ${bindir,,}/${maestro,,}
-	rm -f ${bindir,,}/${tish,,}
 
+	$clean && rm -f ${bindir,,}/${maestro,,}
+	$clean && rm -f ${bindir,,}/${tish,,}
 	$clean && go clean -cache
 
 	version = $(git tag | tail -n 1)
@@ -167,7 +167,6 @@ countbis(
 	),
 ): format {
 	# reports the number of lines and remaining todos in the project
-	echo "args: $@"
 	<loc
 	<todo
 }

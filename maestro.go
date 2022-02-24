@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/distance"
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
 	"github.com/midbel/maestro/internal/stdio"
@@ -58,7 +59,7 @@ type Maestro struct {
 	Includes  Dirs
 	Locals    *env.Env
 	Duplicate string
-	Commands  map[commandKey]Command
+	Commands  Registry
 
 	Remote     bool
 	NoDeps     bool
@@ -78,7 +79,7 @@ func New() *Maestro {
 		MetaAbout: about,
 		MetaHttp:  mhttp,
 		Duplicate: dupReplace,
-		Commands:  make(map[commandKey]Command),
+		Commands:  make(Registry),
 	}
 }
 
@@ -267,15 +268,11 @@ func (m *Maestro) getCommandByNames(names []string) []Command {
 }
 
 func (m *Maestro) Dry(name string, args []string) error {
-	cmd, err := m.prepare(name)
+	cmd, err := m.setup(interruptContext(), name, true)
 	if err != nil {
 		return err
 	}
 	return cmd.Dry(args)
-}
-
-func (m *Maestro) Execute(name string, args []string) error {
-	return m.execute(name, args, stdio.Stdout, stdio.Stderr)
 }
 
 func (m *Maestro) ExecuteDefault(args []string) error {
@@ -305,33 +302,31 @@ func (m *Maestro) ExecuteVersion() error {
 	return m.executeVersion(stdio.Stdout)
 }
 
-func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) error {
+func (m *Maestro) Execute(name string, args []string) error {
 	if hasHelp(args) {
 		return m.ExecuteHelp(name)
-	}
-	if m.Remote {
-		return m.executeRemote(name, args, stdout, stderr)
 	}
 	if m.MetaExec.Dry {
 		return m.Dry(name, args)
 	}
-	cmd, err := m.prepare(name)
+	if m.Remote {
+		return m.executeRemote(name, args, stdio.Stdout, stdio.Stderr)
+	}
+	return m.execute(name, args, stdio.Stdout, stdio.Stderr)
+}
+
+func (m *Maestro) execute(name string, args []string, stdout, stderr io.Writer) error {
+	ctx := interruptContext()
+	cmd, err := m.setup(ctx, name, true)
 	if err != nil {
 		return err
 	}
-	if err := m.canExecute(cmd); err != nil {
-		return err
+	option := ctreeOption{
+		Trace:  m.Trace,
+		NoDeps: m.NoDeps,
+		Prefix: m.WithPrefix,
+		Ignore: m.Ignore,
 	}
-
-	var (
-		ctx    = interruptContext()
-		option = ctreeOption{
-			Trace:  m.Trace,
-			NoDeps: m.NoDeps,
-			Prefix: m.WithPrefix,
-			Ignore: m.Ignore,
-		}
-	)
 	ex, err := m.resolve(cmd, args, option)
 	if err != nil {
 		return err
@@ -348,7 +343,7 @@ func (m *Maestro) executeHelp(name string, w io.Writer) error {
 		err  error
 	)
 	if name != "" {
-		cmd, err := m.lookup(name)
+		cmd, err := m.Commands.Lookup(name)
 		if err != nil {
 			return err
 		}
@@ -369,14 +364,18 @@ func (m *Maestro) executeVersion(w io.Writer) error {
 }
 
 func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Writer) error {
-	cmd, err := m.prepare(name)
+	cmd, err := m.Commands.Lookup(name)
 	if err != nil {
 		return err
 	}
 	if !cmd.Remote() {
 		return fmt.Errorf("%s: command can not be executed on remote server", name)
 	}
-	scripts, err := cmd.Script(args)
+	ex, err := getExecuter(cmd)
+	if err != nil {
+		return err
+	}
+	scripts, err := ex.Script(args)
 	if err != nil {
 		return err
 	}
@@ -500,19 +499,19 @@ func (m *Maestro) canExecute(cmd Command) error {
 	return nil
 }
 
-func (m *Maestro) resolve(cmd Command, args []string, option ctreeOption) (executer, error) {
-	var list deplist
+func (m *Maestro) resolve(cmd Executer, args []string, option ctreeOption) (executer, error) {
+	var (
+		list deplist
+		err  error
+	)
 	if !option.NoDeps {
-		deps, err := m.resolveDependencies(cmd, option)
+		list, err = m.resolveDependencies(cmd, option)
 		if err != nil {
 			return nil, err
 		}
-		list = deps
 	}
-	var (
-		root = createMain(cmd, args, list)
-		err  error
-	)
+
+	root := createMain(cmd, args, list)
 	root.ignore = option.Ignore
 	root.pre, err = m.resolveList(m.Before)
 	root.post, err = m.resolveList(m.After)
@@ -532,37 +531,37 @@ func (m *Maestro) resolve(cmd Command, args []string, option ctreeOption) (execu
 	return &tree, nil
 }
 
-func (m *Maestro) resolveList(names []string) ([]Command, error) {
-	var list []Command
+func (m *Maestro) resolveList(names []string) ([]Executer, error) {
+	var list []Executer
 	for _, n := range names {
-		c, err := m.lookup(n)
+		c, err := m.Commands.Lookup(n)
 		if err != nil {
 			return nil, err
 		}
-		list = append(list, c)
+		x, err := getExecuter(c)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, x)
 	}
 	return list, nil
 }
 
-func (m *Maestro) resolveDependencies(cmd Command, option ctreeOption) (deplist, error) {
+func (m *Maestro) resolveDependencies(cmd Executer, option ctreeOption) (deplist, error) {
 	var (
-		traverse func(Command) (deplist, error)
+		traverse func(Executer) (deplist, error)
 		seen     = make(map[string]struct{})
 		empty    = struct{}{}
 	)
 
-	traverse = func(cmd Command) (deplist, error) {
-		s, ok := cmd.(*Single)
-		if !ok {
-			return nil, nil
-		}
+	traverse = func(cmd Executer) (deplist, error) {
 		var set []executer
-		for _, d := range s.Deps {
+		for _, d := range cmd.Dependencies() {
 			if _, ok := seen[d.Name]; ok && !d.Mandatory {
 				continue
 			}
 			seen[d.Name] = empty
-			c, err := m.prepare(d.Name)
+			c, err := m.setup(context.Background(), d.Name, false)
 			if err != nil {
 				if d.Optional && !d.Mandatory {
 					continue
@@ -580,7 +579,6 @@ func (m *Maestro) resolveDependencies(cmd Command, option ctreeOption) (deplist,
 			if option.Trace {
 				ex = trace(ex)
 			}
-
 			set = append(set, ex)
 		}
 		return deplist(set), nil
@@ -588,18 +586,30 @@ func (m *Maestro) resolveDependencies(cmd Command, option ctreeOption) (deplist,
 	return traverse(cmd)
 }
 
-func (m *Maestro) prepare(name string) (Command, error) {
-	cmd, err := m.lookup(name)
+func (m *Maestro) setup(ctx context.Context, name string, can bool) (Executer, error) {
+	cmd, err := m.Commands.Lookup(name)
 	if err != nil {
 		return nil, m.suggest(err, name)
 	}
-	if curr, ok := cmd.(*Single); ok {
+	if err := m.canExecute(cmd); can && err != nil {
+		return nil, err
+	}
+	ex, err := getExecuter(cmd)
+	if err != nil {
+		return nil, err
+	}
+	if r, ok := ex.(interface {
+		Register(context.Context, Executer)
+	}); ok {
 		for _, c := range m.Commands {
-			s := makeShellCommand(context.TODO(), c)
-			curr.shell.Register(s)
+			other, err := getExecuter(c)
+			if err != nil {
+				return nil, err
+			}
+			r.Register(ctx, other)
 		}
 	}
-	return cmd, nil
+	return ex, nil
 }
 
 func (m *Maestro) suggest(err error, name string) error {
@@ -618,35 +628,8 @@ func (m *Maestro) suggest(err error, name string) error {
 	return Suggest(err, name, all)
 }
 
-func (m *Maestro) lookup(name string) (Command, error) {
-	if name == "" {
-		name = m.MetaExec.Default
-	}
-	var (
-		key     = defaultKey(name)
-		cmd, ok = m.Commands[key]
-	)
-	if ok {
-		return cmd, nil
-	}
-	for k, c := range m.Commands {
-		if k.Space != key.Space {
-			continue
-		}
-		s, ok := c.(*Single)
-		if !ok {
-			continue
-		}
-		i := sort.SearchStrings(s.Alias, key.Name)
-		if i < len(s.Alias) && s.Alias[i] == key.Name {
-			return c, nil
-		}
-	}
-	return nil, fmt.Errorf("%s: command not defined", name)
-}
-
 func (m *Maestro) traverseGraph(name string, level int) ([]string, error) {
-	cmd, err := m.lookup(name)
+	cmd, err := m.Commands.Lookup(name)
 	if err != nil {
 		return nil, err
 	}
@@ -735,6 +718,32 @@ type MetaHttp struct {
 	Base     string
 }
 
+type Registry map[commandKey]Command
+
+func (r Registry) Lookup(name string) (Command, error) {
+	var (
+		key     = defaultKey(name)
+		cmd, ok = r[key]
+	)
+	if ok {
+		return cmd, nil
+	}
+	for k, c := range r {
+		if k.Space != key.Space {
+			continue
+		}
+		s, ok := c.(*Single)
+		if !ok {
+			continue
+		}
+		i := sort.SearchStrings(s.Alias, key.Name)
+		if i < len(s.Alias) && s.Alias[i] == key.Name {
+			return c, nil
+		}
+	}
+	return nil, fmt.Errorf("%s: command not defined", name)
+}
+
 type commandKey struct {
 	Space string
 	Name  string
@@ -755,6 +764,26 @@ func makeKey(ns, name string) commandKey {
 		Space: ns,
 		Name:  name,
 	}
+}
+
+type SuggestionError struct {
+	Others []string
+	Err    error
+}
+
+func Suggest(err error, name string, names []string) error {
+	names = distance.Levenshtein(name, names)
+	if len(names) == 0 {
+		return err
+	}
+	return SuggestionError{
+		Err:    err,
+		Others: names,
+	}
+}
+
+func (s SuggestionError) Error() string {
+	return s.Err.Error()
 }
 
 const defaultKnownHost = "~/.ssh/known_hosts"
@@ -782,6 +811,14 @@ func hasHelp(args []string) bool {
 		return false
 	}
 	return as[i] == "-h" || as[i] == "-help" || as[i] == "--help"
+}
+
+func getExecuter(cmd Command) (Executer, error) {
+	s, ok := cmd.(*Single)
+	if !ok {
+		return nil, fmt.Errorf("%s: unsupported command type", cmd.Command())
+	}
+	return s.Prepare()
 }
 
 func interruptContext() context.Context {

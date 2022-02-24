@@ -68,24 +68,24 @@ func (c *ctree) Close() error {
 }
 
 type execmain struct {
-	Command
+	Executer
 	args []string
 
 	list deplist
 
 	ignore bool
 
-	pre     []Command
-	post    []Command
-	success []Command
-	errors  []Command
+	pre     []Executer
+	post    []Executer
+	success []Executer
+	errors  []Executer
 }
 
-func createMain(cmd Command, args []string, list deplist) execmain {
+func createMain(cmd Executer, args []string, list deplist) execmain {
 	return execmain{
-		Command: cmd,
-		args:    args,
-		list:    list,
+		Executer: cmd,
+		args:     args,
+		list:     list,
 	}
 }
 
@@ -96,10 +96,10 @@ func (e execmain) Execute(ctx context.Context, stdout, stderr io.Writer) error {
 	if err := e.list.Execute(ctx, stdout, stderr); err != nil {
 		return err
 	}
-	prepare(e.Command, stdout, stderr)
+	prepare(e.Executer, stdout, stderr)
 	var (
 		next = e.success
-		err  = e.Command.Execute(ctx, e.args)
+		err  = e.Executer.Execute(ctx, e.args)
 	)
 	if e.ignore && err != nil {
 		err = nil
@@ -111,7 +111,7 @@ func (e execmain) Execute(ctx context.Context, stdout, stderr io.Writer) error {
 	return err
 }
 
-func (e execmain) executeList(ctx context.Context, list []Command, stdout, stderr io.Writer) error {
+func (e execmain) executeList(ctx context.Context, list []Executer, stdout, stderr io.Writer) error {
 	if len(list) == 0 {
 		return nil
 	}
@@ -154,18 +154,18 @@ func (el deplist) Execute(ctx context.Context, stdout, stderr io.Writer) error {
 }
 
 type execdep struct {
-	Command
+	Executer
 	args []string
 
 	list       deplist
 	background bool
 }
 
-func createDep(cmd Command, args []string, list deplist) execdep {
+func createDep(cmd Executer, args []string, list deplist) execdep {
 	return execdep{
-		Command: cmd,
-		args:    args,
-		list:    list,
+		Executer: cmd,
+		args:     args,
+		list:     list,
 	}
 }
 
@@ -173,8 +173,8 @@ func (e execdep) Execute(ctx context.Context, stdout, stderr io.Writer) error {
 	if err := e.list.Execute(ctx, stdout, stderr); err != nil {
 		return err
 	}
-	prepare(e.Command, stdout, stderr)
-	return e.Command.Execute(ctx, e.args)
+	prepare(e.Executer, stdout, stderr)
+	return e.Executer.Execute(ctx, e.args)
 }
 
 func (e execdep) Bg() bool {
@@ -199,7 +199,7 @@ func (e exectrace) Execute(ctx context.Context, stdout, stderr io.Writer) error 
 	)
 	setPrefix(stderr, "trace")
 	if err != nil {
-		fmt.Fprintln(stderr, "fail")
+		fmt.Fprintln(stderr, "error:", err)
 	}
 	fmt.Fprintf(stderr, "time: %.3fs", elapsed.Seconds())
 	fmt.Fprintln(stderr)
@@ -260,7 +260,7 @@ func (p *pipe) Read(b []byte) (int, error) {
 	return n, p.scan.Err()
 }
 
-func prepare(cmd Command, stdout, stderr io.Writer) {
+func prepare(cmd Executer, stdout, stderr io.Writer) {
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
 	setPrefix(stdout, cmd.Command())
