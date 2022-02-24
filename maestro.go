@@ -352,12 +352,9 @@ func (m *Maestro) executeVersion(w io.Writer) error {
 }
 
 func (m *Maestro) executeRemote(name string, args []string, stdout, stderr io.Writer) error {
-	cmd, err := m.Commands.Lookup(name)
+	cmd, err := m.Commands.LookupRemote(name)
 	if err != nil {
 		return err
-	}
-	if !cmd.Remote() {
-		return fmt.Errorf("%s: command can not be executed on remote server", name)
 	}
 	ex, err := cmd.Prepare()
 	if err != nil {
@@ -701,6 +698,17 @@ func (r Registry) Prepare(name string) (Executer, error) {
 		return nil, err
 	}
 	return cmd.Prepare()
+}
+
+func (r Registry) LookupRemote(name string) (CommandSettings, error) {
+	cmd, err := r.Lookup(name)
+	if err != nil {
+		return cmd, err
+	}
+	if !cmd.Remote() {
+		return cmd, fmt.Errorf("%s: command can not be executed on remote server", name)
+	}
+	return cmd, nil
 }
 
 func (r Registry) Lookup(name string) (CommandSettings, error) {
