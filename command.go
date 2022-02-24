@@ -439,7 +439,7 @@ func (s *Single) prepareArgs(args []string) (*flag.FlagSet, error) {
 	return set, nil
 }
 
-func (s *Single) prepare() (Executer, error) {
+func (s *Single) Prepare() (Executer, error) {
 	sh, err := shell.New(shell.WithEnv(s.locals.Copy()))
 	if err != nil {
 		return nil, err

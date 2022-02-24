@@ -187,18 +187,11 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 			continue
 		}
 		for i := range s.Schedules {
-			var (
-				e      = s.Schedules[i]
-				c, err = s.prepare()
-			)
+			c, err := s.Prepare()
 			if err != nil {
 				return err
 			}
-			if r, ok := c.(interface {
-				Register(context.Context, Command)
-			}); ok {
-				_ = r
-			}
+			e := s.Schedules[i]
 			grp.Go(func() error {
 				return e.Run(ctx, c, stdout, stderr)
 			})
