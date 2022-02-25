@@ -181,7 +181,10 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 	grp, ctx := errgroup.WithContext(interruptContext())
 	for _, c := range m.Commands {
 		for i := range c.Schedules {
-			e := c.Schedules[i]
+			var (
+				c = c
+				e = c.Schedules[i]
+			)
 			grp.Go(func() error {
 				return e.Run(ctx, c, stdout, stderr)
 			})

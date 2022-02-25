@@ -22,6 +22,9 @@ package = "github.com/midbel/maestro"
 test(
 	short = "run test in current directory",
 	tag   = build test,
+	schedule = (
+		time = */2 * * * *,
+	),
 ): format {
 	@go clean -testcache
 	.repeat($package, '$package/shlex', '$package/shell', '$package/schedule') {

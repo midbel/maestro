@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"log"
 	"context"
 	"errors"
 	"sync"
@@ -13,6 +14,13 @@ var (
 
 type Runner interface {
 	Run(context.Context) error
+}
+
+func Trace(r Runner, name string) Runner {
+	return &traceRunner{
+		name: name,
+		Runner: r,
+	}
 }
 
 func DoBefore(r Runner, do func() error) Runner {
@@ -159,5 +167,23 @@ func (r *doRunner) Run(ctx context.Context) error {
 	if r.after != nil {
 		err = r.after(err)
 	}
+	return err
+}
+
+type traceRunner struct {
+	name string
+	Runner
+}
+
+func (r *traceRunner) Run(ctx context.Context) error {
+	log.Printf("[%s] start", r.name)
+	var (
+		now = time.Now()
+		err = r.Runner.Run(ctx)
+	)
+	if err != nil {
+		log.Printf("[%s] error: %s", r.name, err)
+	}
+	log.Printf("[%s] done (elapsed: %s)", r.name, time.Since(now))
 	return err
 }

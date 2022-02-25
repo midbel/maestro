@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"fmt"
 	"context"
 	"io"
 	"os"
@@ -52,14 +53,15 @@ type Schedule struct {
 
 func (s *Schedule) Run(ctx context.Context, cmd CommandSettings, stdout, stderr io.Writer) error {
 	r := s.makeRunner(cmd, stdout, stderr)
-	if !s.Overlap {
-		r = schedule.SkipRunning(r)
-	}
 	return s.Sched.Run(ctx, r)
 }
 
 func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) schedule.Runner {
-	return createRunner(cmd, s.Args, stdout, stderr)
+	r := createRunner(cmd, s.Args, stdout, stderr)
+	if !s.Overlap {
+		r = schedule.SkipRunning(r)
+	}
+	return schedule.Trace(r, cmd.Command())
 }
 
 type runner struct {
@@ -81,9 +83,13 @@ func createRunner(cmd CommandSettings, args []string, stdout, stderr io.Writer) 
 func (r runner) Run(ctx context.Context) error {
 	x, err := r.cmd.Prepare()
 	if err != nil {
-		return err
+		return nil
 	}
 	x.SetOut(r.out)
 	x.SetErr(r.err)
-	return x.Execute(ctx, r.args)
+	err = x.Execute(ctx, r.args)
+	if err != nil {
+		fmt.Printf("%s: %s\n", r.cmd.Command(), err)
+	}
+	return nil
 }
