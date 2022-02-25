@@ -56,7 +56,11 @@ func (s *Scheduler) RunFunc(ctx context.Context, fn func(context.Context) error)
 }
 
 func (s *Scheduler) Run(ctx context.Context, r Runner) error {
-	var grp *errgroup.Group
+	var (
+		grp *errgroup.Group
+		empty = struct{}{}
+		sema = make(chan struct{}, 3)
+	)
 	grp, ctx = errgroup.WithContext(ctx)
 	for now := time.Now(); ; now = time.Now() {
 		var (
@@ -69,10 +73,14 @@ func (s *Scheduler) Run(ctx context.Context, r Runner) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(wait):
+		default:
+			sema <- empty
 		}
 		grp.Go(func() error {
-			return r.Run(ctx)
+			<-time.After(wait)
+			err := r.Run(ctx)
+			<-sema
+			return err
 		})
 	}
 	err := grp.Wait()
@@ -81,6 +89,10 @@ func (s *Scheduler) Run(ctx context.Context, r Runner) error {
 	}
 	return err
 }
+
+// func (s *Scheduler) Stop() {
+// 	// TODO
+// }
 
 func (s *Scheduler) Now() time.Time {
 	return s.when
