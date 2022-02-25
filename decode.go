@@ -70,8 +70,6 @@ const (
 	schedEnv               = "env"
 	schedOut               = "stdout"
 	schedErr               = "stderr"
-	schedPreserve          = "preserve"
-	schedProcess           = "process"
 	schedRedirectFile      = "file"
 	schedRedirectCompress  = "compress"
 	schedRedirectDuplicate = "duplicate"
@@ -652,10 +650,6 @@ func (d *Decoder) decodeScheduleObject() (Schedule, error) {
 			sched.Overlap, err = d.parseBool()
 		case schedNotify:
 			sched.Notify, err = d.parseStringList()
-		case schedPreserve:
-			sched.Preserve, err = d.parseBool()
-		case schedProcess:
-			sched.Process, err = d.parseBool()
 		case schedArgs:
 			sched.Args, err = d.parseStringList()
 		case schedEnv:

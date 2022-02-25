@@ -4,10 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
-	"time"
 
 	"github.com/midbel/maestro/schedule"
-	"golang.org/x/sync/semaphore"
 )
 
 const maxParallelJob = 120
@@ -49,60 +47,43 @@ type Schedule struct {
 	Stdout   ScheduleRedirect
 	Stderr   ScheduleRedirect
 	Notify   []string
-	Process  bool
 	Overlap  bool
-	Preserve bool
 }
 
-func (s *Schedule) Run(ctx context.Context, ex Executer, stdout, stderr io.Writer) error {
-	var err error
-
-	stdout, err = s.Stdout.Writer(stdout)
-	if err != nil {
-		return err
-	}
-	if c, ok := stdout.(io.Closer); ok {
-		defer c.Close()
-	}
-
-	stderr, err = s.Stderr.Writer(stderr)
-	if err != nil {
-		return err
-	}
-	if c, ok := stderr.(io.Closer); ok {
-		defer c.Close()
-	}
-	ex.SetOut(stdout)
-	ex.SetErr(stderr)
-	return s.run(ctx, ex)
-}
-
-func (s *Schedule) run(ctx context.Context, ex Executer) error {
-	max := maxParallelJob
+func (s *Schedule) Run(ctx context.Context, cmd CommandSettings, stdout, stderr io.Writer) error {
+	r := s.makeRunner(cmd, stdout, stderr)
 	if !s.Overlap {
-		max = 1
+		r = schedule.SkipRunning(r)
 	}
-	sema := semaphore.NewWeighted(int64(max))
-	for now := time.Now(); ; now = time.Now() {
-		var (
-			next = s.Sched.Next()
-			wait = next.Sub(now)
-		)
-		if wait <= 0 {
-			continue
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(wait):
-		}
-		if err := sema.Acquire(ctx, 1); err != nil {
-			return err
-		}
-		go func() {
-			defer sema.Release(1)
-			ex.Execute(ctx, s.Args)
-		}()
+	return s.Sched.Run(ctx, r)
+}
+
+func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) schedule.Runner {
+	return createRunner(cmd, s.Args, stdout, stderr)
+}
+
+type runner struct {
+	cmd CommandSettings
+	args []string
+	out io.Writer
+	err io.Writer
+}
+
+func createRunner(cmd CommandSettings, args []string, stdout, stderr io.Writer) schedule.Runner {
+	return runner{
+		cmd: cmd,
+		args: args,
+		out: stdout,
+		err: stderr,
 	}
-	return sema.Acquire(ctx, int64(max))
+}
+
+func (r runner) Run(ctx context.Context) error {
+	x, err := r.cmd.Prepare()
+	if err != nil {
+		return err
+	}
+	x.SetOut(r.out)
+	x.SetErr(r.err)
+	return x.Execute(ctx, r.args)
 }

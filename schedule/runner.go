@@ -1,6 +1,7 @@
 package schedule
 
 import (
+  "context"
 	"errors"
 	"sync"
 	"time"
@@ -11,7 +12,15 @@ var (
 )
 
 type Runner interface {
-	Run() error
+	Run(context.Context) error
+}
+
+func DoBefore(r Runner, do func() error) Runner {
+  return nil
+}
+
+func DoAfter(r Runner, do func() error) Runner {
+  return nil
 }
 
 func LimitRunning(r Runner, max int) Runner {
@@ -34,10 +43,10 @@ func DelayRunner(r Runner, wait time.Duration) Runner {
 	}
 }
 
-type runFunc func() error
+type runFunc func(context.Context) error
 
-func (r runFunc) Run() error {
-	return r()
+func (r runFunc) Run(ctx context.Context) error {
+	return r(ctx)
 }
 
 type limitRunner struct {
@@ -47,13 +56,13 @@ type limitRunner struct {
 	Runner
 }
 
-func (r *limitRunner) Run() error {
+func (r *limitRunner) Run(ctx context.Context) error {
 	if !r.can() {
 		return nil
 	}
 	r.inc()
 	defer r.dec()
-	return r.Runner.Run()
+	return r.Runner.Run(ctx)
 }
 
 func (r *limitRunner) can() bool {
@@ -80,13 +89,13 @@ type skipRunner struct {
 	Runner
 }
 
-func (r *skipRunner) Run() error {
+func (r *skipRunner) Run(ctx context.Context) error {
 	if r.isRunning() {
 		return nil
 	}
 	r.toggle()
 	defer r.toggle()
-	return r.Runner.Run()
+	return r.Runner.Run(ctx)
 }
 
 func (r *skipRunner) isRunning() bool {
@@ -106,9 +115,9 @@ type delayRunner struct {
 	Runner
 }
 
-func (r *delayRunner) Run() error {
+func (r *delayRunner) Run(ctx context.Context) error {
 	<-time.After(r.wait)
-	return r.Runner.Run()
+	return r.Runner.Run(ctx)
 }
 
 type timeoutRunner struct {
@@ -116,6 +125,6 @@ type timeoutRunner struct {
 	Runner
 }
 
-func (r *timeoutRunner) Run() error {
-	return r.Runner.Run()
+func (r *timeoutRunner) Run(ctx context.Context) error {
+	return r.Runner.Run(ctx)
 }

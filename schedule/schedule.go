@@ -53,7 +53,7 @@ func Schedule(min, hour, day, month, week string) (*Scheduler, error) {
 	return &sched, nil
 }
 
-func (s *Scheduler) RunFunc(ctx context.Context, fn func() error) error {
+func (s *Scheduler) RunFunc(ctx context.Context, fn func(context.Context) error) error {
 	return s.Run(ctx, runFunc(fn))
 }
 
@@ -73,7 +73,9 @@ func (s *Scheduler) Run(ctx context.Context, r Runner) error {
 			return ctx.Err()
 		case <-time.After(wait):
 		}
-		grp.Go(r.Run)
+		grp.Go(func() error {
+			return r.Run(ctx)
+		})
 	}
 	err := grp.Wait()
 	if errors.Is(err, ErrDone) {

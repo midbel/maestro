@@ -178,19 +178,12 @@ func (m *Maestro) Schedule(args []string) error {
 }
 
 func (m *Maestro) schedule(stdout, stderr io.Writer) error {
-	var (
-		parent   = interruptContext()
-		grp, ctx = errgroup.WithContext(parent)
-	)
+	grp, ctx := errgroup.WithContext(interruptContext())
 	for _, c := range m.Commands {
 		for i := range c.Schedules {
-			x, err := c.Prepare()
-			if err != nil {
-				return err
-			}
 			e := c.Schedules[i]
 			grp.Go(func() error {
-				return e.Run(ctx, x, stdout, stderr)
+				return e.Run(ctx, c, stdout, stderr)
 			})
 		}
 	}
