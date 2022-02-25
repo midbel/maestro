@@ -52,16 +52,31 @@ type Schedule struct {
 }
 
 func (s *Schedule) Run(ctx context.Context, cmd CommandSettings, stdout, stderr io.Writer) error {
-	r := s.makeRunner(cmd, stdout, stderr)
+	r, err := s.makeRunner(cmd, stdout, stderr)
+	if err != nil {
+		return err
+	}
+	if c, ok := r.(io.Closer); ok {
+		defer c.Close()
+	}
 	return s.Sched.Run(ctx, r)
 }
 
-func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) schedule.Runner {
+func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) (schedule.Runner, error) {
+	var err error
+	stdout, err = s.Stdout.Writer(stdout)
+	if err != nil {
+		return nil, err
+	}
+	stderr, err = s.Stderr.Writer(stderr)
+	if err != nil {
+		return nil, err
+	}
 	r := createRunner(cmd, s.Args, stdout, stderr)
 	if !s.Overlap {
 		r = schedule.SkipRunning(r)
 	}
-	return schedule.Trace(r, cmd.Command())
+	return schedule.Trace(r, cmd.Command()), nil
 }
 
 type runner struct {
@@ -90,6 +105,16 @@ func (r runner) Run(ctx context.Context) error {
 	err = x.Execute(ctx, r.args)
 	if err != nil {
 		fmt.Printf("%s: %s\n", r.cmd.Command(), err)
+	}
+	return nil
+}
+
+func (r runner) Close() error {
+	if c, ok := r.err.(io.Closer); ok {
+		c.Close()
+	}
+	if c, ok := r.out.(io.Closer); ok {
+		c.Close()
 	}
 	return nil
 }
