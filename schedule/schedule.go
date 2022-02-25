@@ -1,21 +1,24 @@
 package schedule
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 var Separator = ";"
 
 type Scheduler struct {
-	min   Extender
-	hour  Extender
-	day   Extender
-	month Extender
-	week  Extender
+	min   Ticker
+	hour  Ticker
+	day   Ticker
+	month Ticker
+	week  Ticker
 
 	when time.Time
 }
@@ -50,6 +53,35 @@ func Schedule(min, hour, day, month, week string) (*Scheduler, error) {
 	return &sched, nil
 }
 
+func (s *Scheduler) RunFunc(ctx context.Context, fn func() error) error {
+	return s.Run(ctx, runFunc(fn))
+}
+
+func (s *Scheduler) Run(ctx context.Context, r Runner) error {
+	var grp *errgroup.Group
+	grp, ctx = errgroup.WithContext(ctx)
+	for now := time.Now(); ; now = time.Now() {
+		var (
+			next = s.Next()
+			wait = next.Sub(now)
+		)
+		if wait <= 0 {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
+		grp.Go(r.Run)
+	}
+	err := grp.Wait()
+	if errors.Is(err, ErrDone) {
+		err = nil
+	}
+	return err
+}
+
 func (s *Scheduler) Now() time.Time {
 	return s.when
 }
@@ -74,7 +106,7 @@ func (s *Scheduler) Reset(when time.Time) {
 }
 
 func (s *Scheduler) next() time.Time {
-	list := []Extender{
+	list := []Ticker{
 		s.min,
 		s.hour,
 		s.day,
@@ -188,7 +220,7 @@ func (s *Scheduler) alignDayOfWeek() {
 	s.week.Next()
 }
 
-type Extender interface {
+type Ticker interface {
 	Curr() int
 	Next()
 	By(int)
@@ -199,8 +231,8 @@ type Extender interface {
 	All() bool
 }
 
-func Parse(cron string, min, max int, names []string) (Extender, error) {
-	var list []Extender
+func Parse(cron string, min, max int, names []string) (Ticker, error) {
+	var list []Ticker
 	for {
 		str, rest, ok := strings.Cut(cron, Separator)
 		ex, err := parse(str, min, max, names)
@@ -231,7 +263,7 @@ type single struct {
 	upper int
 }
 
-func Single(base, min, max int) Extender {
+func Single(base, min, max int) Ticker {
 	s := single{
 		base:  base,
 		lower: min,
@@ -241,7 +273,7 @@ func Single(base, min, max int) Extender {
 	return &s
 }
 
-func All(min, max int) Extender {
+func All(min, max int) Ticker {
 	s := single{
 		base:  min,
 		step:  1,
@@ -297,7 +329,7 @@ type interval struct {
 	prev int
 }
 
-func Interval(from, to, min, max int) Extender {
+func Interval(from, to, min, max int) Ticker {
 	if from < min {
 		from = min
 	}
@@ -348,10 +380,10 @@ func (i *interval) isReset() bool {
 type list struct {
 	ptr  int
 	pptr int
-	es   []Extender
+	es   []Ticker
 }
 
-func List(es []Extender) Extender {
+func List(es []Ticker) Ticker {
 	return &list{
 		es: es,
 	}
@@ -395,10 +427,10 @@ func (i *list) isReset() bool {
 }
 
 type frozen struct {
-	Extender
+	Ticker
 }
 
-func unfreeze(x Extender) Extender {
+func unfreeze(x Ticker) Ticker {
 	z, ok := x.(*frozen)
 	if ok {
 		x = z.Unfreeze()
@@ -406,12 +438,12 @@ func unfreeze(x Extender) Extender {
 	return x
 }
 
-func freeze(x Extender) Extender {
+func freeze(x Ticker) Ticker {
 	if x, ok := x.(*frozen); ok {
 		return x
 	}
 	return &frozen{
-		Extender: x,
+		Ticker: x,
 	}
 }
 
@@ -419,8 +451,8 @@ func (f *frozen) Next() {
 	// noop
 }
 
-func (f *frozen) Unfreeze() Extender {
-	return f.Extender
+func (f *frozen) Unfreeze() Ticker {
+	return f.Ticker
 }
 
 var daynames = []string{
@@ -453,7 +485,7 @@ var (
 	ErrRange   = errors.New("not in range")
 )
 
-func parse(cron string, min, max int, names []string) (Extender, error) {
+func parse(cron string, min, max int, names []string) (Ticker, error) {
 	if cron == "" {
 		return nil, fmt.Errorf("syntax error: empty")
 	}
@@ -473,7 +505,7 @@ func parse(cron string, min, max int, names []string) (Extender, error) {
 	return createInterval(old, str, rest, names, min, max)
 }
 
-func createSingle(base, step string, names []string, min, max int) (Extender, error) {
+func createSingle(base, step string, names []string, min, max int) (Ticker, error) {
 	s, err := strconv.Atoi(step)
 	if err != nil && step != "" {
 		return nil, err
@@ -497,7 +529,7 @@ func createSingle(base, step string, names []string, min, max int) (Extender, er
 	return e, nil
 }
 
-func createInterval(from, to, step string, names []string, min, max int) (Extender, error) {
+func createInterval(from, to, step string, names []string, min, max int) (Ticker, error) {
 	var (
 		f, err1 = atoi(from, names)
 		t, err2 = atoi(to, names)
