@@ -42,12 +42,12 @@ func (s ScheduleRedirect) Option() int {
 }
 
 type Schedule struct {
-	Sched    *schedule.Scheduler
-	Args     []string
-	Stdout   ScheduleRedirect
-	Stderr   ScheduleRedirect
-	Notify   []string
-	Overlap  bool
+	Sched   *schedule.Scheduler
+	Args    []string
+	Stdout  ScheduleRedirect
+	Stderr  ScheduleRedirect
+	Notify  []string
+	Overlap bool
 }
 
 func (s *Schedule) Run(ctx context.Context, cmd CommandSettings, stdout, stderr io.Writer) error {
@@ -63,18 +63,18 @@ func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) sch
 }
 
 type runner struct {
-	cmd CommandSettings
+	cmd  CommandSettings
 	args []string
-	out io.Writer
-	err io.Writer
+	out  io.Writer
+	err  io.Writer
 }
 
 func createRunner(cmd CommandSettings, args []string, stdout, stderr io.Writer) schedule.Runner {
 	return runner{
-		cmd: cmd,
+		cmd:  cmd,
 		args: args,
-		out: stdout,
-		err: stderr,
+		out:  stdout,
+		err:  stderr,
 	}
 }
 

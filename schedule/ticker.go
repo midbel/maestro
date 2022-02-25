@@ -1,10 +1,10 @@
 package schedule
 
 import (
-  "errors"
-  "fmt"
-  "strconv"
-  "strings"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 )
 
 type Ticker interface {
@@ -211,6 +211,19 @@ func (i *list) reset() {
 
 func (i *list) isReset() bool {
 	return i.ptr != i.pptr && i.ptr == 0 && i.es[i.ptr].isReset()
+}
+
+type tick struct {
+	prev int
+	curr int
+	step int
+
+	min int
+	max int
+}
+
+func (t *tick) By(s int) {
+	t.step = s
 }
 
 type frozen struct {

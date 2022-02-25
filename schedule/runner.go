@@ -1,7 +1,7 @@
 package schedule
 
 import (
-  "context"
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -16,11 +16,17 @@ type Runner interface {
 }
 
 func DoBefore(r Runner, do func() error) Runner {
-  return nil
+	return &doRunner{
+		before: do,
+		Runner: r,
+	}
 }
 
-func DoAfter(r Runner, do func() error) Runner {
-  return nil
+func DoAfter(r Runner, do func(error) error) Runner {
+	return &doRunner{
+		after:  do,
+		Runner: r,
+	}
 }
 
 func LimitRunning(r Runner, max int) Runner {
@@ -126,5 +132,32 @@ type timeoutRunner struct {
 }
 
 func (r *timeoutRunner) Run(ctx context.Context) error {
-	return r.Runner.Run(ctx)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+	err := r.Runner.Run(ctx)
+	if err == nil {
+		err = ctx.Err()
+	}
+	return err
+}
+
+type doRunner struct {
+	before func() error
+	after  func(error) error
+	Runner
+}
+
+func (r *doRunner) Run(ctx context.Context) error {
+	var err error
+	if r.before != nil {
+		err = r.before()
+	}
+	if err != nil {
+		return err
+	}
+	err = r.Runner.Run(ctx)
+	if r.after != nil {
+		err = r.after(err)
+	}
+	return err
 }
