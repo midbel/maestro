@@ -8,8 +8,10 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 
 * conditional dependency(ies)/commands (pre-conditions such as OS, files available...)
 * hazardous command property will cause a prompt of the password of the current user
-* namespaced command: command from included file can be namespaced to not combined them with others having same name from other included files
+* namespaced command: command in file(s) can be namespaced to not combined them with others having same name from same or included files
+* schedule property `preserve` to always use the same shell context when starting new execution of the same command
 * lint sub-command
+* define object variable
 * others...
 
 #### v0.3.0
@@ -19,12 +21,12 @@ below the list of additions/modifications/deletions that will be introduce in th
 * new sub-command: schedule
 * `schedule` command property related to the future `schedule` sub-command
 * reload of maestro file for the `serve` sub-command
-* define object variable
 * variable interpolation in string
 * support for the `case` instruction in script command
-* handling of command that must expand on multiple lines in script command (eg: for loop, if...)
+* handling of command that must expand on multiple lines in script command (eg: for loop, if...) without introducing any macro
 * better handling of shell and subshell management during command execution
-* improve (fully rewrite) the `Combined` Command type
+* `Combined` Command type to be revised
+* fill shell builtins
 * others...
 
 #### v0.2.0 (2022-01-22)
