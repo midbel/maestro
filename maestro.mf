@@ -164,12 +164,3 @@ count(
 	loc
 	todo
 }
-
-countbis(
-	short = "count LOC and todos",
-	tag   = info verify,
-): format {
-	# reports the number of lines and remaining todos in the project
-	<loc
-	<todo
-}
