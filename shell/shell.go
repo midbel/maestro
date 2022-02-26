@@ -80,6 +80,7 @@ type Shell struct {
 	locals   Environment
 	alias    map[string][]string
 	commands map[string]Command
+	find     CommandFinder
 	echo     bool
 
 	env map[string]string
@@ -552,7 +553,15 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 	if c, ok := s.commands[str[0]]; ok {
 		cmd = c
 	} else {
-		cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
+		if s.find != nil {
+			c, err := s.find.Find(ctx, str[0])
+			if err == nil {
+				cmd = c
+			}
+		}
+		if cmd == nil {
+			cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
+		}
 	}
 	if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
 		a.SetArgs(str[1:])

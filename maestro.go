@@ -20,6 +20,7 @@ import (
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
 	"github.com/midbel/maestro/internal/stdio"
+	"github.com/midbel/maestro/shell"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -186,7 +187,7 @@ func (m *Maestro) schedule(stdout, stderr io.Writer) error {
 				e = c.Schedules[i]
 			)
 			grp.Go(func() error {
-				return e.Run(ctx, c, stdout, stderr)
+				return e.Run(ctx, m.Commands.Copy(), c, stdout, stderr)
 			})
 		}
 	}
@@ -573,20 +574,9 @@ func (m *Maestro) setup(ctx context.Context, name string, can bool) (Executer, e
 	if err := m.canExecute(cmd); can && err != nil {
 		return nil, err
 	}
-	ex, err := cmd.Prepare()
+	ex, err := cmd.Prepare(shell.WithFinder(m.Commands))
 	if err != nil {
 		return nil, err
-	}
-	if r, ok := ex.(interface {
-		Register(context.Context, Executer)
-	}); ok {
-		for _, c := range m.Commands {
-			other, err := c.Prepare()
-			if err != nil {
-				return nil, err
-			}
-			r.Register(ctx, other)
-		}
 	}
 	return ex, nil
 }
@@ -689,6 +679,26 @@ type MetaHttp struct {
 }
 
 type Registry map[commandKey]CommandSettings
+
+func (r Registry) Find(ctx context.Context, name string) (shell.Command, error) {
+	c, ok := r[defaultKey(name)]
+	if !ok {
+		return nil, fmt.Errorf("%s: command not found", name)
+	}
+	x, err := c.Prepare(shell.WithFinder(r))
+	if err != nil {
+		return nil, err
+	}
+	return makeShellCommand(ctx, x), nil
+}
+
+func (r Registry) Copy() Registry {
+	x := make(Registry)
+	for k, v := range r {
+		x[k] = v
+	}
+	return x
+}
 
 func (r Registry) Prepare(name string) (Executer, error) {
 	cmd, err := r.Lookup(name)

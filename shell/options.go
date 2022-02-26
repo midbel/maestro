@@ -6,6 +6,13 @@ import (
 
 type ShellOption func(*Shell) error
 
+func WithFinder(find CommandFinder) ShellOption {
+	return func(s *Shell) error {
+		s.find = find
+		return nil
+	}
+}
+
 func WithStdout(w ...io.Writer) ShellOption {
 	return func(s *Shell) error {
 		s.SetOut(io.MultiWriter(w...))

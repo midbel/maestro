@@ -1,12 +1,13 @@
 package maestro
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/midbel/maestro/schedule"
+	"github.com/midbel/maestro/shell"
 )
 
 const maxParallelJob = 120
@@ -51,8 +52,8 @@ type Schedule struct {
 	Overlap bool
 }
 
-func (s *Schedule) Run(ctx context.Context, cmd CommandSettings, stdout, stderr io.Writer) error {
-	r, err := s.makeRunner(cmd, stdout, stderr)
+func (s *Schedule) Run(ctx context.Context, reg Registry, cmd CommandSettings, stdout, stderr io.Writer) error {
+	r, err := s.makeRunner(reg, cmd, stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func (s *Schedule) Run(ctx context.Context, cmd CommandSettings, stdout, stderr 
 	return s.Sched.Run(ctx, r)
 }
 
-func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) (schedule.Runner, error) {
+func (s *Schedule) makeRunner(reg Registry, cmd CommandSettings, stdout, stderr io.Writer) (schedule.Runner, error) {
 	var err error
 	stdout, err = s.Stdout.Writer(stdout)
 	if err != nil {
@@ -72,7 +73,7 @@ func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) (sc
 	if err != nil {
 		return nil, err
 	}
-	r := createRunner(cmd, s.Args, stdout, stderr)
+	r := createRunner(reg, cmd, s.Args, stdout, stderr)
 	if !s.Overlap {
 		r = schedule.SkipRunning(r)
 	}
@@ -80,14 +81,16 @@ func (s *Schedule) makeRunner(cmd CommandSettings, stdout, stderr io.Writer) (sc
 }
 
 type runner struct {
+	reg  Registry
 	cmd  CommandSettings
 	args []string
 	out  io.Writer
 	err  io.Writer
 }
 
-func createRunner(cmd CommandSettings, args []string, stdout, stderr io.Writer) schedule.Runner {
+func createRunner(reg Registry, cmd CommandSettings, args []string, stdout, stderr io.Writer) schedule.Runner {
 	return runner{
+		reg:  reg,
 		cmd:  cmd,
 		args: args,
 		out:  stdout,
@@ -95,8 +98,20 @@ func createRunner(cmd CommandSettings, args []string, stdout, stderr io.Writer) 
 	}
 }
 
+func (r runner) Find(ctx context.Context, name string) (shell.Command, error) {
+	cmd, err := r.reg.Lookup(name)
+	if err != nil {
+		return nil, err
+	}
+	x, err := cmd.Prepare()
+	if err != nil {
+		return nil, err
+	}
+	return makeShellCommand(ctx, x), nil
+}
+
 func (r runner) Run(ctx context.Context) error {
-	x, err := r.cmd.Prepare()
+	x, err := r.cmd.Prepare(shell.WithFinder(r))
 	if err != nil {
 		return nil
 	}

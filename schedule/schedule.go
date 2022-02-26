@@ -57,9 +57,9 @@ func (s *Scheduler) RunFunc(ctx context.Context, fn func(context.Context) error)
 
 func (s *Scheduler) Run(ctx context.Context, r Runner) error {
 	var (
-		grp *errgroup.Group
+		grp   *errgroup.Group
 		empty = struct{}{}
-		sema = make(chan struct{}, 3)
+		sema  = make(chan struct{}, 3)
 	)
 	grp, ctx = errgroup.WithContext(ctx)
 	for now := time.Now(); ; now = time.Now() {

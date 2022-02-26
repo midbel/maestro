@@ -231,8 +231,9 @@ func (s CommandSettings) Remote() bool {
 	return len(s.Hosts) > 0
 }
 
-func (s CommandSettings) Prepare() (Executer, error) {
-	sh, err := shell.New(shell.WithEnv(s.locals.Copy()))
+func (s CommandSettings) Prepare(options ...shell.ShellOption) (Executer, error) {
+	options = append(options, shell.WithEnv(s.locals.Copy()))
+	sh, err := shell.New(options...)
 	if err != nil {
 		return nil, err
 	}

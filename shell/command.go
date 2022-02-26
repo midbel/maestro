@@ -8,6 +8,10 @@ import (
 	"os/exec"
 )
 
+type CommandFinder interface {
+	Find(context.Context, string) (Command, error)
+}
+
 type Command interface {
 	Command() string
 	Type() CommandType

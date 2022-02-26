@@ -1,9 +1,9 @@
 package schedule
 
 import (
-	"log"
 	"context"
 	"errors"
+	"log"
 	"sync"
 	"time"
 )
@@ -18,7 +18,7 @@ type Runner interface {
 
 func Trace(r Runner, name string) Runner {
 	return &traceRunner{
-		name: name,
+		name:   name,
 		Runner: r,
 	}
 }

@@ -155,6 +155,10 @@ commit(
 count(
 	short = "count LOC and todos",
 	tag   = info verify,
+	schedule = (
+		time = * * * * *,
+		args = first second third
+	),
 ): format {
 	# reports the number of lines and remaining todos in the project
 	loc
@@ -164,10 +168,6 @@ count(
 countbis(
 	short = "count LOC and todos",
 	tag   = info verify,
-	schedule = (
-		time = * * * * *,
-		args = first second third
-	),
 ): format {
 	# reports the number of lines and remaining todos in the project
 	<loc
