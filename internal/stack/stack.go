@@ -9,19 +9,21 @@ func New[T any]() Stack[T] {
 	return stk
 }
 
-func (s *Stack[T]) RotateLeft(off int) {
-	z := s.Len()
-	if n >= z {
-		return
-	}
-	n = z - n
-	s.list = append(s.list[n:], s.list[:n]...)
-}
-
-func (s *Stack[T]) RotateRight(off int) {
+func (s *Stack[T]) RotateLeft(n int) {
 	if n >= s.Len() {
 		return
 	}
+	s.rotate(n)
+}
+
+func (s *Stack[T]) RotateRight(n int) {
+	if n >= s.Len() {
+		return
+	}
+	s.rotate(s.Len()-n)
+}
+
+func (s *Stack[T]) rotate(n int) {
 	s.list = append(s.list[n:], s.list[:n]...)
 }
 
