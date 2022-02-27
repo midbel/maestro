@@ -45,6 +45,8 @@ func main() {
 
 	options := []shell.ShellOption{
 		shell.WithCwd(*cwd),
+		shell.WithStdout(os.Stdout),
+		shell.WithStderr(os.Stderr),
 	}
 	if *echo {
 		options = append(options, shell.WithEcho())

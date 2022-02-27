@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/stack"
+	// "github.com/midbel/maestro/internal/stdio"
 	"github.com/midbel/maestro/shlex"
 	"golang.org/x/sync/errgroup"
 )
@@ -111,6 +112,9 @@ func New(options ...ShellOption) (*Shell, error) {
 		commands: make(map[string]Command),
 		env:      make(map[string]string),
 		builtins: builtins,
+		// stdout:   stdio.NopCloser(os.Stdout),
+		// stderr:   stdio.NopCloser(os.Stderr),
+		// stdin:    io.NopCloser(os.Stdin),
 	}
 	s.rand = rand.New(rand.NewSource(s.now.Unix()))
 	cwd, _ := os.Getwd()

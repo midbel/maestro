@@ -245,145 +245,6 @@ func (b *Builtin) Run() error {
 	return b.Wait()
 }
 
-// func (b *Builtin) SetIn(r io.Reader) {
-// 	b.stdin = r
-// }
-//
-// func (b *Builtin) SetOut(w io.Writer) {
-// 	b.stdout = w
-// }
-//
-// func (b *Builtin) SetErr(w io.Writer) {
-// 	b.stderr = w
-// }
-//
-// func (b *Builtin) StdoutPipe() (io.ReadCloser, error) {
-// 	if b.stdout != nil {
-// 		return nil, fmt.Errorf("stdout already set")
-// 	}
-// 	if b.finished {
-// 		return nil, fmt.Errorf("stdout after builtin started")
-// 	}
-// 	pr, pw, err := os.Pipe()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	b.closes = append(b.closes, pr, pw)
-// 	b.stdout = pw
-// 	return pr, nil
-// }
-//
-// func (b *Builtin) StderrPipe() (io.ReadCloser, error) {
-// 	if b.stderr != nil {
-// 		return nil, fmt.Errorf("stderr already set")
-// 	}
-// 	if b.finished {
-// 		return nil, fmt.Errorf("stderr after builtin started")
-// 	}
-// 	pr, pw, err := os.Pipe()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	b.closes = append(b.closes, pr, pw)
-// 	b.stderr = pw
-// 	return pr, nil
-// }
-//
-// func (b *Builtin) StdinPipe() (io.WriteCloser, error) {
-// 	if b.stdin != nil {
-// 		return nil, fmt.Errorf("stdin already set")
-// 	}
-// 	if b.shell != nil {
-// 		return nil, fmt.Errorf("stdin after builtin started")
-// 	}
-// 	pr, pw, err := os.Pipe()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	b.closes = append(b.closes, pr, pw)
-// 	b.stdin = pr
-// 	return pw, nil
-// }
-//
-// func (b *Builtin) setStdin() (*os.File, error) {
-// 	if b.stdin == nil {
-// 		f, err := os.Open(os.DevNull)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		b.closes = append(b.closes, f)
-// 		return f, nil
-// 	}
-// 	switch r := b.stdin.(type) {
-// 	case *os.File:
-// 		return r, nil
-// 	case noopCloseReader:
-// 		f, ok := r.Reader.(*os.File)
-// 		if ok {
-// 			return f, nil
-// 		}
-// 	}
-// 	pr, pw, err := os.Pipe()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	b.closes = append(b.closes, pw)
-// 	b.copies = append(b.copies, func() error {
-// 		defer pw.Close()
-// 		_, err := io.Copy(pw, b.stdin)
-// 		return err
-// 	})
-// 	return pr, nil
-// }
-//
-// func (b *Builtin) setStdout() (*os.File, error) {
-// 	return b.openFile(b.stdout)
-// }
-//
-// func (b *Builtin) setStderr() (*os.File, error) {
-// 	return b.openFile(b.stderr)
-// }
-//
-// func (b *Builtin) openFile(w io.Writer) (*os.File, error) {
-// 	if w == nil {
-// 		f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		b.closes = append(b.closes, f)
-// 		return f, nil
-// 	}
-// 	switch w := w.(type) {
-// 	case *os.File:
-// 		return w, nil
-// 	case noopCloseWriter:
-// 		f, ok := w.Writer.(*os.File)
-// 		if ok {
-// 			return f, nil
-// 		}
-// 	default:
-// 	}
-//
-// 	pr, pw, err := os.Pipe()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	b.closes = append(b.closes, pw)
-// 	b.copies = append(b.copies, func() error {
-// 		defer pr.Close()
-// 		_, err := io.Copy(w, pr)
-// 		return err
-// 	})
-// 	return pw, nil
-// }
-//
-// func (b *Builtin) closeDescriptors() {
-// 	for _, c := range b.closes {
-// 		c.Close()
-// 	}
-// 	b.closes = b.closes[:0]
-// }
-
 func runTrue(_ Builtin) error {
 	return nil
 }
@@ -708,10 +569,32 @@ func runPushd(b Builtin) error {
 }
 
 func runDirs(b Builtin) error {
-	var set flag.FlagSet
+	var (
+		set flag.FlagSet
+		clear = set.Bool("c", false, "clear directory stack")
+		line  = set.Bool("p", false, "print one entry per line")
+		prefix = set.Bool("v", false, "print prefix")
+	)
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	if *clear {
+
+	}
+	eol := " "
+	if *line {
+		eol = "\n"
+	}
+	for i := 0; i < b.shell.dirs.Len(); i++ {
+		if i > 0 {
+			fmt.Fprint(b.stdout, eol)
+		}
+		if *prefix {
+			fmt.Fprintf(b.stdout, "%d ", i+1)
+		}
+		fmt.Fprint(b.stdout, b.shell.dirs.At(i))
+	}
+	fmt.Fprintln(b.stdout)
 	return nil
 }
 
