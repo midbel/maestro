@@ -557,6 +557,13 @@ func runPopd(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
+	dir := set.Arg(0)
+	switch {
+	case strings.HasPrefix(dir, "+"):
+	case strings.HasPrefix(dir, "-"):
+	default:
+		return nil
+	}
 	return nil
 }
 
@@ -565,14 +572,33 @@ func runPushd(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	return nil
+	var (
+		dir = set.Arg(0)
+		err error
+		off int
+	)
+	switch {
+	case strings.HasPrefix(dir, "+"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			b.shell.dirs.RotateLeft(off)
+		}
+	case strings.HasPrefix(dir, "-"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			b.shell.dirs.RotateRight(-off)
+		}
+	default:
+		err = b.shell.Chdir(dir)
+	}
+	return err
 }
 
 func runDirs(b Builtin) error {
 	var (
-		set flag.FlagSet
-		clear = set.Bool("c", false, "clear directory stack")
-		line  = set.Bool("p", false, "print one entry per line")
+		set    flag.FlagSet
+		clear  = set.Bool("c", false, "clear directory stack")
+		line   = set.Bool("p", false, "print one entry per line")
 		prefix = set.Bool("v", false, "print prefix")
 	)
 	if err := set.Parse(b.args); err != nil {
@@ -582,11 +608,11 @@ func runDirs(b Builtin) error {
 
 	}
 	eol := " "
-	if *line {
+	if *line || *prefix {
 		eol = "\n"
 	}
-	for i := 0; i < b.shell.dirs.Len(); i++ {
-		if i > 0 {
+	for i := b.shell.dirs.Len() - 1; i >= 0; i-- {
+		if i < b.shell.dirs.Len()-1 {
 			fmt.Fprint(b.stdout, eol)
 		}
 		if *prefix {
