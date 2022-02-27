@@ -31,3 +31,17 @@ func (w *lockedWriter) Write(b []byte) (int, error) {
 	defer w.mu.Unlock()
 	return w.Writer.Write(b)
 }
+
+type nopWriterCloser struct {
+	io.Writer
+}
+
+func NopCloser(w io.Writer) io.WriteCloser {
+	return &nopWriterCloser{
+		Writer: w,
+	}
+}
+
+func (w *nopWriterCloser) Close() error {
+	return nil
+}
