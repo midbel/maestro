@@ -16,6 +16,7 @@ import (
 	"github.com/midbel/maestro/internal/stack"
 	// "github.com/midbel/maestro/internal/stdio"
 	"github.com/midbel/maestro/shlex"
+	"github.com/midbel/rw"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -51,15 +52,6 @@ func (e ExitCode) Failure() bool {
 func (e ExitCode) Error() string {
 	return fmt.Sprintf("%d", e)
 }
-
-type CommandType int8
-
-const (
-	TypeBuiltin CommandType = iota
-	TypeScript
-	TypeExternal
-	TypeRegular
-)
 
 var specials = map[string]struct{}{
 	"HOME":    {},
@@ -112,9 +104,6 @@ func New(options ...ShellOption) (*Shell, error) {
 		commands: make(map[string]Command),
 		env:      make(map[string]string),
 		builtins: builtins,
-		// stdout:   stdio.NopCloser(os.Stdout),
-		// stderr:   stdio.NopCloser(os.Stderr),
-		// stdin:    io.NopCloser(os.Stdin),
 	}
 	s.rand = rand.New(rand.NewSource(s.now.Unix()))
 	cwd, _ := os.Getwd()
@@ -175,7 +164,7 @@ func (s *Shell) Cwd() string {
 
 func (s *Shell) Dirs() []string {
 	var list []string
-	for i := s.dirs.Len()-1; i >= 0; i-- {
+	for i := s.dirs.Len() - 1; i >= 0; i-- {
 		list = append(list, s.dirs.At(i))
 	}
 	return list
@@ -225,10 +214,10 @@ func (s *Shell) Popd(dir string) error {
 	return err
 }
 
-func (s *Shell) Find(name string) (Command, error) {
+func (s *Shell) Find(ctx context.Context, name string) (Command, error) {
 	var err error
 	if s.find != nil {
-		c, err1 := s.find.Find(context.Background(), name)
+		c, err1 := s.find.Find(ctx, name)
 		if err1 == nil {
 			return c, nil
 		}
@@ -537,9 +526,13 @@ func (s *Shell) executePipe(ctx context.Context, ex ExecPipe) error {
 		}
 		defer rd.Close()
 
-		cmd.SetOut(rd.out)
+		fmt.Println("before", rd.in, rd.out, rd.err)
 		cmd.SetIn(rd.in)
+		fmt.Println("after 1")
+		cmd.SetOut(rd.out)
+		fmt.Println("after 2")
 		cmd.SetErr(rd.err)
+		fmt.Println("after 3")
 
 		cs = append(cs, cmd)
 	}
@@ -561,6 +554,7 @@ func (s *Shell) executePipe(ctx context.Context, ex ExecPipe) error {
 	}
 	cmd := cs[len(cs)-1]
 	cmd.SetOut(s.stdout)
+	cmd.SetErr(s.stderr)
 	grp.Go(func() error {
 		err := cmd.Run()
 		s.updateContext(cmd)
@@ -622,18 +616,10 @@ func (s *Shell) resolveCommand(ctx context.Context, str []string) Command {
 		return &b
 	}
 	var cmd Command
-	if c, ok := s.commands[str[0]]; ok {
+	if c, err := s.Find(ctx, str[0]); err == nil {
 		cmd = c
 	} else {
-		if s.find != nil {
-			c, err := s.find.Find(ctx, str[0])
-			if err == nil {
-				cmd = c
-			}
-		}
-		if cmd == nil {
-			cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
-		}
+		cmd = StandardContext(ctx, str[0], s.Cwd(), str[1:])
 	}
 	if a, ok := cmd.(interface{ SetArgs([]string) }); ok {
 		a.SetArgs(str[1:])
@@ -709,43 +695,6 @@ func (s *Shell) environ() []string {
 		str = append(str, fmt.Sprintf("%s=%s", n, v))
 	}
 	return str
-}
-
-type noopCloseReader struct {
-	io.Reader
-}
-
-func noopReadCloser(r io.Reader) io.ReadCloser {
-	if r == nil {
-		r = emptyReader{}
-	}
-	return noopCloseReader{
-		Reader: r,
-	}
-}
-
-func (_ noopCloseReader) Close() error {
-	return nil
-}
-
-type noopCloseWriter struct {
-	io.Writer
-}
-
-func noopWriteCloser(w io.Writer) io.WriteCloser {
-	return noopCloseWriter{
-		Writer: w,
-	}
-}
-
-func (_ noopCloseWriter) Close() error {
-	return nil
-}
-
-type emptyReader struct{}
-
-func (r emptyReader) Read(_ []byte) (int, error) {
-	return 0, io.EOF
 }
 
 const (
@@ -847,7 +796,7 @@ func fileOrWriter(f *os.File, w io.Writer, pipe bool) io.WriteCloser {
 		if pipe {
 			return nil
 		}
-		return noopWriteCloser(w)
+		return rw.NopWriteCloser(w)
 	}
 	return f
 }
@@ -857,7 +806,10 @@ func fileOrReader(f *os.File, r io.Reader, pipe bool) io.ReadCloser {
 		if pipe {
 			return nil
 		}
-		return noopReadCloser(r)
+		if r == nil {
+			r = rw.Empty()
+		}
+		return rw.NopReadCloser(r)
 	}
 	return f
 }

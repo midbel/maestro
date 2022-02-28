@@ -1,5 +1,7 @@
 github.com/midbel/distance v0.1.0 h1:AuhNiidCDy2Sxb9FMdFUuFasOIYIhFH0ADNTB8PyJk0=
 github.com/midbel/distance v0.1.0/go.mod h1:HhnNVr4IVXXDr7Xfp+38z+nPWNpo1EjOnX4qfLQHl08=
+github.com/midbel/rw v0.3.0 h1:E0OlRjYTXN1jnB5O5EZQbSWCbGcXzk922VMVj2j6jgg=
+github.com/midbel/rw v0.3.0/go.mod h1:iIwUqmsls/PSDEPVHLqkcLp2D8xxuwVpBce6pNwf0nI=
 github.com/midbel/textwrap v0.1.2 h1:oq+tJyapfFWFUGVN/BU2ZsRiWRkV3XeqtNgKUFkU44M=
 github.com/midbel/textwrap v0.1.2/go.mod h1:pNTIQ2A2FQzDpUB4SIdxF82UqttHBOMrO33k/mGGSsE=
 golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 h1:/pEO3GD/ABYAjuakUS6xSEmmlyVS4kxBNkeA9tLJiTI=
