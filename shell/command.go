@@ -41,7 +41,7 @@ type Command interface {
 	Exit() (int, int)
 }
 
-type StdCmd struct {
+type command struct {
 	*exec.Cmd
 	name string
 }
@@ -49,21 +49,21 @@ type StdCmd struct {
 func StandardContext(ctx context.Context, name, cwd string, args []string) Command {
 	c := exec.CommandContext(ctx, name, args...)
 	c.Dir = cwd
-	return &StdCmd{
+	return &command{
 		Cmd:  c,
 		name: name,
 	}
 }
 
-func (c *StdCmd) Command() string {
+func (c *command) Command() string {
 	return c.name
 }
 
-func (_ *StdCmd) Type() CommandType {
+func (_ *command) Type() CommandType {
 	return TypeRegular
 }
 
-func (c *StdCmd) SetIn(r io.Reader) {
+func (c *command) SetIn(r io.Reader) {
 	if r, ok := unwrapFileFromReader(r); ok {
 		c.Stdin = r
 		return
@@ -71,7 +71,7 @@ func (c *StdCmd) SetIn(r io.Reader) {
 	c.Stdin = r
 }
 
-func (c *StdCmd) SetOut(w io.Writer) {
+func (c *command) SetOut(w io.Writer) {
 	if w, ok := unwrapFileFromWriter(w); ok {
 		c.Stdout = w
 		return
@@ -79,7 +79,7 @@ func (c *StdCmd) SetOut(w io.Writer) {
 	c.Stdout = w
 }
 
-func (c *StdCmd) SetErr(w io.Writer) {
+func (c *command) SetErr(w io.Writer) {
 	if w, ok := unwrapFileFromWriter(w); ok {
 		c.Stderr = w
 		return
@@ -87,7 +87,7 @@ func (c *StdCmd) SetErr(w io.Writer) {
 	c.Stderr = w
 }
 
-func (c *StdCmd) Exit() (int, int) {
+func (c *command) Exit() (int, int) {
 	if c == nil || c.Cmd == nil || c.Cmd.ProcessState == nil {
 		return 0, 255
 	}
@@ -98,7 +98,7 @@ func (c *StdCmd) Exit() (int, int) {
 	return pid, code
 }
 
-func (c *StdCmd) SetEnv(env []string) {
+func (c *command) SetEnv(env []string) {
 	c.Cmd.Env = append(c.Cmd.Env[:0], env...)
 }
 
