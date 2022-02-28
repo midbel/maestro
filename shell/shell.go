@@ -215,18 +215,16 @@ func (s *Shell) Popd(dir string) error {
 }
 
 func (s *Shell) Find(ctx context.Context, name string) (Command, error) {
-	var err error
 	if s.find != nil {
-		c, err1 := s.find.Find(ctx, name)
-		if err1 == nil {
+		c, err := s.find.Find(ctx, name)
+		if err == nil {
 			return c, nil
 		}
-		err = err1
 	}
 	if c, ok := s.commands[name]; ok {
 		return c, nil
 	}
-	return nil, err
+	return nil, fmt.Errorf("%s: command not found", name)
 }
 
 func (s *Shell) SetEcho(echo bool) {
@@ -526,13 +524,9 @@ func (s *Shell) executePipe(ctx context.Context, ex ExecPipe) error {
 		}
 		defer rd.Close()
 
-		fmt.Println("before", rd.in, rd.out, rd.err)
 		cmd.SetIn(rd.in)
-		fmt.Println("after 1")
 		cmd.SetOut(rd.out)
-		fmt.Println("after 2")
 		cmd.SetErr(rd.err)
-		fmt.Println("after 3")
 
 		cs = append(cs, cmd)
 	}

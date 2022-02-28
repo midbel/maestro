@@ -45,6 +45,7 @@ func main() {
 
 	options := []shell.ShellOption{
 		shell.WithCwd(*cwd),
+		shell.WithStdin(os.Stdin),
 		shell.WithStdout(os.Stdout),
 		shell.WithStderr(os.Stderr),
 	}
