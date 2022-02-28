@@ -13,6 +13,13 @@ func WithFinder(find CommandFinder) ShellOption {
 	}
 }
 
+func WithStdin(r io.Reader) ShellOption {
+	return func(s *Shell) error {
+		s.SetIn(r)
+		return nil
+	}
+}
+
 func WithStdout(w io.Writer) ShellOption {
 	return func(s *Shell) error {
 		s.SetOut(w)

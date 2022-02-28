@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	// "io"
@@ -332,7 +333,7 @@ func runType(b Builtin) error {
 		var kind string
 		if _, ok := b.shell.builtins[a]; ok {
 			kind = "builtin"
-		} else if _, err := b.shell.Find(a); err == nil {
+		} else if _, err := b.shell.Find(context.TODO(), a); err == nil {
 			kind = "user command"
 		} else if _, ok := b.shell.alias[a]; ok {
 			kind = "alias"

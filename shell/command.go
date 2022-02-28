@@ -6,11 +6,22 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"github.com/midbel/rw"
 )
 
 type CommandFinder interface {
 	Find(context.Context, string) (Command, error)
 }
+
+type CommandType int8
+
+const (
+	TypeBuiltin CommandType = iota
+	TypeScript
+	TypeExternal
+	TypeRegular
+)
 
 type Command interface {
 	Command() string
@@ -53,31 +64,25 @@ func (_ *StdCmd) Type() CommandType {
 }
 
 func (c *StdCmd) SetIn(r io.Reader) {
-	if r, ok := r.(noopCloseReader); ok {
-		if f, ok := r.Reader.(*os.File); ok {
-			c.Stdin = f
-			return
-		}
+	if r, ok := unwrapFileFromReader(r); ok {
+		c.Stdin = r
+		return
 	}
 	c.Stdin = r
 }
 
 func (c *StdCmd) SetOut(w io.Writer) {
-	if w, ok := w.(noopCloseWriter); ok {
-		if f, ok := w.Writer.(*os.File); ok {
-			c.Stdout = f
-			return
-		}
+	if w, ok := unwrapFileFromWriter(w); ok {
+		c.Stdout = w
+		return
 	}
 	c.Stdout = w
 }
 
 func (c *StdCmd) SetErr(w io.Writer) {
-	if w, ok := w.(noopCloseWriter); ok {
-		if f, ok := w.Writer.(*os.File); ok {
-			c.Stderr = f
-			return
-		}
+	if w, ok := unwrapFileFromWriter(w); ok {
+		c.Stderr = w
+		return
 	}
 	c.Stderr = w
 }
@@ -193,12 +198,11 @@ func (s *StdPipe) setStdin() (*os.File, error) {
 	switch r := s.stdin.(type) {
 	case *os.File:
 		return r, nil
-	case noopCloseReader:
-		f, ok := r.Reader.(*os.File)
+	default:
+		f, ok := unwrapFileFromReader(r)
 		if ok {
 			return f, nil
 		}
-	default:
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -233,12 +237,11 @@ func (s *StdPipe) openFile(w io.Writer) (*os.File, error) {
 	switch w := w.(type) {
 	case *os.File:
 		return w, nil
-	case noopCloseWriter:
-		f, ok := w.Writer.(*os.File)
+	default:
+		f, ok := unwrapFileFromWriter(w)
 		if ok {
 			return f, nil
 		}
-	default:
 	}
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -259,4 +262,22 @@ func (s *StdPipe) Close() error {
 	}
 	s.closes = s.closes[:0]
 	return nil
+}
+
+func unwrapFileFromReader(r io.Reader) (*os.File, bool) {
+	u, ok := r.(rw.UnwrapReader)
+	if !ok {
+		return nil, ok
+	}
+	f, ok := u.Unwrap().(*os.File)
+	return f, ok
+}
+
+func unwrapFileFromWriter(w io.Writer) (*os.File, bool) {
+	u, ok := w.(rw.UnwrapWriter)
+	if !ok {
+		return nil, ok
+	}
+	f, ok := u.Unwrap().(*os.File)
+	return f, ok
 }
