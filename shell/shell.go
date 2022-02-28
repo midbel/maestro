@@ -175,7 +175,7 @@ func (s *Shell) Cwd() string {
 
 func (s *Shell) Dirs() []string {
 	var list []string
-	for i := s.dirs.Len()-1; i >= 0; i-- {
+	for i := s.dirs.Len() - 1; i >= 0; i-- {
 		list = append(list, s.dirs.At(i))
 	}
 	return list
