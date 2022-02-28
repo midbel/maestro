@@ -332,7 +332,7 @@ func runType(b Builtin) error {
 		var kind string
 		if _, ok := b.shell.builtins[a]; ok {
 			kind = "builtin"
-		} else if _, ok := b.shell.commands[a]; ok {
+		} else if _, err := b.shell.Find(a); err == nil {
 			kind = "user command"
 		} else if _, ok := b.shell.alias[a]; ok {
 			kind = "alias"
@@ -557,26 +557,7 @@ func runPopd(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	var (
-		dir = set.Arg(0)
-		off int
-		err error
-	)
-	switch {
-	case strings.HasPrefix(dir, "+"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			b.shell.dirs.RemoveLeft(off)
-		}
-	case strings.HasPrefix(dir, "-"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			b.shell.dirs.RemoveRight(off)
-		}
-	default:
-		b.shell.dirs.Pop()
-	}
-	return err
+	return b.shell.Popd(set.Arg(0))
 }
 
 func runPushd(b Builtin) error {
@@ -584,26 +565,7 @@ func runPushd(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	var (
-		dir = set.Arg(0)
-		err error
-		off int
-	)
-	switch {
-	case strings.HasPrefix(dir, "+"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			b.shell.dirs.RotateLeft(off)
-		}
-	case strings.HasPrefix(dir, "-"):
-		off, err = strconv.Atoi(dir)
-		if err == nil {
-			b.shell.dirs.RotateRight(-off)
-		}
-	default:
-		err = b.shell.Chdir(dir)
-	}
-	return err
+	return b.shell.Pushd(set.Arg(0))
 }
 
 func runDirs(b Builtin) error {
@@ -623,14 +585,14 @@ func runDirs(b Builtin) error {
 	if *line || *prefix {
 		eol = "\n"
 	}
-	for i := b.shell.dirs.Len() - 1; i >= 0; i-- {
-		if i < b.shell.dirs.Len()-1 {
+	for i, d := range b.shell.Dirs() {
+		if i > 0 {
 			fmt.Fprint(b.stdout, eol)
 		}
 		if *prefix {
 			fmt.Fprintf(b.stdout, "%d ", i+1)
 		}
-		fmt.Fprint(b.stdout, b.shell.dirs.At(i))
+		fmt.Fprint(b.stdout, d)
 	}
 	fmt.Fprintln(b.stdout)
 	return nil

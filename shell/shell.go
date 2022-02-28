@@ -155,6 +155,7 @@ func (s *Shell) Chdir(dir string) error {
 	case dirOld:
 		s.dirs.Pop()
 	case "":
+		// back to home dir
 	default:
 		i, err := os.Stat(dir)
 		if err != nil {
@@ -170,6 +171,73 @@ func (s *Shell) Chdir(dir string) error {
 
 func (s *Shell) Cwd() string {
 	return s.dirs.Curr()
+}
+
+func (s *Shell) Dirs() []string {
+	var list []string
+	for i := s.dirs.Len()-1; i >= 0; i-- {
+		list = append(list, s.dirs.At(i))
+	}
+	return list
+}
+
+func (s *Shell) Pushd(dir string) error {
+	var (
+		off int
+		err error
+	)
+	switch {
+	case strings.HasPrefix(dir, "+"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			s.dirs.RotateLeft(off)
+		}
+	case strings.HasPrefix(dir, "-"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			s.dirs.RotateRight(-off)
+		}
+	default:
+		err = s.Chdir(dir)
+	}
+	return err
+}
+
+func (s *Shell) Popd(dir string) error {
+	var (
+		off int
+		err error
+	)
+	switch {
+	case strings.HasPrefix(dir, "+"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			s.dirs.RemoveLeft(off)
+		}
+	case strings.HasPrefix(dir, "-"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			s.dirs.RemoveRight(off)
+		}
+	default:
+		s.dirs.Pop()
+	}
+	return err
+}
+
+func (s *Shell) Find(name string) (Command, error) {
+	var err error
+	if s.find != nil {
+		c, err1 := s.find.Find(context.Background(), name)
+		if err1 == nil {
+			return c, nil
+		}
+		err = err1
+	}
+	if c, ok := s.commands[name]; ok {
+		return c, nil
+	}
+	return nil, err
 }
 
 func (s *Shell) SetEcho(echo bool) {

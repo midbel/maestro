@@ -20,7 +20,7 @@ func (s *Stack[T]) RotateRight(n int) {
 	if n >= s.Len() {
 		return
 	}
-	s.rotate(s.Len()-n)
+	s.rotate(s.Len() - n)
 }
 
 func (s *Stack[T]) rotate(n int) {
