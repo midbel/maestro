@@ -557,14 +557,26 @@ func runPopd(b Builtin) error {
 	if err := set.Parse(b.args); err != nil {
 		return err
 	}
-	dir := set.Arg(0)
+	var (
+		dir = set.Arg(0)
+		off int
+		err error
+	)
 	switch {
 	case strings.HasPrefix(dir, "+"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			b.shell.dirs.RemoveLeft(off)
+		}
 	case strings.HasPrefix(dir, "-"):
+		off, err = strconv.Atoi(dir)
+		if err == nil {
+			b.shell.dirs.RemoveRight(off)
+		}
 	default:
-		return nil
+		b.shell.dirs.Pop()
 	}
-	return nil
+	return err
 }
 
 func runPushd(b Builtin) error {

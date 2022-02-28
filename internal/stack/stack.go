@@ -39,6 +39,21 @@ func (s *Stack[T]) Pop() {
 	s.list = s.list[:n]
 }
 
+func (s *Stack[T]) RemoveRight(n int) {
+	if n < 0 || n >= s.Len() {
+		return
+	}
+	s.list = append(s.list[:n], s.list[n+1:]...)
+}
+
+func (s *Stack[T]) RemoveLeft(n int) {
+	if n < 0 || n >= s.Len() {
+		return
+	}
+	n = s.Len() - n
+	s.list = append(s.list[:n], s.list[n+1:]...)
+}
+
 func (s *Stack[T]) Push(item T) {
 	s.list = append(s.list, item)
 }
