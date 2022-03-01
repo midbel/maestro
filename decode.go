@@ -1002,38 +1002,36 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 	if err := d.decodeCommandHelp(cmd); err != nil {
 		return err
 	}
-	for !d.done() {
-		if d.curr().Type == EndScript {
-			break
-		}
-		if d.curr().Type == Comment {
+	for !d.done() && d.curr().Type != EndScript {
+		var err error
+		switch d.curr().Type {
+		case Comment:
 			d.next()
-			continue
-		}
-		if d.curr().Type == Macro {
-			if err := d.decodeScriptMacro(cmd, mst); err != nil {
-				return err
-			}
-			continue
-		}
-		if d.curr().Type == Copy {
+		case Macro:
+			err = d.decodeScriptMacro(cmd, mst)
+		case Copy:
 			d.next()
-			other, err := mst.Commands.Lookup(d.curr().Literal)
-			if err != nil {
-				return err
+			other, err1 := mst.Commands.Lookup(d.curr().Literal)
+			if err1 != nil {
+				err = err1
+				break
 			}
+			// TODO: clone/copy shell env of called called to s
 			for _, s := range other.Lines {
-				// TODO: clone/copy shell env of called called to s
 				cmd.Lines = append(cmd.Lines, s)
 			}
 			d.next()
-			continue
+		default:
+			line, err1 := d.decodeScriptLine()
+			if err1 != nil {
+				err = err1
+				break
+			}
+			cmd.Lines = append(cmd.Lines, line)
 		}
-		line, err := d.decodeScriptLine()
 		if err != nil {
 			return err
 		}
-		cmd.Lines = append(cmd.Lines, line)
 	}
 	if d.curr().Type != EndScript {
 		return d.unexpected()

@@ -164,3 +164,9 @@ count(
 	loc
 	todo
 }
+
+loop(short = loop, tag = loop): {
+	for i in $(seq 1 10); do
+		echo $i
+	done
+}
