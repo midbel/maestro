@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -35,14 +37,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	var err error
 	switch {
 	case *scan:
-		scanLine(flag.Arg(0))
-		return
+		err = scanScript(flag.Arg(0), *inline)
 	case *parse:
-		parseLine(flag.Arg(0))
-		return
+		err = parseScript(flag.Arg(0), *inline)
 	default:
+	}
+	if *scan || *parse {
+		var code int
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			code = 2
+		}
+		os.Exit(code)
+		return
 	}
 
 	options := []shell.ShellOption{
@@ -82,19 +92,45 @@ func main() {
 	sh.Exit()
 }
 
-func parseLine(line string) {
-	p := shell.NewParser(strings.NewReader(line))
+func parseScript(script string, inline bool) error {
+	var r io.Reader
+	if inline {
+		r = strings.NewReader(script)
+	} else {
+		f, err := os.Open(script)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		r = f
+	}
+	p := shell.NewParser(r)
 	for {
 		ex, err := p.Parse()
 		if err != nil {
-			break
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
 		}
 		_ = ex
 	}
+	return nil
 }
 
-func scanLine(line string) {
-	scan := shell.Scan(strings.NewReader(line))
+func scanScript(script string, inline bool) error {
+	var r io.Reader
+	if inline {
+		r = strings.NewReader(script)
+	} else {
+		f, err := os.Open(script)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		r = f
+	}
+	scan := shell.Scan(r)
 	for i := 1; ; i++ {
 		tok := scan.Scan()
 		fmt.Fprintf(os.Stdout, "%3d: %s", i, tok)
@@ -103,4 +139,5 @@ func scanLine(line string) {
 			break
 		}
 	}
+	return nil
 }
