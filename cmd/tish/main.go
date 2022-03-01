@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 
 	"github.com/midbel/maestro/shell"
@@ -21,11 +22,12 @@ func main() {
 		close(sig)
 	}()
 	var (
-		cwd   = flag.String("c", ".", "set working directory")
-		name  = flag.String("n", "tish", "script name")
-		echo  = flag.Bool("e", false, "echo each command before executing")
-		scan  = flag.Bool("s", false, "scan script")
-		parse = flag.Bool("p", false, "parse script")
+		cwd    = flag.String("c", ".", "set working directory")
+		name   = flag.String("n", "tish", "script name")
+		echo   = flag.Bool("e", false, "echo each command before executing")
+		scan   = flag.Bool("s", false, "scan script")
+		parse  = flag.Bool("p", false, "parse script")
+		inline = flag.Bool("i", false, "read script from arguments")
 	)
 	flag.Parse()
 	if flag.NArg() == 0 {
@@ -61,9 +63,19 @@ func main() {
 	var args []string
 	if flag.NArg() > 1 {
 		args = flag.Args()
-		args = args[1:]
 	}
-	if err := sh.Execute(ctx, flag.Arg(0), *name, args); err != nil {
+	if *inline {
+		err = sh.Execute(ctx, flag.Arg(0), *name, args[1:])
+	} else {
+		r, err := os.Open(flag.Arg(0))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		defer r.Close()
+		err = sh.Run(ctx, r, filepath.Base(flag.Arg(0)), args[1:])
+	}
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to execute command: %s => %s", flag.Arg(0), err)
 		fmt.Fprintln(os.Stderr)
 	}

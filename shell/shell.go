@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/stack"
-	// "github.com/midbel/maestro/internal/stdio"
 	"github.com/midbel/maestro/shlex"
 	"github.com/midbel/rw"
 	"golang.org/x/sync/errgroup"
@@ -317,6 +316,25 @@ func (s *Shell) Dry(str, cmd string, args []string) error {
 func (s *Shell) Register(list ...Command) {
 	for i := range list {
 		s.commands[list[i].Command()] = list[i]
+	}
+}
+
+func (s *Shell) Run(ctx context.Context, r io.Reader, cmd string, args []string) error {
+	s.setContext(cmd, args)
+	defer s.clearContext()
+	var (
+		p   = NewParser(r)
+		ret error
+	)
+	for {
+		ex, err := p.Parse()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return ret
+			}
+			return err
+		}
+		ret = s.execute(ctx, ex)
 	}
 }
 

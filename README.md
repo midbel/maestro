@@ -27,6 +27,7 @@ below the list of additions/modifications/deletions that will be introduce in th
 * better handling of shell and subshell management during command execution
 * `Combined` Command type to be revised
 * fill shell builtins
+* read script from files
 * others...
 
 #### v0.2.0 (2022-01-22)
