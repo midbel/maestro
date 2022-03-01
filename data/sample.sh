@@ -1,4 +1,3 @@
-for i in $(seq 1 10); do
-  echo $i
+for ix in $(seq 1 10); do
+  echo "current: $ix"
 done
-find -type f -name "*go"

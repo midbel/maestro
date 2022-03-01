@@ -45,38 +45,6 @@ const (
 	tilde      = '~'
 )
 
-const (
-	kwFor      = "for"
-	kwDo       = "do"
-	kwDone     = "done"
-	kwIn       = "in"
-	kwWhile    = "while"
-	kwUntil    = "until"
-	kwIf       = "if"
-	kwFi       = "fi"
-	kwThen     = "then"
-	kwElse     = "else"
-	kwCase     = "case"
-	kwEsac     = "esac"
-	kwBreak    = "break"
-	kwContinue = "continue"
-)
-
-var colonOps = map[rune]rune{
-	minus:    ValIfUnset,
-	plus:     ValIfSet,
-	equal:    SetValIfUnset,
-	question: ExitIfUnset,
-	langle:   PadLeft,
-	rangle:   PadRight,
-}
-
-var slashOps = map[rune]rune{
-	slash:   ReplaceAll,
-	percent: ReplaceSuffix,
-	pound:   ReplacePrefix,
-}
-
 type Scanner struct {
 	input []byte
 	char  rune
@@ -490,6 +458,7 @@ func (s *Scanner) scanSequence(tok *Token) {
 	case s.char == nl:
 		tok.Type = List
 		s.skipNL()
+		return
 	case s.char == ampersand && k == s.char:
 		tok.Type = And
 		s.read()

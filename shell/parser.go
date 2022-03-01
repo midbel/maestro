@@ -546,6 +546,15 @@ func (p *Parser) parseBody(stop func(kw string) bool) (Executer, error) {
 	var list ExecList
 	p.next()
 	for !p.done() && !stop(p.curr.Literal) {
+		switch p.curr.Type {
+		case Blank:
+			p.skipBlank()
+			continue
+		case List:
+			p.next()
+			continue
+		default:
+		}
 		e, err := p.parse()
 		if err != nil {
 			return nil, err

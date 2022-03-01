@@ -97,6 +97,38 @@ const (
 	Invalid
 )
 
+var colonOps = map[rune]rune{
+	minus:    ValIfUnset,
+	plus:     ValIfSet,
+	equal:    SetValIfUnset,
+	question: ExitIfUnset,
+	langle:   PadLeft,
+	rangle:   PadRight,
+}
+
+var slashOps = map[rune]rune{
+	slash:   ReplaceAll,
+	percent: ReplaceSuffix,
+	pound:   ReplacePrefix,
+}
+
+const (
+	kwFor      = "for"
+	kwDo       = "do"
+	kwDone     = "done"
+	kwIn       = "in"
+	kwWhile    = "while"
+	kwUntil    = "until"
+	kwIf       = "if"
+	kwFi       = "fi"
+	kwThen     = "then"
+	kwElse     = "else"
+	kwCase     = "case"
+	kwEsac     = "esac"
+	kwBreak    = "break"
+	kwContinue = "continue"
+)
+
 type Token struct {
 	Literal string
 	Type    rune

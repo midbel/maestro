@@ -73,9 +73,10 @@ func main() {
 	var args []string
 	if flag.NArg() > 1 {
 		args = flag.Args()
+		args = args
 	}
 	if *inline {
-		err = sh.Execute(ctx, flag.Arg(0), *name, args[1:])
+		err = sh.Execute(ctx, flag.Arg(0), *name, args)
 	} else {
 		r, err := os.Open(flag.Arg(0))
 		if err != nil {
@@ -83,7 +84,7 @@ func main() {
 			os.Exit(2)
 		}
 		defer r.Close()
-		err = sh.Run(ctx, r, filepath.Base(flag.Arg(0)), args[1:])
+		err = sh.Run(ctx, r, filepath.Base(flag.Arg(0)), args)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to execute command: %s => %s", flag.Arg(0), err)
