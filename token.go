@@ -26,7 +26,6 @@ const (
 	Variable
 	Meta
 	Script
-	Macro
 	Quote
 	Assign
 	Append
@@ -38,15 +37,10 @@ const (
 	BegScript
 	EndScript
 	Reverse
-	Ignore
-	Echo
-	Copy
-	Subshell
 	Invalid
 	Optional
 	Mandatory
 	Hidden
-	Expand
 )
 
 type Position struct {
@@ -76,10 +70,6 @@ func (t Token) String() string {
 	switch t.Type {
 	default:
 		prefix = "unknown"
-	case Expand:
-		return "<expand>"
-	case Echo:
-		return "<echo>"
 	case Optional:
 		return "<optional>"
 	case Mandatory:
@@ -88,12 +78,6 @@ func (t Token) String() string {
 		return "<hidden>"
 	case Reverse:
 		return "<reverse>"
-	case Ignore:
-		return "<ignore>"
-	case Copy:
-		return "<copy>"
-	case Subshell:
-		return "<subshell>"
 	case Eof:
 		return "<eof>"
 	case Eol:
@@ -138,8 +122,6 @@ func (t Token) String() string {
 		prefix = "script"
 	case Keyword:
 		prefix = "keyword"
-	case Macro:
-		prefix = "macro"
 	}
 	return fmt.Sprintf("%s(%s)", prefix, t.Literal)
 }
@@ -182,13 +164,4 @@ func (t Token) IsComment() bool {
 
 func (t Token) IsInvalid() bool {
 	return t.Type == Invalid
-}
-
-func (t Token) IsOperator() bool {
-	switch t.Type {
-	case Echo, Reverse, Ignore, Copy, Subshell:
-		return true
-	default:
-		return false
-	}
 }

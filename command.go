@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -86,12 +87,17 @@ func (a CommandArg) Validate(arg string) error {
 	return a.Valid(arg)
 }
 
-type CommandLine struct {
-	Line     string
-	Reverse  bool
-	Ignore   bool
-	Echo     bool
-	Subshell bool
+type CommandScript []string
+
+func (c CommandScript) Reader() io.Reader {
+	var str bytes.Buffer
+	for i := range c {
+		if i > 0 {
+			str.WriteString("\n")
+		}
+		str.WriteString(c[i])
+	}
+	return &str
 }
 
 type CommandSettings struct {
@@ -112,10 +118,10 @@ type CommandSettings struct {
 
 	Hosts     []string
 	Deps      []CommandDep
-	Lines     []CommandLine
 	Options   []CommandOption
 	Args      []CommandArg
 	Schedules []Schedule
+	Lines     CommandScript
 
 	locals *env.Env
 }
@@ -244,7 +250,7 @@ func (s CommandSettings) Prepare(options ...shell.ShellOption) (Executer, error)
 		shell:   sh,
 	}
 	cmd.help, _ = s.Help()
-	cmd.lines = append(cmd.lines, s.Lines...)
+	cmd.script = append(cmd.script, s.Lines...)
 	cmd.options = append(cmd.options, s.Options...)
 	cmd.args = append(cmd.args, s.Args...)
 	cmd.deps = append(cmd.deps, s.Deps...)
@@ -260,7 +266,7 @@ type command struct {
 	retry   int64
 	timeout time.Duration
 
-	lines   []CommandLine
+	script  CommandScript
 	args    []CommandArg
 	options []CommandOption
 
@@ -293,8 +299,8 @@ func (c *command) Dry(args []string) error {
 	if err != nil {
 		return err
 	}
-	for _, cmd := range c.lines {
-		err = c.shell.Dry(cmd.Line, c.name, args)
+	for _, cmd := range c.script {
+		err = c.shell.Dry(cmd, c.name, args)
 		if err != nil {
 			break
 		}
@@ -308,8 +314,8 @@ func (c *command) Script(args []string) ([]string, error) {
 		return nil, err
 	}
 	var list []string
-	for _, i := range c.lines {
-		rs, err := shell.Expand(i.Line, args, c.shell)
+	for _, str := range c.script {
+		rs, err := shell.Expand(str, args, c.shell)
 		if err != nil {
 			return nil, err
 		}
@@ -344,27 +350,17 @@ func (c *command) Execute(ctx context.Context, args []string) error {
 }
 
 func (c *command) execute(ctx context.Context, args []string) error {
-	for _, cmd := range c.lines {
-		if err := ctx.Err(); err != nil {
-			break
-		}
-		sh := c.shell
-		if cmd.Subshell {
-			sh, _ = sh.Subshell()
-		}
-		sh.SetEcho(cmd.Echo)
-		err := sh.Execute(ctx, cmd.Line, c.name, args)
-		if cmd.Reverse {
-			if err == nil {
-				err = fmt.Errorf("command succeed")
-			} else {
-				err = nil
-			}
-		}
-		if !cmd.Ignore && err != nil {
-			return err
-		}
+	// for _, cmd := range c.lines {
+	// 	if err := ctx.Err(); err != nil {
+	// 		break
+	// 	}
+	// 	c.shell.Execute(ctx, cmd, c.name, args)
+	// }
+	// return nil
+	if err := ctx.Err(); err != nil {
+		return err
 	}
+	c.shell.Run(ctx, c.script.Reader(), c.name, args)
 	return nil
 }
 

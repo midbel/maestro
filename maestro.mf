@@ -26,10 +26,10 @@ test(
 		time = */2 * * * *,
 	),
 ): format {
-	@go clean -testcache
-	.repeat($package, '$package/shlex', '$package/shell', '$package/schedule') {
-		@-go test -v -cover <var>
-	}
+	go clean -testcache
+	for var in $package "$package/shlex" "$package/shell" "$package/schedule"; do
+		go test -v -cover $var
+	done
 }
 
 deploy(
@@ -65,7 +65,7 @@ build(
 
 	rm -f ${bindir,,}/${maestro,,}
 	rm -f ${bindir,,}/${tish,,}
-	# go clean -cache
+	go clean -cache
 
 	version = $(git tag | tail -n 1)
 	build   = $(date -I)
@@ -85,13 +85,13 @@ verify(
 ): format {
 	# run "go vet" on each package(s) in the project.
 	echo "run vet on $package"
-	@-go vet $package
+	go vet $package
 	echo "run vet on $package/shell"
-	@-go vet "$package/shell"
+	go vet "$package/shell"
 	echo "run vet on $package/shlex"
-	@-go vet "$package/shlex"
+	go vet "$package/shlex"
 	echo "run vet on $package/schedule"
-	@-go vet "$package/schedule"
+	go vet "$package/schedule"
 }
 
 commit(

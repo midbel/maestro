@@ -53,7 +53,6 @@ const (
 	propWorkDir  = "workdir"
 	propTimeout  = "timeout"
 	propHosts    = "hosts"
-	propError    = "error"
 	propOpts     = "options"
 	propArg      = "args"
 	propAlias    = "alias"
@@ -555,8 +554,6 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 		switch curr.Literal {
 		default:
 			err = fmt.Errorf("%s: unknown command property", curr.Literal)
-		case propError:
-			cmd.Error, err = d.parseString()
 		case propShort:
 			cmd.Short, err = d.parseString()
 		case propHelp:
@@ -1007,20 +1004,6 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 		switch d.curr().Type {
 		case Comment:
 			d.next()
-		case Macro:
-			err = d.decodeScriptMacro(cmd, mst)
-		case Copy:
-			d.next()
-			other, err1 := mst.Commands.Lookup(d.curr().Literal)
-			if err1 != nil {
-				err = err1
-				break
-			}
-			// TODO: clone/copy shell env of called called to s
-			for _, s := range other.Lines {
-				cmd.Lines = append(cmd.Lines, s)
-			}
-			d.next()
 		default:
 			line, err1 := d.decodeScriptLine()
 			if err1 != nil {
@@ -1040,50 +1023,12 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 	return d.ensureEOL()
 }
 
-func (d *Decoder) decodeScriptLine() (CommandLine, error) {
-	var (
-		line CommandLine
-		seen = make(map[rune]struct{})
-	)
-	for d.curr().IsOperator() {
-		if _, ok := seen[d.curr().Type]; ok {
-			return line, fmt.Errorf("operator already set")
-		}
-		seen[d.curr().Type] = struct{}{}
-		switch d.curr().Type {
-		case Echo:
-			line.Echo = !line.Echo
-		case Reverse:
-			line.Reverse = !line.Reverse
-		case Ignore:
-			line.Ignore = !line.Ignore
-		case Subshell:
-			line.Subshell = !line.Subshell
-		default:
-			return line, d.unexpected()
-		}
-		d.next()
-	}
+func (d *Decoder) decodeScriptLine() (string, error) {
 	if d.curr().Type != Script {
-		return line, d.unexpected()
+		return "", d.unexpected()
 	}
-	line.Line = d.curr().Literal
-	d.next()
-
-	return line, nil
-}
-
-func (d *Decoder) decodeScriptMacro(cmd *CommandSettings, mst *Maestro) error {
-	var err error
-	switch macro := d.curr().Literal; macro {
-	case macroRepeat:
-		err = decodeMacroRepeat(d, cmd)
-	case macroSequence:
-		err = decodeMacroSequence(d, cmd)
-	default:
-		err = fmt.Errorf("%s: unknown macro", macro)
-	}
-	return err
+	defer d.next()
+	return d.curr().Literal, nil
 }
 
 func (d *Decoder) decodeMeta(mst *Maestro) error {

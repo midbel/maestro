@@ -111,16 +111,8 @@ action2(
 	# blank line
 	#
 	# enjoy
-	@echo $single
-	@echo $multiple
-
-	.repeat("$tmpdir/file", arg1, arg2, $single, $multiple) {
-		@echo <var>
-	}
-	.sequence{
-		echo line1
-		echo line2
-	}
+	echo $single
+	echo $multiple
 }
 
 action3(

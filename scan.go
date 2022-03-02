@@ -153,56 +153,13 @@ func (s *Scanner) CurrentLine() string {
 	return string(b)
 }
 
-func (s *Scanner) scanModifier(tok *Token) {
-	switch s.char {
-	case dot:
-		s.read()
-		for isLower(s.char) {
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-		tok.Literal = s.str.String()
-		tok.Type = Macro
-		s.state.Push(scanMacro)
-		s.skipBlank()
-		return
-	case minus:
-		tok.Type = Ignore
-	case bang:
-		tok.Type = Reverse
-	case arobase:
-		tok.Type = Echo
-	case langle:
-		tok.Type = Copy
-	case tilde:
-		tok.Type = Subshell
-	default:
-		tok.Type = Invalid
-		return
-	}
-	s.read()
-}
-
 func (s *Scanner) scanScript(tok *Token) {
 	s.skipNL()
 	s.skipBlank()
-
-	var ok bool
-	switch {
-	default:
-		ok = !ok
-	case isModifier(s.char):
-		if ok = s.char == dot && !isLetter(s.peek()); ok {
-			break
-		}
-		s.scanModifier(tok)
-	case isComment(s.char):
+	if isComment(s.char) {
 		s.scanComment(tok)
-	}
-	if !ok {
 		return
 	}
-
 	for !isNL(s.char) && !s.done() {
 		if s.char == backslash && isNL(s.peek()) {
 			s.read()
@@ -393,10 +350,6 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	case colon:
 		tok.Type = Dependency
 	case plus:
-		if s.state.Macro() {
-			tok.Type = Expand
-			break
-		}
 		tok.Type = Append
 		s.read()
 		if s.char != equal {
@@ -420,7 +373,7 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 		tok.Type = Invalid
 	}
 	s.read()
-	if (s.state.Script() || s.state.Macro()) && isNL(s.char) {
+	if s.state.Script() && isNL(s.char) {
 		s.skipNL()
 	}
 	if tok.Type == Comma {
@@ -585,22 +538,12 @@ func isDelimiter(b rune) bool {
 		b == lcurly || b == rcurly || b == equal || b == plus
 }
 
-func isModifier(b rune) bool {
-	switch b {
-	case bang, minus, arobase, langle, tilde, dot, plus:
-		return true
-	default:
-		return false
-	}
-}
-
 type scanState int8
 
 const (
 	scanDefault scanState = iota
 	scanValue
 	scanScript
-	scanMacro
 	scanQuote
 )
 
@@ -617,9 +560,6 @@ func defaultStack() *scanstack {
 
 func (s *scanstack) Pop() {
 	s.Stack.Pop()
-	if s.Macro() {
-		s.Stack.Pop()
-	}
 }
 
 func (s *scanstack) Push(state scanState) {
@@ -653,10 +593,6 @@ func (s *scanstack) ToggleQuote() {
 
 func (s *scanstack) Script() bool {
 	return s.Stack.Curr() == scanScript
-}
-
-func (s *scanstack) Macro() bool {
-	return s.Stack.Curr() == scanMacro || (s.Script() && s.Prev() == scanMacro)
 }
 
 func (s *scanstack) Curr() scanState {
