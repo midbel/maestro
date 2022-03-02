@@ -350,13 +350,6 @@ func (c *command) Execute(ctx context.Context, args []string) error {
 }
 
 func (c *command) execute(ctx context.Context, args []string) error {
-	// for _, cmd := range c.lines {
-	// 	if err := ctx.Err(); err != nil {
-	// 		break
-	// 	}
-	// 	c.shell.Execute(ctx, cmd, c.name, args)
-	// }
-	// return nil
 	if err := ctx.Err(); err != nil {
 		return err
 	}
