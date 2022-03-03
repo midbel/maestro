@@ -349,6 +349,10 @@ func (s *Scanner) scanDelimiter(tok *Token) {
 	switch s.char {
 	case colon:
 		tok.Type = Dependency
+		if s.peek() == s.char {
+			s.read()
+			tok.Type = Resolution
+		}
 	case plus:
 		tok.Type = Append
 		s.read()

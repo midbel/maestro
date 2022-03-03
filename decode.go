@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	metaDuplicate  = "DUPLICATE"
 	metaWorkDir    = "WORKDIR"
 	metaTrace      = "TRACE"
 	metaAll        = "ALL"
@@ -179,7 +178,6 @@ func (d *Decoder) decodeNamespace(mst *Maestro) error {
 	if d.curr().Type != Ident {
 		return d.unexpected()
 	}
-
 	d.ns.Pop()
 	d.ns.Push(d.curr().Literal)
 	d.next()
@@ -905,7 +903,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 		if d.curr().Type == BegScript {
 			break
 		}
-		var optional, mandatory bool
+		var optional, mandatory, space bool
 		for d.curr().Type != Ident {
 			switch d.curr().Type {
 			case Mandatory:
@@ -917,7 +915,12 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			}
 			d.next()
 		}
-		if d.curr().Type != Ident {
+		switch d.curr().Type {
+		case Resolution:
+			space = true
+			d.next()
+		case Ident:
+		default:
 			return d.unexpected()
 		}
 		dep := CommandDep{
@@ -926,6 +929,18 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			Mandatory: mandatory,
 		}
 		d.next()
+		if d.curr().Type == Resolution {
+			if space {
+				return d.unexpected()
+			}
+			d.next()
+			if d.curr().Type != Ident {
+				return d.unexpected()
+			}
+			dep.Space = dep.Name
+			dep.Name = d.curr().Literal
+			d.next()
+		}
 		if d.curr().Type == BegList {
 			d.next()
 			for !d.done() && d.curr().Type != EndList {
@@ -1038,8 +1053,6 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	}
 	d.next()
 	switch meta.Literal {
-	case metaDuplicate:
-		mst.Duplicate, err = d.parseString()
 	case metaWorkDir:
 		mst.MetaExec.WorkDir, err = d.parseString()
 	case metaTrace:

@@ -41,6 +41,7 @@ const (
 	Optional
 	Mandatory
 	Hidden
+	Resolution
 )
 
 type Position struct {
@@ -106,6 +107,8 @@ func (t Token) String() string {
 		return "<invalid>"
 	case Quote:
 		return "<quote>"
+	case Resolution:
+		return "<resolution>"
 	case Ident:
 		prefix = "ident"
 	case String:
