@@ -12,6 +12,12 @@ import (
 )
 
 var builtins = map[string]Builtin{
+	"set": {
+		Usage: "set",
+		Short: "set specific shell option",
+		Help: "",
+		Execute: nil,
+	},
 	"help": {
 		Usage:   "help <builtin>",
 		Short:   "display information about a builtin command",

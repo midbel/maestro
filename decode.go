@@ -179,10 +179,6 @@ func (d *Decoder) decodeNamespace(mst *Maestro) error {
 	if d.curr().Type != Ident {
 		return d.unexpected()
 	}
-	if d.ns.Len() > 0 {
-		d.locals = d.locals.Unwrap()
-	}
-	d.locals = env.EnclosedEnv(d.locals)
 
 	d.ns.Pop()
 	d.ns.Push(d.curr().Literal)

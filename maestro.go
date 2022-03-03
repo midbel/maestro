@@ -290,6 +290,9 @@ func (m *Maestro) ExecuteVersion() error {
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
+	if name == "" && m.MetaExec.Default == "" {
+		return m.ExecuteHelp(name)
+	}
 	if hasHelp(args) {
 		return m.ExecuteHelp(name)
 	}
