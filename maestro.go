@@ -3,7 +3,6 @@ package maestro
 import (
 	"bytes"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -24,14 +23,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
-)
-
-var ErrDuplicate = errors.New("command already registered")
-
-const (
-	dupError   = "error"
-	dupAppend  = "append"
-	dupReplace = "replace"
 )
 
 const (
@@ -57,10 +48,9 @@ type Maestro struct {
 	MetaSSH
 	MetaHttp
 
-	Includes  Dirs
-	Locals    *env.Env
-	Duplicate string
-	Commands  Registry
+	Includes Dirs
+	Locals   *env.Env
+	Commands Registry
 
 	Remote     bool
 	NoDeps     bool
@@ -79,7 +69,6 @@ func New() *Maestro {
 		Locals:    env.EmptyEnv(),
 		MetaAbout: about,
 		MetaHttp:  mhttp,
-		Duplicate: dupReplace,
 		Commands:  make(Registry),
 	}
 }
@@ -115,17 +104,7 @@ func (m *Maestro) Register(ns string, cmd CommandSettings) error {
 		m.Commands[key] = cmd
 		return nil
 	}
-	switch m.Duplicate {
-	case dupError:
-		return fmt.Errorf("%s %w", cmd.Name, ErrDuplicate)
-	case dupReplace, "":
-		m.Commands[key] = cmd
-	case dupAppend:
-		return fmt.Errorf("APPEND: not yet implemented")
-	default:
-		return fmt.Errorf("DUPLICATE: unknown value %s", m.Duplicate)
-	}
-	return nil
+	return fmt.Errorf("%s command already registered", cmd.Name)
 }
 
 func (m *Maestro) ListenAndServe(args []string) error {
@@ -540,11 +519,11 @@ func (m *Maestro) resolveDependencies(cmd Executer, option ctreeOption) (deplist
 	traverse = func(cmd Executer) (deplist, error) {
 		var set []executer
 		for _, d := range cmd.Dependencies() {
-			if _, ok := seen[d.Name]; ok && !d.Mandatory {
+			if _, ok := seen[d.Key()]; ok && !d.Mandatory {
 				continue
 			}
-			seen[d.Name] = empty
-			c, err := m.setup(context.Background(), d.Name, false)
+			seen[d.Key()] = empty
+			c, err := m.setup(context.Background(), d.Key(), false)
 			if err != nil {
 				if d.Optional && !d.Mandatory {
 					continue

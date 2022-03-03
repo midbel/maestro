@@ -47,6 +47,13 @@ type CommandDep struct {
 	Mandatory bool
 }
 
+func (c CommandDep) Key() string {
+	if c.Space == "" {
+		return c.Name
+	}
+	return fmt.Sprintf("%s::%s", c.Space, c.Name)
+}
+
 type CommandOption struct {
 	Short    string
 	Long     string
