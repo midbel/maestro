@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/user"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -20,11 +18,6 @@ import (
 )
 
 const DefaultSSHPort = 22
-
-const (
-	errSilent = "silent"
-	errRaise  = "raise"
-)
 
 type Executer interface {
 	Command() string
@@ -116,9 +109,6 @@ type CommandSettings struct {
 	Desc       string
 	Categories []string
 
-	Users   []string
-	Groups  []string
-	Error   string
 	Retry   int64
 	WorkDir string
 	Timeout time.Duration
@@ -140,7 +130,6 @@ func NewCommmandSettings(name string) (CommandSettings, error) {
 func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings, error) {
 	cmd := CommandSettings{
 		Name:   name,
-		Error:  errSilent,
 		locals: locals,
 	}
 	if cmd.locals == nil {
@@ -198,46 +187,6 @@ func (s CommandSettings) Usage() string {
 
 func (s CommandSettings) Blocked() bool {
 	return !s.Visible
-}
-
-func (s CommandSettings) Can() bool {
-	if len(s.Users) == 0 && len(s.Groups) == 0 {
-		return true
-	}
-	if s.can(strconv.Itoa(os.Geteuid())) {
-		return true
-	}
-	return s.can(strconv.Itoa(os.Getuid()))
-}
-
-func (s CommandSettings) can(uid string) bool {
-	curr, err := user.LookupId(uid)
-	if err != nil {
-		return false
-	}
-	if len(s.Users) > 0 {
-		i := sort.SearchStrings(s.Users, curr.Username)
-		if i < len(s.Users) && s.Users[i] == curr.Username {
-			return true
-		}
-	}
-	if len(s.Groups) > 0 {
-		groups, err := curr.GroupIds()
-		if err != nil {
-			return false
-		}
-		for _, gid := range groups {
-			grp, err := user.LookupGroupId(gid)
-			if err != nil {
-				continue
-			}
-			i := sort.SearchStrings(s.Groups, grp.Name)
-			if i < len(s.Groups) && s.Groups[i] == grp.Name {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (s CommandSettings) Remote() bool {

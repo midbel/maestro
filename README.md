@@ -25,10 +25,7 @@ below the list of additions/modifications/deletions that will be introduce in th
 * support for the `case` instruction in script command
 * handling of command that must expand on multiple lines in script command (eg: for loop, if...) without introducing any macro
 * better handling of shell and subshell management during command execution
-* `Combined` Command type to be revised
 * fill shell builtins
-* read script from files
-* others...
 
 #### v0.2.0 (2022-01-22)
 

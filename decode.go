@@ -55,8 +55,6 @@ const (
 	propOpts     = "options"
 	propArg      = "args"
 	propAlias    = "alias"
-	propUser     = "user"
-	propGroup    = "group"
 	propSchedule = "schedule"
 )
 
@@ -566,12 +564,6 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 			sort.Strings(cmd.Alias)
 		case propArg:
 			cmd.Args, err = d.decodeCommandArguments()
-		case propUser:
-			cmd.Users, err = d.parseStringList()
-			sort.Strings(cmd.Users)
-		case propGroup:
-			cmd.Groups, err = d.parseStringList()
-			sort.Strings(cmd.Groups)
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
 		case propSchedule:
