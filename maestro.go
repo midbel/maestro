@@ -436,9 +436,12 @@ func (m *Maestro) help() (string, error) {
 		Help:     m.Help,
 		Commands: make(map[string][]CommandSettings),
 	}
-	for _, c := range m.Commands {
+	for n, c := range m.Commands {
 		if c.Blocked() {
 			continue
+		}
+		if n.Space != "" {
+			c.Name = fmt.Sprintf("%s::%s", n.Space, c.Name)
 		}
 		for _, t := range c.Tags() {
 			h.Commands[t] = append(h.Commands[t], c)
@@ -553,7 +556,7 @@ func (m *Maestro) setup(ctx context.Context, name string, can bool) (Executer, e
 	if err := m.canExecute(cmd); can && err != nil {
 		return nil, err
 	}
-	ex, err := cmd.Prepare(shell.WithFinder(m.Commands))
+	ex, err := cmd.Prepare(shell.WithFinder(makeFinder(m.Namespace, m.Commands)))
 	if err != nil {
 		return nil, err
 	}
@@ -591,9 +594,10 @@ func (m *Maestro) traverseGraph(name string, level int) ([]string, error) {
 }
 
 type MetaExec struct {
-	WorkDir string
-	Dry     bool
-	Ignore  bool
+	WorkDir   string
+	Namespace string
+	Dry       bool
+	Ignore    bool
 
 	Trace bool
 
@@ -659,18 +663,6 @@ type MetaHttp struct {
 
 type Registry map[commandKey]CommandSettings
 
-func (r Registry) Find(ctx context.Context, name string) (shell.Command, error) {
-	c, ok := r[defaultKey(name)]
-	if !ok {
-		return nil, fmt.Errorf("%s: command not found", name)
-	}
-	x, err := c.Prepare(shell.WithFinder(r))
-	if err != nil {
-		return nil, err
-	}
-	return makeShellCommand(ctx, x), nil
-}
-
 func (r Registry) Copy() Registry {
 	x := make(Registry)
 	for k, v := range r {
@@ -716,6 +708,60 @@ func (r Registry) Lookup(name string) (CommandSettings, error) {
 		}
 	}
 	return cmd, fmt.Errorf("%s: command not defined", name)
+}
+
+type commandFinder struct {
+	Space    string
+	Commands Registry
+}
+
+func makeFinder(ns string, set Registry) shell.CommandFinder {
+	return &commandFinder{
+		Space:    ns,
+		Commands: set,
+	}
+}
+
+func (c *commandFinder) Find(ctx context.Context, name string) (shell.Command, error) {
+	cmd, ok := c.Commands[makeKey(c.Space, name)]
+	if !ok {
+		cmd, ok = c.findByName(name)
+		if !ok {
+			return nil, fmt.Errorf("%s: command not found", name)
+		}
+	}
+	x, err := cmd.Prepare(shell.WithFinder(c))
+	if err != nil {
+		return nil, err
+	}
+	return makeShellCommand(ctx, x), nil
+}
+
+func (c *commandFinder) findByName(name string) (CommandSettings, bool) {
+	var list []CommandSettings
+	for k, cmd := range c.Commands {
+		if k.Space != c.Space {
+			// if k.Name == name {
+			// 	list = append(list, c)
+			// }
+			// for _, a := range cmd.Alias {
+			// 	if a == name {
+			// 		list = append(list, cmd)
+			// 		break
+			// 	}
+			// }
+			continue
+		}
+		for _, a := range cmd.Alias {
+			if a == name {
+				return cmd, true
+			}
+		}
+	}
+	if len(list) > 0 {
+		return list[0], true
+	}
+	return CommandSettings{}, false
 }
 
 type commandKey struct {
@@ -787,6 +833,23 @@ func hasHelp(args []string) bool {
 	return as[i] == "-h" || as[i] == "-help" || as[i] == "--help"
 }
 
+func hasError(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func cleanFilename(str string) string {
+	str = filepath.Base(str)
+	for e := filepath.Ext(str); e != ""; e = filepath.Ext(str) {
+		str = strings.TrimSuffix(str, e)
+	}
+	return str
+}
+
 func interruptContext() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -797,13 +860,4 @@ func interruptContext() context.Context {
 		cancel()
 	}()
 	return ctx
-}
-
-func hasError(errs ...error) error {
-	for _, e := range errs {
-		if e != nil {
-			return e
-		}
-	}
-	return nil
 }

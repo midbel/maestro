@@ -89,8 +89,7 @@ action1(
 		),
 	)
 ): {
-	print $single
-	print $multiple
+	echo "running public::action1"
 }
 
 namespace private
@@ -99,8 +98,6 @@ action2(
 	short = "basic command", # a comment after property should be accepted
 	tag   = demo test,
 	alias = aa2,
-	user  = nobody,
-	group = nobody,
 ): *dep1, ?dep2&, dep3("-a" "-b" arg1 arg2)& {
 	# this line will be the help of the command
 	#
@@ -111,8 +108,7 @@ action2(
 	# blank line
 	#
 	# enjoy
-	echo $single
-	echo $multiple
+	echo "running private::action2"
 }
 
 action3(
@@ -135,8 +131,7 @@ action3(
 	),
 	args = arg1 arg2(file),
 ): {
-	$all && echo $bind \
-		|| echo "bind not set"
+	echo "running private::action3"
 }
 
 delete single multiple

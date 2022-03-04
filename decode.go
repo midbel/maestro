@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	metaNamespace  = "NAMESPACE"
 	metaWorkDir    = "WORKDIR"
 	metaTrace      = "TRACE"
 	metaAll        = "ALL"
@@ -112,7 +113,7 @@ func NewDecoderWithEnv(r io.Reader, ev *env.Env) (*Decoder, error) {
 		alias:  make(map[string]string),
 		ns:     stack.New[string](),
 	}
-	if err := d.push(r); err != nil {
+	if err := d.push(r, true); err != nil {
 		return nil, err
 	}
 	return &d, nil
@@ -262,7 +263,7 @@ func (d *Decoder) decodeFile(file string) error {
 		return err
 	}
 	defer r.Close()
-	return d.push(r)
+	return d.push(r, false)
 }
 
 func (d *Decoder) decodeExport(msg *Maestro) error {
@@ -489,7 +490,10 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	var hidden bool
+	var (
+		hidden    bool
+		namespace = d.ns.Curr()
+	)
 	if hidden = d.curr().Type == Hidden; hidden {
 		d.next()
 	}
@@ -520,7 +524,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 			return err
 		}
 	}
-	if err := mst.Register("", cmd); err != nil {
+	if err := mst.Register(namespace, cmd); err != nil {
 		return err
 	}
 	return nil
@@ -1045,6 +1049,8 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	}
 	d.next()
 	switch meta.Literal {
+	case metaNamespace:
+		mst.MetaExec.Namespace, err = d.parseString()
 	case metaWorkDir:
 		mst.MetaExec.WorkDir, err = d.parseString()
 	case metaTrace:
@@ -1327,14 +1333,19 @@ func (d *Decoder) undefined() error {
 	return fmt.Errorf("maestro: %s: %w", d.curr().Literal, errUndefined)
 }
 
-func (d *Decoder) push(r io.Reader) error {
+func (d *Decoder) push(r io.Reader, root bool) error {
 	f, err := makeFrame(r)
 	if err != nil {
 		return err
 	}
 	d.frames = append(d.frames, f)
 	d.locals = env.EnclosedEnv(d.locals)
-	// d.ns.Push("")
+	if root {
+		return nil
+	}
+	if n, ok := r.(interface{ Name() string }); ok {
+		d.ns.Push(cleanFilename(n.Name()))
+	}
 	return nil
 }
 
@@ -1346,7 +1357,7 @@ func (d *Decoder) pop() error {
 	z--
 	d.frames = d.frames[:z]
 	d.locals = d.locals.Unwrap()
-	// d.ns.Pop()
+	d.ns.Pop()
 	return nil
 }
 

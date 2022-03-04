@@ -18,7 +18,7 @@ Available commands:
 {{repeat "-" $k}}-
 {{- range $cs}}
   - {{printf "%-20s %s" .Name .Short -}}
-{{end}}
+{{end -}}
 {{end}}
 
 {{wrap (printf "use \"maestro -f %s help <command>\" for more information on the available command(s)" .File)}}
