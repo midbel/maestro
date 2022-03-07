@@ -168,7 +168,16 @@ type ExecIf struct {
 	Alt  Executer
 }
 
-// type ExecCase struct {}
+type ExecCase struct {
+	Word    Expander
+	List    []ExecClause
+	Default Executer
+}
+
+type ExecClause struct {
+	List []Expander
+	Body Executer
+}
 
 type ExecTest struct {
 	Tester

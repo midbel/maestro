@@ -489,9 +489,84 @@ func (p *Parser) parseIf() (Executer, error) {
 	return ex, nil
 }
 
+func (p *Parser) parseClause() (ExecClause, error) {
+	var c ExecClause
+	for !p.done() && p.curr.Type != EndSub {
+		var word Expander
+		switch p.curr.Type {
+		case Literal:
+			word, _ = p.parseLiteral()
+		case Variable:
+			word, _ = p.parseVariable()
+		default:
+			return c, p.unexpected()
+		}
+		c.List = append(c.List, word)
+		switch p.curr.Type {
+		case Comma:
+			p.next()
+		case EndSub:
+		default:
+			return c, p.unexpected()
+		}
+	}
+	if p.curr.Type != EndSub {
+		return c, p.unexpected()
+	}
+	p.next()
+	var list ExecList
+	for !p.done() {
+		if p.curr.Type == List {
+			p.next()
+			p.skipBlank()
+		}
+		if p.peek.Type == Comma || p.peek.Type == EndSub || (p.curr.Type == Keyword && p.curr.Literal == kwEsac) {
+			break
+		}
+		p.skipBlank()
+		x, err := p.parse()
+		if err != nil {
+			return c, err
+		}
+		list = append(list, x)
+	}
+	c.Body = list.Executer()
+	return c, nil
+}
+
 func (p *Parser) parseCase() (Executer, error) {
 	p.next()
-	return nil, nil
+	var ex ExecCase
+	switch p.curr.Type {
+	case Literal:
+		ex.Word, _ = p.parseLiteral()
+	case Variable:
+		ex.Word, _ = p.parseVariable()
+	default:
+		return nil, p.unexpected()
+	}
+	p.next()
+	p.skipBlank()
+	if p.curr.Type != Keyword && p.curr.Literal != kwIn {
+		return nil, p.unexpected()
+	}
+	p.next()
+	if p.curr.Type != List {
+		return nil, p.unexpected()
+	}
+	p.next()
+	for p.curr.Type != Keyword && p.curr.Literal != kwEsac {
+		c, err := p.parseClause()
+		if  err != nil {
+			return nil, err
+		}
+		ex.List = append(ex.List, c)
+	}
+	if p.curr.Type != Keyword && p.curr.Literal != kwEsac {
+		return nil, p.unexpected()
+	}
+	p.next()
+	return ex, nil
 }
 
 func (p *Parser) parseFor() (Executer, error) {

@@ -476,6 +476,8 @@ func (s *Scanner) scanSequence(tok *Token) {
 	case s.char == rparen:
 		tok.Type = EndSub
 		s.state.LeaveSubstitution()
+	case s.char == comma:
+		tok.Type = Comma
 	default:
 		tok.Type = Invalid
 	}
@@ -771,7 +773,12 @@ func isOperator(r rune) bool {
 }
 
 func isSequence(r rune) bool {
-	return r == ampersand || r == pipe || r == semicolon || r == rparen || r == nl
+	switch r {
+	case comma, ampersand, pipe, semicolon, rparen, nl:
+		return true
+	default:
+		return false
+	}
 }
 
 func isAssign(r rune) bool {

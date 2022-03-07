@@ -390,6 +390,8 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = s.executeUntil(ctx, ex)
 	case ExecIf:
 		err = s.executeIf(ctx, ex)
+	case ExecCase:
+		err = s.executeCase(ctx, ex)
 	case ExecBreak:
 		err = ErrBreak
 	case ExecContinue:
@@ -400,6 +402,38 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = fmt.Errorf("unsupported executer type %T", ex)
 	}
 	return err
+}
+
+func (s *Shell) executeCase(ctx context.Context, ex ExecCase) error {
+	word, err := ex.Word.Expand(s, false)
+	if err != nil {
+		return err
+	}
+	if len(word) != 1 {
+		return fmt.Errorf("too many word expanded %s", word)
+	}
+	for _, i := range ex.List {
+		var found bool
+		for j := range i.List {
+			vs, err := i.List[j].Expand(s, false)
+			if err != nil {
+				return err
+			}
+			if len(vs) != 1 {
+				return fmt.Errorf("too many word expanded %s", vs)
+			}
+			if found = vs[0] == word[0]; found {
+				break
+			}
+		}
+		if found {
+			return s.execute(ctx, i.Body)
+		}
+	}
+	if ex.Default != nil {
+		return s.execute(ctx, ex.Default)
+	}
+	return nil
 }
 
 func (s *Shell) executeTest(_ context.Context, ex ExecTest) error {

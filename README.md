@@ -10,7 +10,9 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 * hazardous command property will cause a prompt of the password of the current user
 * schedule property `preserve` to always use the same shell context when starting new execution of the same command
 * lint sub-command
+* reload of maestro file for the `serve` sub-command
 * define object variable
+* add support to redirection to command subshell
 * others...
 
 #### v0.3.0
@@ -19,12 +21,11 @@ below the list of additions/modifications/deletions that will be introduce in th
 
 * new sub-command: schedule
 * `schedule` command property related to the future `schedule` sub-command
-* reload of maestro file for the `serve` sub-command
 * variable interpolation in string
 * namespaced command: command in file(s) can be namespaced to not combined them with others having same name from same or included files
 * support for the `case` instruction in script command
+* support for subshell in script command via `(command list)` syntax
 * handling of command that must expand on multiple lines in script command (eg: for loop, if...) without introducing any macro
-* better handling of shell and subshell management during command execution
 * fill shell builtins
 
 #### v0.2.0 (2022-01-22)

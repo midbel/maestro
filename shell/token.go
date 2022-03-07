@@ -13,6 +13,7 @@ const (
 	Quote
 	Comment
 	Variable
+	Comma
 	BegExp
 	EndExp
 	BegBrace
@@ -136,7 +137,7 @@ type Token struct {
 
 func (t Token) IsSequence() bool {
 	switch t.Type {
-	case And, Or, List, Pipe, PipeBoth, Comment, EndSub:
+	case And, Or, List, Pipe, PipeBoth, Comment, EndSub, Comma:
 		return true
 	default:
 		if t.IsRedirect() {
@@ -176,6 +177,8 @@ func (t Token) String() string {
 	switch t.Type {
 	case EOF:
 		return "<eof>"
+	case Comma:
+		return "<comma>"
 	case Blank:
 		return "<blank>"
 	case Quote:
