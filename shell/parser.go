@@ -491,6 +491,9 @@ func (p *Parser) parseIf() (Executer, error) {
 
 func (p *Parser) parseClause() (ExecClause, error) {
 	var c ExecClause
+	if p.curr.Literal == "*" && p.peek.Type != EndSub {
+		return c, p.unexpected()
+	}
 	for !p.done() && p.curr.Type != EndSub {
 		var word Expander
 		switch p.curr.Type {
@@ -556,11 +559,16 @@ func (p *Parser) parseCase() (Executer, error) {
 	}
 	p.next()
 	for p.curr.Type != Keyword && p.curr.Literal != kwEsac {
+		fallback := p.curr.Type == Literal && p.curr.Literal == "*"
 		c, err := p.parseClause()
-		if  err != nil {
+		if err != nil {
 			return nil, err
 		}
-		ex.List = append(ex.List, c)
+		if !fallback {
+			ex.List = append(ex.List, c)
+		} else {
+			ex.Default = c.Body
+		}
 	}
 	if p.curr.Type != Keyword && p.curr.Literal != kwEsac {
 		return nil, p.unexpected()

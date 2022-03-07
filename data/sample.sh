@@ -1,4 +1,4 @@
-var = foo
+var = test
 case $var in
 foo)
   echo foo
