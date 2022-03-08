@@ -22,9 +22,6 @@ package = "github.com/midbel/maestro"
 test(
 	short = "run test in current directory",
 	tag   = build test,
-	schedule = (
-		time = */2 * * * *,
-	),
 ): format {
 	go clean -testcache
 	for var in $package "$package/shlex" "$package/shell" "$package/schedule"; do

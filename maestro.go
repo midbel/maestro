@@ -151,15 +151,23 @@ func (m *Maestro) Schedule(args []string) error {
 	if *list {
 		return m.scheduleList(args, *limit)
 	}
-	return m.schedule(stdio.Stdout, stdio.Stderr)
+	return m.schedule(args, stdio.Stdout, stdio.Stderr)
 }
 
-func (m *Maestro) schedule(stdout, stderr io.Writer) error {
+func (m *Maestro) schedule(args []string, stdout, stderr io.Writer) error {
+	sort.Strings(args)
 	grp, ctx := errgroup.WithContext(interruptContext())
 	for _, c := range m.Commands {
+		var (
+			x = sort.SearchStrings(args, c.Name)
+			k = x < len(args) && args[x] == c.Name
+		)
+		if len(args) > 0 && !k {
+			continue
+		}
 		for i := range c.Schedules {
 			var (
-				c = c
+				c = scheduleContext(c, m.WithPrefix, m.Trace)
 				e = c.Schedules[i]
 			)
 			grp.Go(func() error {

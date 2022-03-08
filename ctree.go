@@ -228,10 +228,10 @@ func createPipe() (*pipe, error) {
 }
 
 func (p *pipe) SetPrefix(prefix string) {
-	if prefix == "" {
-		p.prefix = ""
+	p.prefix = ""
+	if prefix != "" {
+		p.prefix = fmt.Sprintf("[%s] ", prefix)
 	}
-	p.prefix = fmt.Sprintf("[%s] ", prefix)
 }
 
 func (p *pipe) Close() error {

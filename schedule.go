@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -43,6 +44,20 @@ func (s ScheduleRedirect) Option() int {
 	return base
 }
 
+type ScheduleContext struct {
+	CommandSettings
+	Prefix bool
+	Trace  bool
+}
+
+func scheduleContext(cmd CommandSettings, prefix, trace bool) ScheduleContext {
+	return ScheduleContext{
+		CommandSettings: cmd,
+		Prefix:          prefix,
+		Trace:           trace,
+	}
+}
+
 type Schedule struct {
 	Sched   *schedule.Scheduler
 	Args    []string
@@ -52,7 +67,7 @@ type Schedule struct {
 	Overlap bool
 }
 
-func (s *Schedule) Run(ctx context.Context, reg Registry, cmd CommandSettings, stdout, stderr io.Writer) error {
+func (s *Schedule) Run(ctx context.Context, reg Registry, cmd ScheduleContext, stdout, stderr io.Writer) error {
 	r, err := s.makeRunner(reg, cmd, stdout, stderr)
 	if err != nil {
 		return err
@@ -63,21 +78,27 @@ func (s *Schedule) Run(ctx context.Context, reg Registry, cmd CommandSettings, s
 	return s.Sched.Run(ctx, r)
 }
 
-func (s *Schedule) makeRunner(reg Registry, cmd CommandSettings, stdout, stderr io.Writer) (schedule.Runner, error) {
+func (s *Schedule) makeRunner(reg Registry, cmd ScheduleContext, stdout, stderr io.Writer) (schedule.Runner, error) {
 	var err error
 	stdout, err = s.Stdout.Writer(stdout)
 	if err != nil {
 		return nil, err
 	}
+	if cmd.Prefix {
+		stdout = writePrefix(stdout, cmd.Name)
+	}
 	stderr, err = s.Stderr.Writer(stderr)
 	if err != nil {
 		return nil, err
 	}
-	r := createRunner(reg, cmd, s.Args, stdout, stderr)
+	if cmd.Prefix {
+		stderr = writePrefix(stderr, cmd.Name)
+	}
+	r := createRunner(reg, cmd.CommandSettings, s.Args, stdout, stderr)
 	if !s.Overlap {
 		r = schedule.SkipRunning(r)
 	}
-	return schedule.Trace(r, cmd.Command()), nil
+	return r, nil
 }
 
 type runner struct {
@@ -118,10 +139,10 @@ func (r runner) Run(ctx context.Context) error {
 	x.SetOut(r.out)
 	x.SetErr(r.err)
 	err = x.Execute(ctx, r.args)
-	if err != nil {
-		fmt.Printf("%s: %s\n", r.cmd.Command(), err)
-	}
-	return nil
+	// if err != nil {
+	// 	fmt.Printf("%s: %s\n", r.cmd.Command(), err)
+	// }
+	return err
 }
 
 func (r runner) Close() error {
@@ -132,4 +153,22 @@ func (r runner) Close() error {
 		c.Close()
 	}
 	return nil
+}
+
+func writePrefix(w io.Writer, prefix string) io.Writer {
+	pr, pw, _ := os.Pipe()
+	go func() {
+		defer pr.Close()
+
+		scan := bufio.NewScanner(pr)
+		for scan.Scan() {
+			line := scan.Text()
+			if line == "" {
+				continue
+			}
+			fmt.Fprintf(w, "[%s] %s", prefix, line)
+			fmt.Fprintln(w)
+		}
+	}()
+	return pw
 }
