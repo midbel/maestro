@@ -62,8 +62,6 @@ alias (
 	list = ls -l
 )
 
-namespace public
-
 action1(
 	short="basic command",
 	tag=demo, alias=aa1,
@@ -91,8 +89,6 @@ action1(
 ): {
 	echo "running public::action1"
 }
-
-namespace private
 
 action2(
 	short = "basic command", # a comment after property should be accepted
