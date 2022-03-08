@@ -183,6 +183,15 @@ type ExecTest struct {
 	Tester
 }
 
+type ExecSubshell []Executer
+
+func (e ExecSubshell) Executer() Executer {
+	if len(e) == 1 {
+		return e[0]
+	}
+	return e
+}
+
 type ExecList []Executer
 
 func (e ExecList) Executer() Executer {

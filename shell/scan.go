@@ -475,7 +475,11 @@ func (s *Scanner) scanSequence(tok *Token) {
 		tok.Type = Pipe
 	case s.char == rparen:
 		tok.Type = EndSub
-		s.state.LeaveSubstitution()
+		if s.state.Substitution() {
+			s.state.LeaveSubstitution()
+		}
+	case s.char == lparen:
+		tok.Type = BegSub
 	case s.char == comma:
 		tok.Type = Comma
 	default:
@@ -566,8 +570,11 @@ func (s *Scanner) scanDollar(tok *Token) {
 func (s *Scanner) scanComment(tok *Token) {
 	s.read()
 	s.skipBlank()
-	for !s.done() {
+	for !s.done() && !isNL(s.char) {
 		s.write()
+		s.read()
+	}
+	if isNL(s.char) {
 		s.read()
 	}
 	tok.Type = Comment
@@ -774,7 +781,7 @@ func isOperator(r rune) bool {
 
 func isSequence(r rune) bool {
 	switch r {
-	case comma, ampersand, pipe, semicolon, rparen, nl:
+	case comma, ampersand, pipe, semicolon, rparen, lparen, nl:
 		return true
 	default:
 		return false

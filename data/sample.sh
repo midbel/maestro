@@ -19,3 +19,8 @@ qux,mux,bux)
   done
   find -type f -name "*sh"
 esac
+(
+  echo "multiline subshell"
+  find -type f -name "*sh"
+)
+(echo "single line #1"; echo "single line #2")

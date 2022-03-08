@@ -255,6 +255,9 @@ func (s *Shell) Subshell() (*Shell, error) {
 	options := []ShellOption{
 		WithEnv(s),
 		WithCwd(s.Cwd()),
+		WithStdout(s.stdout),
+		WithStderr(s.stderr),
+		WithStdin(s.stdin),
 	}
 	if s.echo {
 		options = append(options, WithEcho())
@@ -368,6 +371,8 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 				break
 			}
 		}
+	case ExecSubshell:
+		return s.executeSubshell(ctx, ex)
 	case ExecAssign:
 		err = s.executeAssign(ex)
 	case ExecAnd:
@@ -402,6 +407,19 @@ func (s *Shell) execute(ctx context.Context, ex Executer) error {
 		err = fmt.Errorf("unsupported executer type %T", ex)
 	}
 	return err
+}
+
+func (s *Shell) executeSubshell(ctx context.Context, ex ExecSubshell) error {
+	sh, err := s.Subshell()
+	if err != nil {
+		return err
+	}
+	for i := range ex {
+		if err := sh.execute(ctx, ex[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Shell) executeCase(ctx context.Context, ex ExecCase) error {

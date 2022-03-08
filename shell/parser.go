@@ -120,14 +120,16 @@ func (p *Parser) Parse() (Executer, error) {
 }
 
 func (p *Parser) parse() (Executer, error) {
-	if p.peek.Type == Assign {
+	switch {
+	case p.peek.Type == Assign:
 		return p.parseAssignment()
-	}
-	if p.curr.Type == Keyword {
+	case p.curr.Type == Keyword:
 		return p.parseKeyword()
-	}
-	if p.curr.Type == BegTest {
+	case p.curr.Type == BegTest:
 		return p.parseTest()
+	case p.curr.Type == BegSub:
+		return p.parseSubshell()
+	default:
 	}
 	ex, err := p.parseSimple()
 	if err != nil {
@@ -148,6 +150,30 @@ func (p *Parser) parse() (Executer, error) {
 			return ex, nil
 		}
 	}
+}
+
+func (p *Parser) parseSubshell() (Executer, error) {
+	p.next()
+	var list ExecSubshell
+	for !p.done() && p.curr.Type != EndSub {
+		if p.curr.Type == EndSub {
+			break
+		}
+		if p.curr.Type == List {
+			p.next()
+		}
+		p.skipBlank()
+		x, err := p.parse()
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, x)
+	}
+	if p.curr.Type != EndSub {
+		return nil, p.unexpected()
+	}
+	p.next()
+	return list.Executer(), nil
 }
 
 func (p *Parser) parseTest() (Executer, error) {
