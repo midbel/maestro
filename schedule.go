@@ -139,10 +139,11 @@ func (r runner) Run(ctx context.Context) error {
 	x.SetOut(r.out)
 	x.SetErr(r.err)
 	err = x.Execute(ctx, r.args)
-	// if err != nil {
-	// 	fmt.Printf("%s: %s\n", r.cmd.Command(), err)
-	// }
-	return err
+	if err != nil {
+		fmt.Fprintf(r.err, "[%s] %s", r.cmd.Command(), err)
+		fmt.Fprintln(r.err)
+	}
+	return nil
 }
 
 func (r runner) Close() error {
