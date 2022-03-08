@@ -14,7 +14,6 @@ import (
 
 	"github.com/midbel/maestro/internal/copyslice"
 	"github.com/midbel/maestro/internal/env"
-	"github.com/midbel/maestro/internal/stack"
 	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/maestro/shell"
 	"github.com/midbel/maestro/shlex"
@@ -88,7 +87,6 @@ type Decoder struct {
 	env    map[string]string
 	alias  map[string]string
 	frames []*frame
-	ns     stack.Stack[string]
 }
 
 func Decode(r io.Reader) (*Maestro, error) {
@@ -111,9 +109,8 @@ func NewDecoderWithEnv(r io.Reader, ev *env.Env) (*Decoder, error) {
 		locals: ev,
 		env:    make(map[string]string),
 		alias:  make(map[string]string),
-		ns:     stack.New[string](),
 	}
-	if err := d.push(r, true); err != nil {
+	if err := d.push(r); err != nil {
 		return nil, err
 	}
 	return &d, nil
@@ -164,24 +161,10 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 		err = d.decodeDelete(mst)
 	case kwAlias:
 		err = d.decodeAlias(mst)
-	case kwNamespace:
-		err = d.decodeNamespace(mst)
 	default:
 		err = d.unexpected()
 	}
 	return err
-}
-
-func (d *Decoder) decodeNamespace(mst *Maestro) error {
-	d.next()
-	if d.curr().Type != Ident {
-		return d.unexpected()
-	}
-	d.ns.Pop()
-	d.ns.Push(d.curr().Literal)
-	d.next()
-
-	return d.ensureEOL()
 }
 
 func (d *Decoder) decodeInclude(mst *Maestro) error {
@@ -263,7 +246,7 @@ func (d *Decoder) decodeFile(file string) error {
 		return err
 	}
 	defer r.Close()
-	return d.push(r, false)
+	return d.push(r)
 }
 
 func (d *Decoder) decodeExport(msg *Maestro) error {
@@ -490,10 +473,7 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	var (
-		hidden    bool
-		namespace = d.ns.Curr()
-	)
+	var hidden bool
 	if hidden = d.curr().Type == Hidden; hidden {
 		d.next()
 	}
@@ -501,12 +481,8 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if err != nil {
 		return err
 	}
-	// for k, v := range d.env {
-	// 	cmd.shell.Export(k, v)
-	// }
-	// for k, v := range d.alias {
-	// 	cmd.shell.Alias(k, v)
-	// }
+	cmd.Ev = copyslice.CopyMap[string, string](d.env)
+	cmd.As = copyslice.CopyMap[string, string](d.alias)
 	cmd.Visible = !hidden
 	d.next()
 	if d.curr().Type == BegList {
@@ -524,7 +500,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 			return err
 		}
 	}
-	if err := mst.Register(namespace, cmd); err != nil {
+	if err := mst.Register(cmd); err != nil {
 		return err
 	}
 	return nil
@@ -1333,19 +1309,13 @@ func (d *Decoder) undefined() error {
 	return fmt.Errorf("maestro: %s: %w", d.curr().Literal, errUndefined)
 }
 
-func (d *Decoder) push(r io.Reader, root bool) error {
+func (d *Decoder) push(r io.Reader) error {
 	f, err := makeFrame(r)
 	if err != nil {
 		return err
 	}
 	d.frames = append(d.frames, f)
 	d.locals = env.EnclosedEnv(d.locals)
-	if root {
-		return nil
-	}
-	if n, ok := r.(interface{ Name() string }); ok {
-		d.ns.Push(cleanFilename(n.Name()))
-	}
 	return nil
 }
 
@@ -1357,7 +1327,6 @@ func (d *Decoder) pop() error {
 	z--
 	d.frames = d.frames[:z]
 	d.locals = d.locals.Unwrap()
-	d.ns.Pop()
 	return nil
 }
 

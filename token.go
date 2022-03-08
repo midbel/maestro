@@ -5,13 +5,12 @@ import (
 )
 
 const (
-	kwTrue      = "true"
-	kwFalse     = "false"
-	kwInclude   = "include"
-	kwExport    = "export"
-	kwDelete    = "delete"
-	kwAlias     = "alias"
-	kwNamespace = "namespace"
+	kwTrue    = "true"
+	kwFalse   = "false"
+	kwInclude = "include"
+	kwExport  = "export"
+	kwDelete  = "delete"
+	kwAlias   = "alias"
 )
 
 const (

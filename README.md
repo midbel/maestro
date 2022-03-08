@@ -13,6 +13,7 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 * reload of maestro file for the `serve` sub-command
 * define object variable
 * add support to redirection to command subshell
+* namespaced command: command in file(s) can be namespaced to not combined them with others having same name from same or included files
 * others...
 
 #### v0.3.0
@@ -22,7 +23,6 @@ below the list of additions/modifications/deletions that will be introduce in th
 * new sub-command: schedule
 * `schedule` command property related to the future `schedule` sub-command
 * variable interpolation in string
-* namespaced command: command in file(s) can be namespaced to not combined them with others having same name from same or included files
 * support for the `case` instruction in script command
 * support for subshell in script command via `(command list)` syntax
 * handling of command that must expand on multiple lines in script command (eg: for loop, if...) without introducing any macro

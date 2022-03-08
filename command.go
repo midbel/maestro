@@ -120,6 +120,9 @@ type CommandSettings struct {
 	Schedules []Schedule
 	Lines     CommandScript
 
+	As map[string]string
+	Ev map[string]string
+
 	locals *env.Env
 }
 
@@ -131,6 +134,8 @@ func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings
 	cmd := CommandSettings{
 		Name:   name,
 		locals: locals,
+		Ev:     make(map[string]string),
+		As:     make(map[string]string),
 	}
 	if cmd.locals == nil {
 		cmd.locals = env.EmptyEnv()
@@ -194,8 +199,12 @@ func (s CommandSettings) Remote() bool {
 }
 
 func (s CommandSettings) Prepare(options ...shell.ShellOption) (Executer, error) {
-	options = append(options, shell.WithEnv(s.locals.Copy()))
-	sh, err := shell.New(options...)
+	list := []shell.ShellOption{
+		shell.WithEnv(s.locals.Copy()),
+		shell.WithExport(s.Ev),
+		shell.WithAlias(s.As),
+	}
+	sh, err := shell.New(append(options, list...)...)
 	if err != nil {
 		return nil, err
 	}

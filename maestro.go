@@ -95,13 +95,10 @@ func (m *Maestro) Load(file string) error {
 	return nil
 }
 
-func (m *Maestro) Register(ns string, cmd CommandSettings) error {
-	var (
-		key   = makeKey(ns, cmd.Name)
-		_, ok = m.Commands[key]
-	)
+func (m *Maestro) Register(cmd CommandSettings) error {
+	_, ok := m.Commands[cmd.Name]
 	if !ok {
-		m.Commands[key] = cmd
+		m.Commands[cmd.Name] = cmd
 		return nil
 	}
 	return fmt.Errorf("%s command already registered", cmd.Name)
@@ -220,8 +217,8 @@ func (m *Maestro) getCommandByNames(names []string) []CommandSettings {
 	sort.Strings(names)
 	for n, c := range m.Commands {
 		all = append(all, c)
-		x := sort.SearchStrings(names, n.Name)
-		if x < len(names) && names[x] == n.Name {
+		x := sort.SearchStrings(names, n)
+		if x < len(names) && names[x] == n {
 			cs = append(cs, c)
 		}
 	}
@@ -436,12 +433,9 @@ func (m *Maestro) help() (string, error) {
 		Help:     m.Help,
 		Commands: make(map[string][]CommandSettings),
 	}
-	for n, c := range m.Commands {
+	for _, c := range m.Commands {
 		if c.Blocked() {
 			continue
-		}
-		if n.Space != "" {
-			c.Name = fmt.Sprintf("%s::%s", n.Space, c.Name)
 		}
 		for _, t := range c.Tags() {
 			h.Commands[t] = append(h.Commands[t], c)
@@ -661,7 +655,7 @@ type MetaHttp struct {
 	Base     string
 }
 
-type Registry map[commandKey]CommandSettings
+type Registry map[string]CommandSettings
 
 func (r Registry) Copy() Registry {
 	x := make(Registry)
@@ -691,19 +685,13 @@ func (r Registry) LookupRemote(name string) (CommandSettings, error) {
 }
 
 func (r Registry) Lookup(name string) (CommandSettings, error) {
-	var (
-		key     = defaultKey(name)
-		cmd, ok = r[key]
-	)
+	cmd, ok := r[name]
 	if ok {
 		return cmd, nil
 	}
-	for k, c := range r {
-		if k.Space != key.Space {
-			continue
-		}
-		i := sort.SearchStrings(c.Alias, key.Name)
-		if i < len(c.Alias) && c.Alias[i] == key.Name {
+	for _, c := range r {
+		i := sort.SearchStrings(c.Alias, name)
+		if i < len(c.Alias) && c.Alias[i] == name {
 			return c, nil
 		}
 	}
@@ -723,7 +711,7 @@ func makeFinder(ns string, set Registry) shell.CommandFinder {
 }
 
 func (c *commandFinder) Find(ctx context.Context, name string) (shell.Command, error) {
-	cmd, ok := c.Commands[makeKey(c.Space, name)]
+	cmd, ok := c.Commands[name]
 	if !ok {
 		cmd, ok = c.findByName(name)
 		if !ok {
@@ -739,19 +727,7 @@ func (c *commandFinder) Find(ctx context.Context, name string) (shell.Command, e
 
 func (c *commandFinder) findByName(name string) (CommandSettings, bool) {
 	var list []CommandSettings
-	for k, cmd := range c.Commands {
-		if k.Space != c.Space {
-			// if k.Name == name {
-			// 	list = append(list, c)
-			// }
-			// for _, a := range cmd.Alias {
-			// 	if a == name {
-			// 		list = append(list, cmd)
-			// 		break
-			// 	}
-			// }
-			continue
-		}
+	for _, cmd := range c.Commands {
 		for _, a := range cmd.Alias {
 			if a == name {
 				return cmd, true
@@ -762,28 +738,6 @@ func (c *commandFinder) findByName(name string) (CommandSettings, bool) {
 		return list[0], true
 	}
 	return CommandSettings{}, false
-}
-
-type commandKey struct {
-	Space string
-	Name  string
-}
-
-func defaultKey(name string) commandKey {
-	ns, rest, ok := strings.Cut(name, "::")
-	if ok {
-		name = rest
-	} else {
-		ns = ""
-	}
-	return makeKey(ns, name)
-}
-
-func makeKey(ns, name string) commandKey {
-	return commandKey{
-		Space: ns,
-		Name:  name,
-	}
 }
 
 type SuggestionError struct {
