@@ -14,11 +14,13 @@ maestro helps to organize all the tasks and/or commands that need to be performe
 * define object variable
 * add support to redirection to command subshell
 * namespaced command: command in file(s) can be namespaced to not combined them with others having same name from same or included files
+* improve help of builtin sub commands and arguments handling (schedule, listen,...)
+* improve ssh command remote execution
 * others...
 
-#### v0.3.0
+#### v0.3.0 (2022-03-08)
 
-below the list of additions/modifications/deletions that will be introduce in the `v0.3.0`:
+below the list of additions/modifications/deletions introduces in the `v0.3.0`:
 
 * new sub-command: schedule
 * `schedule` command property related to the future `schedule` sub-command
