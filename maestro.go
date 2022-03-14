@@ -19,7 +19,7 @@ import (
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
 	"github.com/midbel/maestro/internal/stdio"
-	"github.com/midbel/maestro/shell"
+	"github.com/midbel/tish"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -558,7 +558,7 @@ func (m *Maestro) setup(ctx context.Context, name string, can bool) (Executer, e
 	if err := m.canExecute(cmd); can && err != nil {
 		return nil, err
 	}
-	ex, err := cmd.Prepare(shell.WithFinder(makeFinder(m.Namespace, m.Commands)))
+	ex, err := cmd.Prepare(tish.WithFinder(makeFinder(m.Namespace, m.Commands)))
 	if err != nil {
 		return nil, err
 	}
@@ -711,14 +711,14 @@ type commandFinder struct {
 	Commands Registry
 }
 
-func makeFinder(ns string, set Registry) shell.CommandFinder {
+func makeFinder(ns string, set Registry) tish.CommandFinder {
 	return &commandFinder{
 		Space:    ns,
 		Commands: set,
 	}
 }
 
-func (c *commandFinder) Find(ctx context.Context, name string) (shell.Command, error) {
+func (c *commandFinder) Find(ctx context.Context, name string) (tish.Command, error) {
 	cmd, ok := c.Commands[name]
 	if !ok {
 		cmd, ok = c.findByName(name)
@@ -726,7 +726,7 @@ func (c *commandFinder) Find(ctx context.Context, name string) (shell.Command, e
 			return nil, fmt.Errorf("%s: command not found", name)
 		}
 	}
-	x, err := cmd.Prepare(shell.WithFinder(c))
+	x, err := cmd.Prepare(tish.WithFinder(c))
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,7 @@ import (
 
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
-	"github.com/midbel/maestro/shell"
+	"github.com/midbel/tish"
 )
 
 const DefaultSSHPort = 22
@@ -198,13 +198,13 @@ func (s CommandSettings) Remote() bool {
 	return len(s.Hosts) > 0
 }
 
-func (s CommandSettings) Prepare(options ...shell.ShellOption) (Executer, error) {
-	list := []shell.ShellOption{
-		shell.WithEnv(s.locals.Copy()),
-		shell.WithExport(s.Ev),
-		shell.WithAlias(s.As),
+func (s CommandSettings) Prepare(options ...tish.ShellOption) (Executer, error) {
+	list := []tish.ShellOption{
+		tish.WithEnv(s.locals.Copy()),
+		tish.WithExport(s.Ev),
+		tish.WithAlias(s.As),
 	}
-	sh, err := shell.New(append(options, list...)...)
+	sh, err := tish.New(append(options, list...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ type command struct {
 	args    []CommandArg
 	options []CommandOption
 
-	shell *shell.Shell
+	shell *tish.Shell
 }
 
 func (c *command) Command() string {
@@ -280,7 +280,7 @@ func (c *command) Script(args []string) ([]string, error) {
 	}
 	var list []string
 	for _, str := range c.script {
-		rs, err := shell.Expand(str, args, c.shell)
+		rs, err := tish.Expand(str, args, c.shell)
 		if err != nil {
 			return nil, err
 		}
@@ -415,7 +415,7 @@ type shellCommand struct {
 	args []string
 	ctx  context.Context
 
-	shell.StdPipe
+	tish.StdPipe
 
 	done    chan error
 	errch   chan error
@@ -423,7 +423,7 @@ type shellCommand struct {
 	code    int
 }
 
-func makeShellCommand(ctx context.Context, cmd Executer) shell.Command {
+func makeShellCommand(ctx context.Context, cmd Executer) tish.Command {
 	return &shellCommand{
 		cmd: cmd,
 		ctx: ctx,
@@ -438,8 +438,8 @@ func (s *shellCommand) Command() string {
 	return s.cmd.Command()
 }
 
-func (s *shellCommand) Type() shell.CommandType {
-	return shell.TypeExternal
+func (s *shellCommand) Type() tish.CommandType {
+	return tish.TypeExternal
 }
 
 func (s *shellCommand) Run() error {

@@ -15,8 +15,8 @@ import (
 	"github.com/midbel/maestro/internal/copyslice"
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/schedule"
-	"github.com/midbel/maestro/shell"
-	"github.com/midbel/maestro/shlex"
+	"github.com/midbel/shlex"
+	"github.com/midbel/tish"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -460,11 +460,11 @@ func (d *Decoder) decodeVariable() error {
 func (d *Decoder) decodeScript(line string) ([]string, error) {
 	var (
 		buf  bytes.Buffer
-		opts = []shell.ShellOption{
-			shell.WithEnv(d.locals),
-			shell.WithStdout(&buf),
+		opts = []tish.ShellOption{
+			tish.WithEnv(d.locals),
+			tish.WithStdout(&buf),
 		}
-		sh, _ = shell.New(opts...)
+		sh, _ = tish.New(opts...)
 	)
 	if err := sh.Execute(context.TODO(), line, "", nil); err != nil {
 		return nil, err

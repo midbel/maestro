@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/midbel/maestro/schedule"
-	"github.com/midbel/maestro/shell"
+	"github.com/midbel/tish"
 )
 
 const maxParallelJob = 120
@@ -119,7 +119,7 @@ func createRunner(reg Registry, cmd CommandSettings, args []string, stdout, stde
 	}
 }
 
-func (r runner) Find(ctx context.Context, name string) (shell.Command, error) {
+func (r runner) Find(ctx context.Context, name string) (tish.Command, error) {
 	cmd, err := r.reg.Lookup(name)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (r runner) Find(ctx context.Context, name string) (shell.Command, error) {
 }
 
 func (r runner) Run(ctx context.Context) error {
-	x, err := r.cmd.Prepare(shell.WithFinder(r))
+	x, err := r.cmd.Prepare(tish.WithFinder(r))
 	if err != nil {
 		return nil
 	}
