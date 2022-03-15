@@ -280,7 +280,7 @@ func (c *command) Script(args []string) ([]string, error) {
 	}
 	var list []string
 	for _, str := range c.script {
-		rs, err := tish.Expand(str, args, c.shell)
+		rs, err := c.shell.Expand(str, args)
 		if err != nil {
 			return nil, err
 		}
