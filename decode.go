@@ -53,20 +53,6 @@ const (
 )
 
 const (
-	schedTime              = "time"
-	schedOverlap           = "overlap"
-	schedNotify            = "notify"
-	schedArgs              = "args"
-	schedEnv               = "env"
-	schedOut               = "stdout"
-	schedErr               = "stderr"
-	schedRedirectFile      = "file"
-	schedRedirectCompress  = "compress"
-	schedRedirectDuplicate = "duplicate"
-	schedRedirectOverwrite = "overwrite"
-)
-
-const (
 	optShort    = "short"
 	optLong     = "long"
 	optRequired = "required"
@@ -119,7 +105,7 @@ func (d *Decoder) decode(mst *Maestro) error {
 	d.skipNL()
 	for !d.done() {
 		var err error
-		switch d.curr().Type {
+		switch curr := d.curr(); curr.Type {
 		case Ident:
 			if d.peek().IsAssign() {
 				err = d.decodeVariable()
@@ -146,7 +132,7 @@ func (d *Decoder) decode(mst *Maestro) error {
 
 func (d *Decoder) decodeKeyword(mst *Maestro) error {
 	var err error
-	switch d.curr().Literal {
+	switch curr := d.curr(); curr.Literal {
 	case kwInclude:
 		err = d.decodeInclude(mst)
 	case kwExport:
@@ -179,8 +165,7 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 			str = append(str, vs...)
 		}
 		inc.file = strings.Join(str, "")
-		if d.curr().Type == Optional {
-			inc.optional = true
+		if inc.optional = d.is(Optional); inc.optional {
 			d.next()
 		}
 		return inc, d.ensureEOL()
@@ -199,14 +184,14 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() && d.curr().Type != EndList {
+		for !d.done() && !d.is(EndList) {
 			i, err := decode()
 			if err != nil {
 				return err
 			}
 			list = append(list, i)
 		}
-		if d.curr().Type != EndList {
+		if !d.is(EndList) {
 			return d.unexpected()
 		}
 		d.next()
@@ -232,7 +217,7 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 	decode := func() error {
 		ident := d.curr()
 		d.next()
-		if d.curr().Type != Assign {
+		if !d.is(Assign) {
 			return d.unexpected()
 		}
 		d.next()
@@ -255,7 +240,7 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 		return d.ensureEOL()
 	}
 	d.next()
-	switch d.curr().Type {
+	switch curr := d.curr(); curr.Type {
 	case Ident:
 		if err := decode(); err != nil {
 			return err
@@ -265,12 +250,12 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() && d.curr().Type != EndList {
+		for !d.done() && !d.is(EndList) {
 			if err := decode(); err != nil {
 				return err
 			}
 		}
-		if d.curr().Type != EndList {
+		if !d.is(EndList) {
 			return d.unexpected()
 		}
 		d.next()
@@ -288,9 +273,7 @@ func (d *Decoder) decodeDelete(mst *Maestro) error {
 		}
 		d.locals.Delete(d.curr().Literal)
 		d.next()
-		switch d.curr().Type {
-		case Ident, Eol:
-		default:
+		if !d.is(Ident) && !d.is(Eol) {
 			return d.unexpected()
 		}
 	}
@@ -323,7 +306,7 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 		return d.ensureEOL()
 	}
 	d.next()
-	switch d.curr().Type {
+	switch curr := d.curr(); curr.Type {
 	case Ident:
 		return decode()
 	case BegList:
@@ -331,12 +314,12 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() && d.curr().Type != EndList {
+		for !d.done() && !d.is(EndList) {
 			if err := decode(); err != nil {
 				return err
 			}
 		}
-		if d.curr().Type != EndList {
+		if !d.is(EndList) {
 			return d.unexpected()
 		}
 		d.next()
@@ -346,27 +329,15 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 	}
 }
 
-func (d *Decoder) decodeObjectVariable(ident string) error {
-	d.locals = env.EnclosedEnv(d.locals)
-	err := d.decodeObject(d.decodeAssignment)
-	if err != nil {
-		return err
-	}
-	// restore the original env
-	d.locals = d.locals.Unwrap()
-	return nil
-}
-
 func (d *Decoder) decodeObject(decode func() error) error {
 	d.next()
 	d.skipNL()
-	var done bool
-	for !d.done() && !done {
+	for !d.done() && !d.is(EndList) {
 		d.skipComment()
 		if err := decode(); err != nil {
 			return err
 		}
-		switch d.curr().Type {
+		switch curr := d.curr(); curr.Type {
 		case Ident, String:
 		case Comment:
 			d.next()
@@ -380,9 +351,8 @@ func (d *Decoder) decodeObject(decode func() error) error {
 		default:
 			return d.unexpected()
 		}
-		done = d.curr().Type == EndList
 	}
-	if d.curr().Type != EndList {
+	if !d.is(EndList) {
 		return d.unexpected()
 	}
 	d.next()
@@ -398,10 +368,10 @@ func (d *Decoder) decodeAssignment() error {
 	if !d.curr().IsAssign() {
 		return d.unexpected()
 	}
-	assign = d.curr().Type == Assign
+	assign = d.is(Assign)
 	d.next()
 
-	if d.curr().Type == BegList {
+	if d.is(BegList) {
 		if !assign {
 			return d.unexpected()
 		}
@@ -442,7 +412,7 @@ func (d *Decoder) decodeScript(line string) ([]string, error) {
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
 	var hidden bool
-	if hidden = d.curr().Type == Hidden; hidden {
+	if hidden = d.is(Hidden); hidden {
 		d.next()
 	}
 	cmd, err := NewCommandSettingsWithLocals(d.curr().Literal, d.locals)
@@ -453,17 +423,17 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	cmd.As = slices.CopyMap(d.alias)
 	cmd.Visible = !hidden
 	d.next()
-	if d.curr().Type == BegList {
+	if d.is(BegList) {
 		if err := d.decodeCommandProperties(&cmd); err != nil {
 			return err
 		}
 	}
-	if d.curr().Type == Dependency {
+	if d.is(Dependency) {
 		if err := d.decodeCommandDependencies(&cmd); err != nil {
 			return err
 		}
 	}
-	if d.curr().Type == BegScript {
+	if d.is(BegScript) {
 		if err := d.decodeCommandScripts(&cmd, mst); err != nil {
 			return err
 		}
@@ -487,7 +457,7 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 			return d.unexpected()
 		}
 		d.next()
-		if d.curr().Type != Assign {
+		if !d.is(Assign) {
 			return d.unexpected()
 		}
 		d.next()
@@ -521,8 +491,8 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 
 func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 	var args []CommandArg
-	for !d.done() && d.curr().Type != Comma {
-		if d.curr().Type != Ident {
+	for !d.done() && !d.is(Comma) {
+		if !d.is(Ident) {
 			return nil, d.unexpected()
 		}
 		arg := CommandArg{
@@ -530,7 +500,7 @@ func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 		}
 		d.next()
 		d.skipBlank()
-		if d.curr().Type == BegList {
+		if d.is(BegList) {
 			d.next()
 			list, err := d.decodeValidationRules(EndList)
 			if err != nil {
@@ -546,7 +516,7 @@ func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 		}
 		args = append(args, arg)
 	}
-	if d.curr().Type != Comma {
+	if !d.is(Comma) {
 		return nil, d.unexpected()
 	}
 	return args, nil
@@ -563,7 +533,7 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 			return d.unexpected()
 		}
 		d.next()
-		if d.curr().Type != Assign {
+		if !d.is(Assign) {
 			return d.unexpected()
 		}
 		d.next()
@@ -590,8 +560,7 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 }
 
 func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
-	var done bool
-	for !d.done() && !done {
+	for !d.done() && !d.is(EndList) {
 		if t := d.curr().Type; t != BegList {
 			if t == Ident || t == String {
 				return nil
@@ -603,7 +572,7 @@ func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 			return err
 		}
 		cmd.Options = append(cmd.Options, opt)
-		switch d.curr().Type {
+		switch curr := d.curr(); curr.Type {
 		case Comma:
 			d.next()
 			d.skipComment()
@@ -614,16 +583,15 @@ func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 		default:
 			return d.unexpected()
 		}
-		done = d.curr().Type == EndList
 	}
-	if d.curr().Type != EndList {
+	if d.is(EndList) {
 		return d.unexpected()
 	}
 	return nil
 }
 
 func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error) {
-	if d.curr().Type != BegList {
+	if !d.is(BegList) {
 		return nil, d.unexpected()
 	}
 	d.next()
@@ -663,8 +631,8 @@ func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
 
 func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 	var list []ValidateFunc
-	for !d.done() && d.curr().Type != until {
-		if d.curr().Type != Ident {
+	for !d.done() && !d.is(until) {
+		if !d.is(Ident) {
 			return nil, d.unexpected()
 		}
 		var (
@@ -681,9 +649,9 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 			list = append(list, fn)
 			continue
 		}
-		if d.curr().Type == BegList {
+		if d.is(BegList) {
 			d.next()
-			for !d.done() && d.curr().Type != EndList {
+			for !d.done() && !d.is(EndList) {
 				switch curr := d.curr(); {
 				case curr.IsPrimitive():
 					args = append(args, curr.Literal)
@@ -699,7 +667,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 				d.next()
 				d.skipBlank()
 			}
-			if d.curr().Type != EndList {
+			if !d.is(EndList) {
 				return nil, d.unexpected()
 			}
 			d.next()
@@ -711,7 +679,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 		}
 		list = append(list, fn)
 	}
-	if d.curr().Type != until {
+	if !d.is(until) {
 		return nil, d.unexpected()
 	}
 	d.next()
@@ -720,13 +688,13 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 
 func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 	d.next()
-	for !d.done() {
-		if d.curr().Type == BegScript {
-			break
-		}
-		var optional, mandatory bool
-		for d.curr().Type != Ident {
-			switch d.curr().Type {
+	for !d.done() && !d.is(BegScript) {
+		var (
+			optional  bool
+			mandatory bool
+		)
+		for !d.is(Ident) {
+			switch curr := d.curr(); curr.Type {
 			case Mandatory:
 				mandatory = true
 			case Optional:
@@ -736,9 +704,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			}
 			d.next()
 		}
-		switch d.curr().Type {
-		case Ident:
-		default:
+		if !d.is(Ident) {
 			return d.unexpected()
 		}
 		dep := CommandDep{
@@ -747,9 +713,9 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			Mandatory: mandatory,
 		}
 		d.next()
-		if d.curr().Type == BegList {
+		if d.is(BegList) {
 			d.next()
-			for !d.done() && d.curr().Type != EndList {
+			for !d.done() && !d.is(EndList) {
 				switch curr := d.curr(); {
 				case curr.IsPrimitive():
 					dep.Args = append(dep.Args, curr.Literal)
@@ -763,21 +729,20 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 					return d.unexpected()
 				}
 				d.next()
-				if d.curr().Type == Comma {
+				if d.is(Comma) {
 					d.next()
 				}
 			}
-			if d.curr().Type != EndList {
+			if d.is(EndList) {
 				return d.unexpected()
 			}
 			d.next()
 		}
-		if d.curr().Type == Background {
-			dep.Bg = true
+		if dep.Bg = d.is(Background); dep.Bg {
 			d.next()
 		}
 		cmd.Deps = append(cmd.Deps, dep)
-		switch d.curr().Type {
+		switch curr := d.curr(); curr.Type {
 		case Comma:
 			d.next()
 		case BegScript:
@@ -785,7 +750,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			return d.unexpected()
 		}
 	}
-	if d.curr().Type != BegScript {
+	if !d.is(BegScript) {
 		return d.unexpected()
 	}
 	return nil
@@ -796,7 +761,7 @@ func (d *Decoder) decodeCommandHelp(cmd *CommandSettings) error {
 		help strings.Builder
 		prev string
 	)
-	for i := 0; !d.done() && d.curr().Type == Comment; i++ {
+	for !d.done() && d.is(Comment) {
 		str := d.curr().Literal
 		if str == "" && prev == "" {
 			d.next()
@@ -816,9 +781,9 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 	if err := d.decodeCommandHelp(cmd); err != nil {
 		return err
 	}
-	for !d.done() && d.curr().Type != EndScript {
+	for !d.done() && !d.is(EndScript) {
 		var err error
-		switch d.curr().Type {
+		switch curr := d.curr(); curr.Type {
 		case Comment:
 			d.next()
 		default:
@@ -833,7 +798,7 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 			return err
 		}
 	}
-	if d.curr().Type != EndScript {
+	if !d.is(EndScript) {
 		return d.unexpected()
 	}
 	d.next()
@@ -841,7 +806,7 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 }
 
 func (d *Decoder) decodeScriptLine() (string, error) {
-	if d.curr().Type != Script {
+	if !d.is(Script) {
 		return "", d.unexpected()
 	}
 	defer d.next()
@@ -854,7 +819,7 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		err  error
 	)
 	d.next()
-	if d.curr().Type != Assign {
+	if !d.is(Assign) {
 		return d.unexpected()
 	}
 	d.next()
@@ -906,10 +871,14 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	return err
 }
 
+func (d *Decoder) is(kind rune) bool {
+	return d.curr().Type == kind
+}
+
 func (d *Decoder) ensureNext(list ...rune) error {
 	for i := range list {
 		d.next()
-		if list[i] != d.curr().Type {
+		if !d.is(list[i]) {
 			return d.unexpected()
 		}
 	}
