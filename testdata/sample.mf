@@ -43,8 +43,8 @@ incl   = "include"
 include testdata/inc.mf
 
 include (
-	$tmpdir/${incl}1.mf?
-	$tmpdir/${incl}2.mf?
+	$tmpdir/${incl}1.mf
+	$tmpdir/${incl}2.mf
 )
 
 alias print = echo
@@ -67,7 +67,7 @@ action2(
 	short = "basic command", # a comment after property should be accepted
 	tag   = demo test,
 	alias = aa2,
-): *dep1, ?dep2&, dep3("-a" "-b" arg1 arg2)& {
+): dep1, dep2, dep3("-a" "-b" arg1 arg2) {
 	# this line will be the help of the command
 	#
 	# blank lines will be kept

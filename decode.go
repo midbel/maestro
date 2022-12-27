@@ -147,30 +147,19 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeInclude(mst *Maestro) error {
-	type include struct {
-		file     string
-		optional bool
-	}
-	decode := func() (include, error) {
-		var (
-			str []string
-			inc include
-		)
+	decode := func() (string, error) {
+		var str []string
 		for !d.done() && d.curr().IsValue() {
 			vs, err := d.decodeValue()
 			if err != nil {
-				return inc, err
+				return "", err
 			}
 			str = append(str, vs...)
 		}
-		inc.file = strings.Join(str, "")
-		if inc.optional = d.is(Optional); inc.optional {
-			d.next()
-		}
-		return inc, d.ensureEOL()
+		return strings.Join(str, ""), d.ensureEOL()
 	}
 	d.next()
-	var list []include
+	var list []string
 	switch curr := d.curr(); {
 	case curr.IsValue():
 		i, err := decode()
@@ -681,28 +670,11 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 	d.next()
 	for !d.done() && !d.is(BegScript) {
-		var (
-			optional  bool
-			mandatory bool
-		)
-		for !d.is(Ident) {
-			switch curr := d.curr(); curr.Type {
-			case Mandatory:
-				mandatory = true
-			case Optional:
-				optional = true
-			default:
-				return d.unexpected()
-			}
-			d.next()
-		}
 		if !d.is(Ident) {
 			return d.unexpected()
 		}
 		dep := CommandDep{
-			Name:      d.curr().Literal,
-			Optional:  optional,
-			Mandatory: mandatory,
+			Name: d.curr().Literal,
 		}
 		d.next()
 		if d.is(BegList) {
@@ -728,9 +700,6 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			if !d.is(EndList) {
 				return d.unexpected()
 			}
-			d.next()
-		}
-		if dep.Bg = d.is(Background); dep.Bg {
 			d.next()
 		}
 		cmd.Deps = append(cmd.Deps, dep)
