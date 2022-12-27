@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/env"
-	"github.com/midbel/maestro/schedule"
 	"github.com/midbel/slices"
 )
 
@@ -371,13 +370,6 @@ func (d *Decoder) decodeAssignment() error {
 	assign = d.is(Assign)
 	d.next()
 
-	if d.is(BegList) {
-		if !assign {
-			return d.unexpected()
-		}
-		return d.decodeObjectVariable(ident.Literal)
-	}
-
 	var str []string
 	for !d.done() {
 		xs, err := d.decodeValue()
@@ -733,7 +725,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 					d.next()
 				}
 			}
-			if d.is(EndList) {
+			if !d.is(EndList) {
 				return d.unexpected()
 			}
 			d.next()
@@ -875,16 +867,6 @@ func (d *Decoder) is(kind rune) bool {
 	return d.curr().Type == kind
 }
 
-func (d *Decoder) ensureNext(list ...rune) error {
-	for i := range list {
-		d.next()
-		if !d.is(list[i]) {
-			return d.unexpected()
-		}
-	}
-	return nil
-}
-
 func (d *Decoder) ensureEOL() error {
 	switch d.curr().Type {
 	case Eol, Comment:
@@ -985,14 +967,6 @@ func (d *Decoder) parseString() (string, error) {
 	return str[0], nil
 }
 
-func (d *Decoder) parseCrontab() (*schedule.Scheduler, error) {
-	list, err := d.parseStringList()
-	if err != nil {
-		return nil, err
-	}
-	return schedule.ScheduleFromList(list)
-}
-
 func (d *Decoder) parseBool() (bool, error) {
 	str, err := d.parseString()
 	if err != nil || str == "" {
@@ -1030,7 +1004,7 @@ func (d *Decoder) skipComment() {
 }
 
 func (d *Decoder) skip(kind rune) {
-	for d.curr().Type == kind {
+	for d.is(kind) {
 		d.next()
 	}
 }

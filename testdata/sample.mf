@@ -31,13 +31,6 @@ multiple += $single
 dquote = "print ${single} in string"
 squote = 'print ${single} in string'
 
-obj1 = (
-	prop1 = value1, # a comment after value should be accepted
-	prop2 = value2,
-	prop3 = value3 value4 $single,
-)
-obj2 = (prop4 = value4, prop5 = value5)
-
 export (
 	FOO    = foo # a comment after export should be accepted
 	BAR    = bar
@@ -66,26 +59,6 @@ action1(
 	short="basic command",
 	tag=demo, alias=aa1,
 	hosts = "dev.$domain" prod.$domain,
-	schedule = (
-		time    = 4-10/2 5;7;10 2/3 5-11 *,
-		overlap = false,
-		notify  = cron@$domain,
-		stdout  = /tmp/stdout,
-		stderr  = /tmp/stderr,
-	), (
-		time = "10" "2/7" "*" "*" 1-5,
-		stdout = (
-			file = /tmp/std.out,
-			duplicate = true,
-			overwrite = false,
-			compress = true,
-		),
-		stderr = (
-			file = /tmp/std.err,
-			duplicate = false,
-			compress = true,
-		),
-	)
 ): {
 	echo "running public::action1"
 }
