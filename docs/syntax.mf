@@ -1,0 +1,16 @@
+.META = value
+
+include (
+)
+
+alias (
+)
+
+export (
+)
+
+variable = value
+
+command(option): dependencies {
+	script
+}

@@ -117,7 +117,6 @@ type CommandSettings struct {
 	Deps      []CommandDep
 	Options   []CommandOption
 	Args      []CommandArg
-	Schedules []Schedule
 	Lines     CommandScript
 
 	As map[string]string
@@ -199,28 +198,7 @@ func (s CommandSettings) Remote() bool {
 }
 
 func (s CommandSettings) Prepare(options ...tish.ShellOption) (Executer, error) {
-	list := []tish.ShellOption{
-		tish.WithEnv(s.locals.Copy()),
-		tish.WithExport(s.Ev),
-		tish.WithAlias(s.As),
-	}
-	sh, err := tish.New(append(options, list...)...)
-	if err != nil {
-		return nil, err
-	}
-	cmd := command{
-		name:    s.Command(),
-		retry:   s.Retry,
-		timeout: s.Timeout,
-		shell:   sh,
-	}
-	cmd.help, _ = s.Help()
-	cmd.script = append(cmd.script, s.Lines...)
-	cmd.options = append(cmd.options, s.Options...)
-	cmd.args = append(cmd.args, s.Args...)
-	cmd.deps = append(cmd.deps, s.Deps...)
-
-	return &cmd, nil
+	return nil, nil
 }
 
 type command struct {

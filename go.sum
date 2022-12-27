@@ -2,16 +2,9 @@ github.com/midbel/distance v0.1.0 h1:AuhNiidCDy2Sxb9FMdFUuFasOIYIhFH0ADNTB8PyJk0
 github.com/midbel/distance v0.1.0/go.mod h1:HhnNVr4IVXXDr7Xfp+38z+nPWNpo1EjOnX4qfLQHl08=
 github.com/midbel/rw v0.3.0 h1:E0OlRjYTXN1jnB5O5EZQbSWCbGcXzk922VMVj2j6jgg=
 github.com/midbel/rw v0.3.0/go.mod h1:iIwUqmsls/PSDEPVHLqkcLp2D8xxuwVpBce6pNwf0nI=
-github.com/midbel/shlex v0.1.0 h1:8DarUa4vZ+N8t22vcqXLTD9qLa0DUlri76/vv8c4oxA=
-github.com/midbel/shlex v0.1.0/go.mod h1:AN3Oxs3u28J06GaDWOGYu+OX/hLTyWg9C8gj9cHy18w=
 github.com/midbel/textwrap v0.1.2 h1:oq+tJyapfFWFUGVN/BU2ZsRiWRkV3XeqtNgKUFkU44M=
 github.com/midbel/textwrap v0.1.2/go.mod h1:pNTIQ2A2FQzDpUB4SIdxF82UqttHBOMrO33k/mGGSsE=
 github.com/midbel/tish v0.1.1 h1:t4VhtriQG6rXIiHfjdTxmtsbPPJNZYN/VawmxQbA73w=
 github.com/midbel/tish v0.1.1/go.mod h1:9FXxxKCJkabw4IQ558P8H4pqrQQpQymt1dtUNZ5KpsM=
-golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 h1:/pEO3GD/ABYAjuakUS6xSEmmlyVS4kxBNkeA9tLJiTI=
-golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 h1:SrN+KX8Art/Sf4HNj6Zcz06G7VEz+7w9tdXTPOZ7+l4=
-golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 h1:v+OssWQX+hTHEmOBgwxdZxK4zHq3yOs8F9J7mk0PY8E=

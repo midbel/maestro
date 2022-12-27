@@ -1,8 +1,6 @@
 package maestro
 
 import (
-	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,12 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/midbel/maestro/internal/copyslice"
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/schedule"
-	"github.com/midbel/shlex"
-	"github.com/midbel/tish"
-	"golang.org/x/crypto/ssh"
+	"github.com/midbel/slices"
 )
 
 const (
@@ -221,21 +216,6 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 		}
 	default:
 		return d.unexpected()
-	}
-	for i := range list {
-		file, ok := mst.Includes.Exists(list[i].file)
-		if !ok {
-			if list[i].optional {
-				continue
-			}
-			return fmt.Errorf("%s: file does not exists in %s", file, mst.Includes)
-		}
-		if err := d.decodeFile(file); err != nil {
-			if list[i].optional {
-				continue
-			}
-			return err
-		}
 	}
 	return nil
 }
@@ -458,18 +438,7 @@ func (d *Decoder) decodeVariable() error {
 }
 
 func (d *Decoder) decodeScript(line string) ([]string, error) {
-	var (
-		buf  bytes.Buffer
-		opts = []tish.ShellOption{
-			tish.WithEnv(d.locals),
-			tish.WithStdout(&buf),
-		}
-		sh, _ = tish.New(opts...)
-	)
-	if err := sh.Execute(context.TODO(), line, "", nil); err != nil {
-		return nil, err
-	}
-	return shlex.Split(&buf)
+	return nil, nil
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
@@ -481,8 +450,8 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if err != nil {
 		return err
 	}
-	cmd.Ev = copyslice.CopyMap[string, string](d.env)
-	cmd.As = copyslice.CopyMap[string, string](d.alias)
+	cmd.Ev = slices.CopyMap(d.env)
+	cmd.As = slices.CopyMap(d.alias)
 	cmd.Visible = !hidden
 	d.next()
 	if d.curr().Type == BegList {
@@ -546,128 +515,9 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 			cmd.Args, err = d.decodeCommandArguments()
 		case propOpts:
 			err = d.decodeCommandOptions(cmd)
-		case propSchedule:
-			err = d.decodeCommandSchedule(cmd)
 		}
 		return err
 	})
-}
-
-func (d *Decoder) decodeCommandSchedule(cmd *CommandSettings) error {
-	var done bool
-	for !d.done() && !done {
-		if t := d.curr().Type; t != BegList {
-			if t == Ident || t == String {
-				return nil
-			}
-			return d.unexpected()
-		}
-		sched, err := d.decodeScheduleObject()
-		if err != nil {
-			return err
-		}
-		cmd.Schedules = append(cmd.Schedules, sched)
-		switch d.curr().Type {
-		case Comma:
-			d.next()
-			d.skipComment()
-			d.skipNL()
-		case Eol:
-			d.skipNL()
-		case EndList:
-		default:
-			return d.unexpected()
-		}
-		done = d.curr().Type == EndList
-	}
-	if d.curr().Type != EndList {
-		return d.unexpected()
-	}
-	return nil
-}
-
-func (d *Decoder) decodeScheduleObject() (Schedule, error) {
-	var (
-		sched Schedule
-		err   error
-	)
-	err = d.decodeObject(func() error {
-		var (
-			curr = d.curr()
-			err  error
-		)
-		if curr.Type != Ident {
-			return d.unexpected()
-		}
-		d.next()
-		if d.curr().Type != Assign {
-			return d.unexpected()
-		}
-		d.next()
-		switch curr.Literal {
-		default:
-			return fmt.Errorf("%s: unknown schedule property", curr.Literal)
-		case schedTime:
-			sched.Sched, err = d.parseCrontab()
-		case schedOverlap:
-			sched.Overlap, err = d.parseBool()
-		case schedNotify:
-			sched.Notify, err = d.parseStringList()
-		case schedArgs:
-			sched.Args, err = d.parseStringList()
-		case schedEnv:
-			// TODO
-		case schedOut:
-			sched.Stdout, err = d.decodeScheduleRedirect()
-		case schedErr:
-			sched.Stderr, err = d.decodeScheduleRedirect()
-		}
-		return err
-	})
-	return sched, err
-}
-
-func (d *Decoder) decodeScheduleRedirect() (ScheduleRedirect, error) {
-	var (
-		redirect ScheduleRedirect
-		err      error
-	)
-	switch d.curr().Type {
-	case Ident, String:
-		redirect.File, err = d.parseString()
-		return redirect, err
-	case BegList:
-	default:
-		return redirect, d.unexpected()
-	}
-	err = d.decodeObject(func() error {
-		var (
-			curr = d.curr()
-			err  error
-		)
-		if curr.Type != Ident {
-			return d.unexpected()
-		}
-		d.next()
-		if d.curr().Type != Assign {
-			return d.unexpected()
-		}
-		d.next()
-		switch curr.Literal {
-		default:
-			return fmt.Errorf("%s: unknown schedule property", curr.Literal)
-		case schedRedirectFile:
-			redirect.File, err = d.parseString()
-		case schedRedirectCompress:
-			redirect.Compress, err = d.parseBool()
-		case schedRedirectDuplicate:
-			redirect.Duplicate, err = d.parseBool()
-		case schedRedirectOverwrite:
-			redirect.Overwrite, err = d.parseBool()
-		}
-		return err
-	})
-	return redirect, err
 }
 
 func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
@@ -875,7 +725,7 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 		if d.curr().Type == BegScript {
 			break
 		}
-		var optional, mandatory, space bool
+		var optional, mandatory bool
 		for d.curr().Type != Ident {
 			switch d.curr().Type {
 			case Mandatory:
@@ -888,9 +738,6 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			d.next()
 		}
 		switch d.curr().Type {
-		case Resolution:
-			space = true
-			d.next()
 		case Ident:
 		default:
 			return d.unexpected()
@@ -901,18 +748,6 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 			Mandatory: mandatory,
 		}
 		d.next()
-		if d.curr().Type == Resolution {
-			if space {
-				return d.unexpected()
-			}
-			d.next()
-			if d.curr().Type != Ident {
-				return d.unexpected()
-			}
-			dep.Space = dep.Name
-			dep.Name = d.curr().Literal
-			d.next()
-		}
 		if d.curr().Type == BegList {
 			d.next()
 			for !d.done() && d.curr().Type != EndList {
@@ -1058,9 +893,7 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	case metaPass:
 		mst.MetaSSH.Pass, err = d.parseString()
 	case metaPubKey:
-		mst.MetaSSH.Key, err = d.parseSignerSSH()
 	case metaKnownHosts:
-		mst.MetaSSH.Hosts, err = d.parseKnownHosts()
 	case metaParallel:
 		mst.MetaSSH.Parallel, err = d.parseInt()
 	case metaCertFile:
@@ -1141,7 +974,7 @@ func (d *Decoder) decodeValue() ([]string, error) {
 			tmp = append(tmp, d.curr().Literal)
 		}
 		d.next()
-		str = copyslice.CopyValues[string](str, tmp)
+		str = slices.AppendValues(str, tmp)
 	}
 	ret := make([]string, len(str))
 	for i := range str {
@@ -1192,47 +1025,6 @@ func (d *Decoder) parseCrontab() (*schedule.Scheduler, error) {
 		return nil, err
 	}
 	return schedule.ScheduleFromList(list)
-}
-
-func (d *Decoder) parseKnownHosts() ([]hostEntry, error) {
-	file, err := d.parseString()
-	if err != nil {
-		return nil, err
-	}
-	if file == "default" || file == "" {
-		file = defaultKnownHost
-	}
-	buf, err := os.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-	var list []hostEntry
-	for len(buf) > 0 {
-		_, hosts, key, _, rest, err := ssh.ParseKnownHosts(buf)
-		if err != nil {
-			return nil, err
-		}
-		for i := range hosts {
-			list = append(list, createEntry(hosts[i], key))
-		}
-		buf = rest
-	}
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Host < list[j].Host
-	})
-	return list, nil
-}
-
-func (d *Decoder) parseSignerSSH() (ssh.Signer, error) {
-	file, err := d.parseString()
-	if err != nil {
-		return nil, err
-	}
-	buf, err := os.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-	return ssh.ParsePrivateKey(buf)
 }
 
 func (d *Decoder) parseBool() (bool, error) {
