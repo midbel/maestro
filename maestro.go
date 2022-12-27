@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/midbel/distance"
 	"github.com/midbel/maestro/internal/env"
+	"github.com/midbel/maestro/internal/help"
 )
 
 const (
@@ -44,17 +44,10 @@ type Maestro struct {
 }
 
 func New() *Maestro {
-	about := MetaAbout{
-		File:    DefaultFile,
-		Version: DefaultVersion,
-	}
-	mhttp := MetaHttp{
-		Addr: DefaultHttpAddr,
-	}
 	return &Maestro{
 		Locals:    env.EmptyEnv(),
-		MetaAbout: about,
-		MetaHttp:  mhttp,
+		MetaAbout: defaultAbout(),
+		MetaHttp:  defaultHttp(),
 		Commands:  make(Registry),
 	}
 }
@@ -82,12 +75,7 @@ func (m *Maestro) Load(file string) error {
 }
 
 func (m *Maestro) Register(cmd CommandSettings) error {
-	_, ok := m.Commands[cmd.Name]
-	if !ok {
-		m.Commands[cmd.Name] = cmd
-		return nil
-	}
-	return fmt.Errorf("%s command already registered", cmd.Name)
+	return m.Commands.Register(cmd)
 }
 
 func (m *Maestro) ExecuteHelp(name string) error {
@@ -125,14 +113,39 @@ func (m *Maestro) executeVersion(w io.Writer) error {
 }
 
 func (m *Maestro) help() (string, error) {
-	return "", nil
+	h := struct {
+		File     string
+		Help     string
+		Usage    string
+		Version  string
+		Commands map[string][]CommandSettings
+	}{
+		Version:  m.Version,
+		File:     m.Name(),
+		Usage:    m.Usage,
+		Help:     m.Help,
+		Commands: make(map[string][]CommandSettings),
+	}
+	for _, c := range m.Commands {
+		if c.Blocked() {
+			continue
+		}
+		for _, t := range c.Tags() {
+			h.Commands[t] = append(h.Commands[t], c)
+		}
+	}
+	for _, cs := range h.Commands {
+		sort.Slice(cs, func(i, j int) bool {
+			return cs[i].Command() < cs[j].Command()
+		})
+	}
+	return help.Maestro(h)
 }
 
 type MetaExec struct {
-	WorkDir   string
-	Namespace string
-	Dry       bool
-	Ignore    bool
+	WorkDir string
+	Dry     bool
+	Ignore  bool
 
 	Trace bool
 
@@ -153,11 +166,20 @@ type MetaAbout struct {
 	Usage   string
 }
 
+func defaultAbout() MetaAbout {
+	return MetaAbout{
+		File:    DefaultFile,
+		Version: DefaultVersion,
+	}
+}
+
 type MetaSSH struct {
 	Parallel int64
 	User     string
 	Pass     string
 }
+
+const defaultKnownHost = "~/.ssh/known_hosts"
 
 type MetaHttp struct {
 	CertFile string
@@ -166,70 +188,11 @@ type MetaHttp struct {
 	Base     string
 }
 
-type Registry map[string]CommandSettings
-
-func (r Registry) Copy() Registry {
-	x := make(Registry)
-	for k, v := range r {
-		x[k] = v
-	}
-	return x
-}
-
-func (r Registry) Prepare(name string) (Executer, error) {
-	cmd, err := r.Lookup(name)
-	if err != nil {
-		return nil, err
-	}
-	return cmd.Prepare()
-}
-
-func (r Registry) LookupRemote(name string) (CommandSettings, error) {
-	cmd, err := r.Lookup(name)
-	if err != nil {
-		return cmd, err
-	}
-	if !cmd.Remote() {
-		return cmd, fmt.Errorf("%s: command can not be executed on remote server", name)
-	}
-	return cmd, nil
-}
-
-func (r Registry) Lookup(name string) (CommandSettings, error) {
-	cmd, ok := r[name]
-	if ok {
-		return cmd, nil
-	}
-	for _, c := range r {
-		i := sort.SearchStrings(c.Alias, name)
-		if i < len(c.Alias) && c.Alias[i] == name {
-			return c, nil
-		}
-	}
-	return cmd, fmt.Errorf("%s: command not defined", name)
-}
-
-type SuggestionError struct {
-	Others []string
-	Err    error
-}
-
-func Suggest(err error, name string, names []string) error {
-	names = distance.Levenshtein(name, names)
-	if len(names) == 0 {
-		return err
-	}
-	return SuggestionError{
-		Err:    err,
-		Others: names,
+func defaultHttp() MetaHttp {
+	return MetaHttp{
+		Addr: DefaultHttpAddr,
 	}
 }
-
-func (s SuggestionError) Error() string {
-	return s.Err.Error()
-}
-
-const defaultKnownHost = "~/.ssh/known_hosts"
 
 func hasHelp(args []string) bool {
 	as := make([]string, len(args))

@@ -113,11 +113,11 @@ type CommandSettings struct {
 	WorkDir string
 	Timeout time.Duration
 
-	Hosts     []string
-	Deps      []CommandDep
-	Options   []CommandOption
-	Args      []CommandArg
-	Lines     CommandScript
+	Hosts   []string
+	Deps    []CommandDep
+	Options []CommandOption
+	Args    []CommandArg
+	Lines   CommandScript
 
 	As map[string]string
 	Ev map[string]string

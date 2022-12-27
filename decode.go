@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	metaNamespace  = "NAMESPACE"
 	metaWorkDir    = "WORKDIR"
 	metaTrace      = "TRACE"
 	metaAll        = "ALL"
@@ -860,8 +859,6 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	}
 	d.next()
 	switch meta.Literal {
-	case metaNamespace:
-		mst.MetaExec.Namespace, err = d.parseString()
 	case metaWorkDir:
 		mst.MetaExec.WorkDir, err = d.parseString()
 	case metaTrace:
@@ -1190,25 +1187,4 @@ func (f *frame) next() {
 
 func (f *frame) done() bool {
 	return f.curr.IsEOF()
-}
-
-type UnexpectedError struct {
-	Line     string
-	Invalid  Token
-	Expected []string
-}
-
-func unexpected(token Token, line string) error {
-	return UnexpectedError{
-		Line:    line,
-		Invalid: token,
-	}
-}
-
-func (e UnexpectedError) Error() string {
-	str := e.Invalid.Literal
-	if str == "" {
-		str = e.Invalid.String()
-	}
-	return fmt.Sprintf("%s %q at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
 }
