@@ -1,0 +1,36 @@
+.DEFAULT = build
+.ALL     = test build
+.AUTHOR  = midbel
+.VERSION = "0.1.0"
+.EMAIL   = "no-reply@maestro.org"
+.HELP    = <<HELP
+simple is a sample maestro file that can be used for any project.
+It provides commands to automatize building, checking and testing \
+your project.
+
+It has also some commands to give statistics on the status of the \
+project such as number of remaining todos, line of codes and others.
+HELP
+
+test(
+	short = "run test in current directory",
+	tag   = build test,
+) {
+	go test -v -coverprofile cover.out
+}
+
+build(
+	short = "build the binaries of the project",
+	tag   = build,
+	alias = compile,
+) {
+	go build -a -v -o bin/maestro cmd/maestro/main.go
+}
+
+format(
+	short = "run gofmt in the current directory",
+	tag   = prettier,
+	alias = fmt,
+) {
+	gofmt -w -s .
+}

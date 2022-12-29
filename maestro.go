@@ -1,6 +1,7 @@
 package maestro
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -38,7 +39,7 @@ type Maestro struct {
 	Locals   *env.Env
 	Commands Registry
 
-	Includes []string
+	Includes   []string
 	Remote     bool
 	NoDeps     bool
 	WithPrefix bool
@@ -92,14 +93,31 @@ func (m *Maestro) ExecuteVersion() error {
 }
 
 func (m *Maestro) ExecuteAll(args []string) error {
+	if len(m.MetaExec.All) == 0 {
+		return fmt.Errorf("all command not defined")
+	}
+	for _, n := range m.MetaExec.All {
+		if err := m.execute(n, args); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (m *Maestro) ExecuteDefault(args []string) error {
-	return nil
+	if m.MetaExec.Default == "" {
+		return fmt.Errorf("default command not defined")
+	}
+	return m.execute(m.MetaExec.Default, args)
 }
 
 func (m *Maestro) Execute(name string, args []string) error {
+	if name == "" && m.MetaExec.Default == "" {
+		return m.ExecuteHelp(name)
+	}
+	if hasHelp(args) {
+		return m.ExecuteHelp(name)
+	}
 	return m.execute(name, args)
 }
 
@@ -108,8 +126,17 @@ func (m *Maestro) execute(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	_ = cmd
-	return nil
+	outr, outw := io.Pipe()
+	errr, errw := io.Pipe()
+	defer func() {
+		outr.Close()
+		errr.Close()
+		outw.Close()
+		errw.Close()
+	}()
+	go io.Copy(os.Stdout, outr)
+	go io.Copy(os.Stderr, errr)
+	return cmd.Execute(context.TODO(), args, outw, errw)
 }
 
 func (m *Maestro) executeHelp(name string, w io.Writer) error {
@@ -118,11 +145,7 @@ func (m *Maestro) executeHelp(name string, w io.Writer) error {
 		err  error
 	)
 	if name != "" {
-		cmd, err := m.Commands.Lookup(name)
-		if err != nil {
-			return err
-		}
-		help, err = cmd.Help()
+		help, err = m.Commands.Help(name)
 	} else {
 		help, err = m.help()
 	}

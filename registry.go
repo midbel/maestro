@@ -15,37 +15,26 @@ func (r Registry) Copy() Registry {
 	return x
 }
 
-func (r Registry) Prepare(name string) (Executer, error) {
-	cmd, err := r.Lookup(name)
-	if err != nil {
-		return nil, err
+func (r Registry) Help(name string) (string, error) {
+	cmd, ok := r[name]
+	if !ok {
+		return "", fmt.Errorf("%s: command not defined", name)
 	}
-	return cmd.Prepare()
+	return cmd.Help()
 }
 
-func (r Registry) LookupRemote(name string) (CommandSettings, error) {
-	cmd, err := r.Lookup(name)
-	if err != nil {
-		return cmd, err
-	}
-	if !cmd.Remote() {
-		return cmd, fmt.Errorf("%s: command can not be executed on remote server", name)
-	}
-	return cmd, nil
-}
-
-func (r Registry) Lookup(name string) (CommandSettings, error) {
+func (r Registry) Lookup(name string) (Executer, error) {
 	cmd, ok := r[name]
 	if ok {
-		return cmd, nil
+		return r.prepare(cmd)
 	}
 	for _, c := range r {
 		i := sort.SearchStrings(c.Alias, name)
 		if i < len(c.Alias) && c.Alias[i] == name {
-			return c, nil
+			return r.prepare(c)
 		}
 	}
-	return cmd, fmt.Errorf("%s: command not defined", name)
+	return nil, fmt.Errorf("%s: command not defined", name)
 }
 
 func (r Registry) Exists(name string) bool {
@@ -59,4 +48,15 @@ func (r Registry) Register(cmd CommandSettings) error {
 	}
 	r[cmd.Name] = cmd
 	return nil
+}
+
+func (r Registry) prepare(cmd CommandSettings) (Executer, error) {
+	exec := command{
+		scripts: cmd.Lines,
+		workdir: cmd.WorkDir,
+	}
+	for k, v := range cmd.Ev {
+		exec.env = append(exec.env, fmt.Sprintf("%s=%s", k, v))
+	}
+	return exec, nil
 }
