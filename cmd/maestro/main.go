@@ -112,18 +112,18 @@ func main() {
 	case maestro.CmdVersion:
 		err = mst.ExecuteVersion()
 	case maestro.CmdAll:
-		// err = mst.ExecuteAll(args)
+		err = mst.ExecuteAll(args)
 	case maestro.CmdDefault:
-		// err = mst.ExecuteDefault(args)
+		err = mst.ExecuteDefault(args)
 	case maestro.CmdSchedule:
 		// err = mst.Schedule(args)
 	case maestro.CmdGraph:
 		if len(args) > 0 {
 			cmd = args[0]
 		}
-		// err = mst.Graph(cmd)
+		err = mst.ShowGraph(cmd)
 	default:
-		// err = mst.Execute(cmd, args)
+		err = mst.Execute(cmd, args)
 	}
 	exit(err, file)
 }

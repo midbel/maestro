@@ -3,6 +3,8 @@ package env
 import (
 	"fmt"
 	"strings"
+
+	"github.com/midbel/slices"
 )
 
 type Values map[string][]string
@@ -12,11 +14,11 @@ type Env struct {
 	locals Values
 }
 
-func EmptyEnv() *Env {
-	return EnclosedEnv(nil)
+func Empty() *Env {
+	return Enclosed(nil)
 }
 
-func EnclosedEnv(parent *Env) *Env {
+func Enclosed(parent *Env) *Env {
 	return &Env{
 		parent: parent,
 		locals: make(Values),
@@ -25,7 +27,7 @@ func EnclosedEnv(parent *Env) *Env {
 
 func (e *Env) Set(str string) error {
 	if len(str) == 0 {
-		return fmt.Errorf("no ident provided")
+		return fmt.Errorf("no identifier provided")
 	}
 	x := strings.Index(str, "=")
 	if x < 0 {
@@ -51,6 +53,9 @@ func (e *Env) Resolve(key string) ([]string, error) {
 	if !ok && e.parent != nil {
 		return e.parent.Resolve(key)
 	}
+	if !ok {
+		return nil, fmt.Errorf("%s: identifier not defined", key)
+	}
 	return vs, nil
 }
 
@@ -63,22 +68,10 @@ func (e *Env) Unwrap() *Env {
 
 func (e *Env) Copy() *Env {
 	x := Env{
-		locals: copyLocals(e.locals),
+		locals: slices.CopyMap(e.locals),
 	}
 	if e.parent != nil {
 		x.parent = e.parent.Copy()
 	}
 	return &x
-}
-
-func (e *Env) register(ident string, v Values) {
-
-}
-
-func copyLocals(locals Values) Values {
-	others := make(Values)
-	for k, vs := range locals {
-		others[k] = append(others[k], vs...)
-	}
-	return others
 }

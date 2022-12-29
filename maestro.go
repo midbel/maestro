@@ -38,6 +38,7 @@ type Maestro struct {
 	Locals   *env.Env
 	Commands Registry
 
+	Includes []string
 	Remote     bool
 	NoDeps     bool
 	WithPrefix bool
@@ -45,7 +46,7 @@ type Maestro struct {
 
 func New() *Maestro {
 	return &Maestro{
-		Locals:    env.EmptyEnv(),
+		Locals:    env.Empty(),
 		MetaAbout: defaultAbout(),
 		MetaHttp:  defaultHttp(),
 		Commands:  make(Registry),
@@ -78,12 +79,37 @@ func (m *Maestro) Register(cmd CommandSettings) error {
 	return m.Commands.Register(cmd)
 }
 
+func (m *Maestro) ShowGraph(name string) error {
+	return nil
+}
+
 func (m *Maestro) ExecuteHelp(name string) error {
 	return m.executeHelp(name, os.Stdout)
 }
 
 func (m *Maestro) ExecuteVersion() error {
 	return m.executeVersion(os.Stdout)
+}
+
+func (m *Maestro) ExecuteAll(args []string) error {
+	return nil
+}
+
+func (m *Maestro) ExecuteDefault(args []string) error {
+	return nil
+}
+
+func (m *Maestro) Execute(name string, args []string) error {
+	return m.execute(name, args)
+}
+
+func (m *Maestro) execute(name string, args []string) error {
+	cmd, err := m.Commands.Lookup(name)
+	if err != nil {
+		return err
+	}
+	_ = cmd
+	return nil
 }
 
 func (m *Maestro) executeHelp(name string, w io.Writer) error {

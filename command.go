@@ -32,19 +32,15 @@ type Executer interface {
 }
 
 type CommandDep struct {
-	Space     string
-	Name      string
-	Args      []string
-	Bg        bool
-	Optional  bool
-	Mandatory bool
+	Name string
+	Args []string
+	// Bg        bool
+	// Optional  bool
+	// Mandatory bool
 }
 
 func (c CommandDep) Key() string {
-	if c.Space == "" {
-		return c.Name
-	}
-	return fmt.Sprintf("%s::%s", c.Space, c.Name)
+	return c.Name
 }
 
 type CommandOption struct {
@@ -126,7 +122,7 @@ type CommandSettings struct {
 }
 
 func NewCommmandSettings(name string) (CommandSettings, error) {
-	return NewCommandSettingsWithLocals(name, env.EmptyEnv())
+	return NewCommandSettingsWithLocals(name, env.Empty())
 }
 
 func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings, error) {
@@ -137,7 +133,7 @@ func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings
 		As:     make(map[string]string),
 	}
 	if cmd.locals == nil {
-		cmd.locals = env.EmptyEnv()
+		cmd.locals = env.Empty()
 	}
 	return cmd, nil
 }

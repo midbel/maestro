@@ -77,12 +77,12 @@ func Decode(r io.Reader) (*Maestro, error) {
 }
 
 func NewDecoder(r io.Reader) (*Decoder, error) {
-	return NewDecoderWithEnv(r, env.EmptyEnv())
+	return NewDecoderWithEnv(r, env.Empty())
 }
 
 func NewDecoderWithEnv(r io.Reader, ev *env.Env) (*Decoder, error) {
 	if ev == nil {
-		ev = env.EmptyEnv()
+		ev = env.Empty()
 	}
 	d := Decoder{
 		locals: ev,
@@ -542,8 +542,8 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 
 func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 	for !d.done() && !d.is(EndList) {
-		if t := d.curr().Type; t != BegList {
-			if t == Ident || t == String {
+		if !d.is(BegList) {
+			if d.is(Ident) || d.is(String) {
 				return nil
 			}
 			return d.unexpected()
@@ -565,7 +565,7 @@ func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 			return d.unexpected()
 		}
 	}
-	if d.is(EndList) {
+	if !d.is(EndList) {
 		return d.unexpected()
 	}
 	return nil
@@ -589,7 +589,7 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error)
 	case validAll:
 		fn = validateAll(list...)
 	default:
-		// should never happens
+		// should never happen
 		return nil, fmt.Errorf("%s: unknown validation function", rule)
 	}
 	return fn, nil
@@ -1016,7 +1016,7 @@ func (d *Decoder) push(r io.Reader) error {
 		return err
 	}
 	d.frames = append(d.frames, f)
-	d.locals = env.EnclosedEnv(d.locals)
+	d.locals = env.Enclosed(d.locals)
 	return nil
 }
 
