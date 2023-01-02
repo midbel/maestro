@@ -23,8 +23,8 @@ build(
 	short = "build the binaries of the project",
 	tag   = build,
 	alias = compile,
-) {
-	go build -a -v -o bin/maestro cmd/maestro/main.go
+): test, format {
+	go build -v -o bin/maestro cmd/maestro/main.go
 }
 
 format(

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
 )
 
@@ -35,14 +34,14 @@ type CommandSettings struct {
 	As map[string]string
 	Ev map[string]string
 
-	locals *env.Env
+	locals *Env
 }
 
 func NewCommmandSettings(name string) (CommandSettings, error) {
-	return NewCommandSettingsWithLocals(name, env.Empty())
+	return NewCommandSettingsWithLocals(name, EmptyEnv())
 }
 
-func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings, error) {
+func NewCommandSettingsWithLocals(name string, locals *Env) (CommandSettings, error) {
 	cmd := CommandSettings{
 		Name:   name,
 		locals: locals,
@@ -50,7 +49,7 @@ func NewCommandSettingsWithLocals(name string, locals *env.Env) (CommandSettings
 		As:     make(map[string]string),
 	}
 	if cmd.locals == nil {
-		cmd.locals = env.Empty()
+		cmd.locals = EmptyEnv()
 	}
 	return cmd, nil
 }

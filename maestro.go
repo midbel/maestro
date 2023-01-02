@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
 )
 
@@ -36,7 +35,7 @@ type Maestro struct {
 	MetaSSH
 	MetaHttp
 
-	Locals   *env.Env
+	Locals   *Env
 	Commands Registry
 
 	Includes   []string
@@ -47,7 +46,7 @@ type Maestro struct {
 
 func New() *Maestro {
 	return &Maestro{
-		Locals:    env.Empty(),
+		Locals:    EmptyEnv(),
 		MetaAbout: defaultAbout(),
 		MetaHttp:  defaultHttp(),
 		Commands:  make(Registry),
@@ -122,7 +121,7 @@ func (m *Maestro) Execute(name string, args []string) error {
 }
 
 func (m *Maestro) execute(name string, args []string) error {
-	cmd, err := m.Commands.Lookup(name)
+	cmd, err := m.Commands.Lookup(name, m.NoDeps)
 	if err != nil {
 		return err
 	}

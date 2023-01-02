@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/slices"
 )
 
@@ -62,7 +61,7 @@ const (
 )
 
 type Decoder struct {
-	locals *env.Env
+	locals *Env
 	env    map[string]string
 	alias  map[string]string
 	frames []*frame
@@ -77,12 +76,12 @@ func Decode(r io.Reader) (*Maestro, error) {
 }
 
 func NewDecoder(r io.Reader) (*Decoder, error) {
-	return NewDecoderWithEnv(r, env.Empty())
+	return NewDecoderWithEnv(r, EmptyEnv())
 }
 
-func NewDecoderWithEnv(r io.Reader, ev *env.Env) (*Decoder, error) {
+func NewDecoderWithEnv(r io.Reader, ev *Env) (*Decoder, error) {
 	if ev == nil {
-		ev = env.Empty()
+		ev = EmptyEnv()
 	}
 	d := Decoder{
 		locals: ev,
@@ -385,10 +384,6 @@ func (d *Decoder) decodeVariable() error {
 		return err
 	}
 	return d.ensureEOL()
-}
-
-func (d *Decoder) decodeScript(line string) ([]string, error) {
-	return nil, nil
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
@@ -1016,7 +1011,7 @@ func (d *Decoder) push(r io.Reader) error {
 		return err
 	}
 	d.frames = append(d.frames, f)
-	d.locals = env.Enclosed(d.locals)
+	d.locals = EnclosedEnv(d.locals)
 	return nil
 }
 
