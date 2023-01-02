@@ -24,17 +24,7 @@ func (r Registry) Help(name string) (string, error) {
 }
 
 func (r Registry) Lookup(name string, nodeps bool) (Executer, error) {
-	cmd, ok := r[name]
-	if ok {
-		return r.prepare(cmd, nodeps)
-	}
-	for _, c := range r {
-		i := sort.SearchStrings(c.Alias, name)
-		if i < len(c.Alias) && c.Alias[i] == name {
-			return r.prepare(c, nodeps)
-		}
-	}
-	return nil, fmt.Errorf("%s: command not defined", name)
+	return r.lookup(name, nodeps, isBlocked)
 }
 
 func (r Registry) Exists(name string) bool {
@@ -48,6 +38,31 @@ func (r Registry) Register(cmd CommandSettings) error {
 	}
 	r[cmd.Name] = cmd
 	return nil
+}
+
+func (r Registry) lookup(name string, nodeps bool, can canFunc) (Executer, error) {
+	cmd, err := r.find(name)
+	if err != nil {
+		return nil, err
+	}
+	if err := can(cmd); err != nil {
+		return nil, err
+	}
+	return r.prepare(cmd, nodeps)
+}
+
+func (r Registry) find(name string) (CommandSettings, error) {
+	cmd, ok := r[name]
+	if ok {
+		return cmd, nil
+	}
+	for _, c := range r {
+		i := sort.SearchStrings(c.Alias, name)
+		if i < len(c.Alias) && c.Alias[i] == name {
+			return c, nil
+		}
+	}
+	return cmd, fmt.Errorf("%s: command not defined", name)
 }
 
 func (r Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
@@ -80,11 +95,24 @@ func (r Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) {
 		}
 		seen[d.Name] = struct{}{}
 
-		ex, err := r.Lookup(d.Name, false)
+		ex, err := r.lookup(d.Name, false, canExec)
 		if err != nil {
 			return nil, err
 		}
 		list = append(list, ex)
 	}
 	return list, nil
+}
+
+type canFunc func(CommandSettings) error
+
+func isBlocked(cmd CommandSettings) error {
+	if cmd.Blocked() {
+		return fmt.Errorf("%s can not be executed", cmd.Name)
+	}
+	return nil
+}
+
+func canExec(_ CommandSettings) error {
+	return nil
 }

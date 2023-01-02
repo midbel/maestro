@@ -6,8 +6,6 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	"github.com/midbel/maestro/internal/help"
 )
 
 const DefaultSSHPort = 22
@@ -63,7 +61,7 @@ func (s CommandSettings) About() string {
 }
 
 func (s CommandSettings) Help() (string, error) {
-	return help.Command(s)
+	return CommandHelp(s)
 }
 
 func (s CommandSettings) Tags() []string {

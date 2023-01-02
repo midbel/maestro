@@ -1,4 +1,4 @@
-package help
+package maestro
 
 import (
 	"strings"
@@ -43,11 +43,11 @@ usage: {{.Usage}}
 {{end -}}
 `
 
-func Maestro(ctx interface{}) (string, error) {
+func MaestroHelp(ctx interface{}) (string, error) {
 	return render(helptext, ctx)
 }
 
-func Command(ctx interface{}) (string, error) {
+func CommandHelp(ctx interface{}) (string, error) {
 	return render(cmdhelp, ctx)
 }
 

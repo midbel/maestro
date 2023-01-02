@@ -2,14 +2,14 @@ package maestro
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/midbel/maestro/internal/help"
 )
 
 const (
@@ -125,17 +125,24 @@ func (m *Maestro) execute(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	outr, outw := io.Pipe()
-	errr, errw := io.Pipe()
-	defer func() {
-		outr.Close()
-		errr.Close()
-		outw.Close()
-		errw.Close()
+	if m.Trace {
+		cmd = Trace(cmd)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		defer close(sig)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+		<-sig
+		cancel()
 	}()
-	go io.Copy(os.Stdout, outr)
-	go io.Copy(os.Stderr, errr)
-	return cmd.Execute(context.TODO(), args, outw, errw)
+
+	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
+	if !errors.Is(ctx.Err(), context.Canceled) {
+		cancel()
+	}
+	return err
 }
 
 func (m *Maestro) executeHelp(name string, w io.Writer) error {
@@ -187,7 +194,7 @@ func (m *Maestro) help() (string, error) {
 			return cs[i].Command() < cs[j].Command()
 		})
 	}
-	return help.Maestro(h)
+	return MaestroHelp(h)
 }
 
 type MetaExec struct {

@@ -16,7 +16,9 @@ test(
 	short = "run test in current directory",
 	tag   = build test,
 ) {
+	echo "running test"
 	go test -v -coverprofile cover.out
+	echo "done"
 }
 
 build(
@@ -24,7 +26,9 @@ build(
 	tag   = build,
 	alias = compile,
 ): test, format {
+	echo "running build"
 	go build -v -o bin/maestro cmd/maestro/main.go
+	echo "done"
 }
 
 format(
@@ -32,5 +36,7 @@ format(
 	tag   = prettier,
 	alias = fmt,
 ) {
+	echo "running gofmt"
 	gofmt -w -s .
+	echo "done"
 }
