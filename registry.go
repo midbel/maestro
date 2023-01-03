@@ -45,10 +45,19 @@ func (r Registry) lookup(name string, nodeps bool, can canFunc) (Executer, error
 	if err != nil {
 		return nil, err
 	}
-	if err := can(cmd); err != nil {
+	if can != nil {
+		if err := can(cmd); err != nil {
+			return nil, err
+		}
+	}
+	ex, err := r.prepare(cmd, nodeps)
+	if err != nil {
 		return nil, err
 	}
-	return r.prepare(cmd, nodeps)
+	if can != nil {
+		ex = Retry(cmd.Retry, ex)
+	}
+	return ex, nil
 }
 
 func (r Registry) find(name string) (CommandSettings, error) {
@@ -95,7 +104,7 @@ func (r Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) {
 		}
 		seen[d.Name] = struct{}{}
 
-		ex, err := r.lookup(d.Name, false, canExec)
+		ex, err := r.lookup(d.Name, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -110,9 +119,5 @@ func isBlocked(cmd CommandSettings) error {
 	if cmd.Blocked() {
 		return fmt.Errorf("%s can not be executed", cmd.Name)
 	}
-	return nil
-}
-
-func canExec(_ CommandSettings) error {
 	return nil
 }

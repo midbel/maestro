@@ -11,6 +11,7 @@ import (
 
 	"github.com/midbel/shlex"
 	"github.com/midbel/slices"
+	"github.com/midbel/try"
 )
 
 type Executer interface {
@@ -63,6 +64,27 @@ func (c local) execute(ctx context.Context, line string, args []string, stdout, 
 	cmd.Stderr = stderr
 
 	return cmd.Run()
+}
+
+type retry struct {
+	limit int
+	Executer
+}
+
+func Retry(limit int64, exec Executer) Executer {
+	if limit <= 1 {
+		return exec
+	}
+	return retry{
+		limit:    int(limit),
+		Executer: exec,
+	}
+}
+
+func (c retry) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	return try.TryContext(ctx, c.limit, func(_ int) error {
+		return c.Executer.Execute(ctx, args, stdout, stderr)
+	})
 }
 
 type tracer struct {

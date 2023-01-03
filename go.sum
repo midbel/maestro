@@ -1,10 +1,6 @@
 github.com/midbel/distance v0.1.0 h1:AuhNiidCDy2Sxb9FMdFUuFasOIYIhFH0ADNTB8PyJk0=
 github.com/midbel/distance v0.1.0/go.mod h1:HhnNVr4IVXXDr7Xfp+38z+nPWNpo1EjOnX4qfLQHl08=
-github.com/midbel/rw v0.3.0 h1:E0OlRjYTXN1jnB5O5EZQbSWCbGcXzk922VMVj2j6jgg=
-github.com/midbel/rw v0.3.0/go.mod h1:iIwUqmsls/PSDEPVHLqkcLp2D8xxuwVpBce6pNwf0nI=
 github.com/midbel/textwrap v0.1.2 h1:oq+tJyapfFWFUGVN/BU2ZsRiWRkV3XeqtNgKUFkU44M=
 github.com/midbel/textwrap v0.1.2/go.mod h1:pNTIQ2A2FQzDpUB4SIdxF82UqttHBOMrO33k/mGGSsE=
-github.com/midbel/tish v0.1.1 h1:t4VhtriQG6rXIiHfjdTxmtsbPPJNZYN/VawmxQbA73w=
-github.com/midbel/tish v0.1.1/go.mod h1:9FXxxKCJkabw4IQ558P8H4pqrQQpQymt1dtUNZ5KpsM=
-golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
-golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+github.com/midbel/try v1.2.0 h1:PaJh2TV2uNPnCJjxh9Tr+NeyRFwTjnYCAbsvKAfa7/c=
+github.com/midbel/try v1.2.0/go.mod h1:vCPKhbkVv5vfCK104vNDbiPq6ws/u8po/uEds8Vziu8=

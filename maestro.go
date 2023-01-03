@@ -134,8 +134,12 @@ func (m *Maestro) execute(name string, args []string) error {
 		sig := make(chan os.Signal, 1)
 		defer close(sig)
 		signal.Notify(sig, os.Kill, os.Interrupt)
-		<-sig
-		cancel()
+
+		select {
+		case <-ctx.Done():
+		case <-sig:
+			cancel()
+		}
 	}()
 
 	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
