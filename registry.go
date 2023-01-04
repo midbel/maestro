@@ -79,6 +79,7 @@ func (r Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 		name:    cmd.Name,
 		scripts: cmd.Lines,
 		workdir: cmd.WorkDir,
+		locals:  cmd.locals.Copy(),
 	}
 	for k, v := range cmd.Ev {
 		exec.env = append(exec.env, fmt.Sprintf("%s=%s", k, v))

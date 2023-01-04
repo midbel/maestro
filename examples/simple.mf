@@ -12,13 +12,14 @@ It has also some commands to give statistics on the status of the \
 project such as number of remaining todos, line of codes and others.
 HELP
 
+bindir = bin
+exec   = maestro
+
 test(
 	short = "run test in current directory",
 	tag   = build test,
 ) {
-	echo "running test"
 	go test -v -coverprofile cover.out
-	echo "done"
 }
 
 build(
@@ -26,9 +27,7 @@ build(
 	tag   = build,
 	alias = compile,
 ): test, format {
-	echo "running build"
-	go build -v -o bin/maestro cmd/maestro/main.go
-	echo "done"
+	go build -v -o ${bindir}/${exec} cmd/${exec}/main.go
 }
 
 format(
@@ -36,7 +35,5 @@ format(
 	tag   = prettier,
 	alias = fmt,
 ) {
-	echo "running gofmt"
 	gofmt -w -s .
-	echo "done"
 }

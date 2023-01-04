@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type local struct {
 	env     []string
 	workdir string
 	scripts CommandScript
+	locals  *Env
 }
 
 func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -53,6 +55,14 @@ func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Wri
 }
 
 func (c local) execute(ctx context.Context, line string, args []string, stdout, stderr io.Writer) error {
+	line = os.Expand(line, func(str string) string {
+		res, err := c.locals.Resolve(str)
+		if err != nil {
+			return ""
+		}
+		return strings.Join(res, "")
+	})
+
 	parts, err := shlex.Split(strings.NewReader(line))
 	if err != nil {
 		return err
