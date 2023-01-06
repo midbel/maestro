@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/midbel/distance"
+	"github.com/midbel/maestro/internal/scan"
 )
 
 type SuggestionError struct {
@@ -28,11 +29,11 @@ func (s SuggestionError) Error() string {
 
 type UnexpectedError struct {
 	Line     string
-	Invalid  Token
+	Invalid  scan.Token
 	Expected []string
 }
 
-func unexpected(token Token, line string) error {
+func unexpected(token scan.Token, line string) error {
 	return UnexpectedError{
 		Line:    line,
 		Invalid: token,

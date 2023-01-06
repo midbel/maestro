@@ -1,16 +1,16 @@
-package maestro
+package scan
 
 import (
 	"fmt"
 )
 
 const (
-	kwTrue    = "true"
-	kwFalse   = "false"
-	kwInclude = "include"
-	kwExport  = "export"
-	kwDelete  = "delete"
-	kwAlias   = "alias"
+	KwTrue    = "true"
+	KwFalse   = "false"
+	KwInclude = "include"
+	KwExport  = "export"
+	KwDelete  = "delete"
+	KwAlias   = "alias"
 )
 
 const (

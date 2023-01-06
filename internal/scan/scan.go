@@ -1,4 +1,4 @@
-package maestro
+package scan
 
 import (
 	"bytes"
@@ -320,9 +320,9 @@ func (s *Scanner) scanLiteral(tok *Token) {
 		return
 	}
 	switch tok.Literal {
-	case kwTrue, kwFalse:
+	case KwTrue, KwFalse:
 		tok.Type = Boolean
-	case kwInclude, kwExport, kwDelete, kwAlias:
+	case KwInclude, KwExport, KwDelete, KwAlias:
 		tok.Type = Keyword
 	default:
 		tok.Type = Ident

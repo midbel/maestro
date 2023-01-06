@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/scan"
 	"github.com/midbel/slices"
 )
 
@@ -104,19 +105,19 @@ func (d *Decoder) decode(mst *Maestro) error {
 	for !d.done() {
 		var err error
 		switch curr := d.curr(); curr.Type {
-		case Ident:
+		case scan.Ident:
 			if d.peek().IsAssign() {
 				err = d.decodeVariable()
 				break
 			}
 			err = d.decodeCommand(mst)
-		case Hidden:
+		case scan.Hidden:
 			err = d.decodeCommand(mst)
-		case Meta:
+		case scan.Meta:
 			err = d.decodeMeta(mst)
-		case Keyword:
+		case scan.Keyword:
 			err = d.decodeKeyword(mst)
-		case Comment:
+		case scan.Comment:
 			d.next()
 		default:
 			err = d.unexpected()
@@ -131,13 +132,13 @@ func (d *Decoder) decode(mst *Maestro) error {
 func (d *Decoder) decodeKeyword(mst *Maestro) error {
 	var err error
 	switch curr := d.curr(); curr.Literal {
-	case kwInclude:
+	case scan.KwInclude:
 		err = d.decodeInclude(mst)
-	case kwExport:
+	case scan.KwExport:
 		err = d.decodeExport(mst)
-	case kwDelete:
+	case scan.KwDelete:
 		err = d.decodeDelete(mst)
-	case kwAlias:
+	case scan.KwAlias:
 		err = d.decodeAlias(mst)
 	default:
 		err = d.unexpected()
@@ -166,19 +167,19 @@ func (d *Decoder) decodeInclude(mst *Maestro) error {
 			return err
 		}
 		list = append(list, i)
-	case curr.Type == BegList:
+	case curr.Type == scan.BegList:
 		d.next()
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() && !d.is(EndList) {
+		for !d.done() && !d.is(scan.EndList) {
 			i, err := decode()
 			if err != nil {
 				return err
 			}
 			list = append(list, i)
 		}
-		if !d.is(EndList) {
+		if !d.is(scan.EndList) {
 			return d.unexpected()
 		}
 		d.next()
@@ -204,7 +205,7 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 	decode := func() error {
 		ident := d.curr()
 		d.next()
-		if !d.is(Assign) {
+		if !d.is(scan.Assign) {
 			return d.unexpected()
 		}
 		d.next()
@@ -228,21 +229,21 @@ func (d *Decoder) decodeExport(msg *Maestro) error {
 	}
 	d.next()
 	switch curr := d.curr(); curr.Type {
-	case Ident:
+	case scan.Ident:
 		if err := decode(); err != nil {
 			return err
 		}
-	case BegList:
+	case scan.BegList:
 		d.next()
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() && !d.is(EndList) {
+		for !d.done() && !d.is(scan.EndList) {
 			if err := decode(); err != nil {
 				return err
 			}
 		}
-		if !d.is(EndList) {
+		if !d.is(scan.EndList) {
 			return d.unexpected()
 		}
 		d.next()
@@ -260,7 +261,7 @@ func (d *Decoder) decodeDelete(mst *Maestro) error {
 		}
 		d.locals.Delete(d.curr().Literal)
 		d.next()
-		if !d.is(Ident) && !d.is(Eol) {
+		if !d.is(scan.Ident) && !d.is(scan.Eol) {
 			return d.unexpected()
 		}
 	}
@@ -294,19 +295,19 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 	}
 	d.next()
 	switch curr := d.curr(); curr.Type {
-	case Ident:
+	case scan.Ident:
 		return decode()
-	case BegList:
+	case scan.BegList:
 		d.next()
 		if err := d.ensureEOL(); err != nil {
 			return err
 		}
-		for !d.done() && !d.is(EndList) {
+		for !d.done() && !d.is(scan.EndList) {
 			if err := decode(); err != nil {
 				return err
 			}
 		}
-		if !d.is(EndList) {
+		if !d.is(scan.EndList) {
 			return d.unexpected()
 		}
 		d.next()
@@ -319,27 +320,27 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 func (d *Decoder) decodeObject(decode func() error) error {
 	d.next()
 	d.skipNL()
-	for !d.done() && !d.is(EndList) {
+	for !d.done() && !d.is(scan.EndList) {
 		d.skipComment()
 		if err := decode(); err != nil {
 			return err
 		}
 		switch curr := d.curr(); curr.Type {
-		case Ident, String:
-		case Comment:
+		case scan.Ident, scan.String:
+		case scan.Comment:
 			d.next()
-		case Comma:
+		case scan.Comma:
 			d.next()
 			d.skipComment()
 			d.skipNL()
-		case Eol:
+		case scan.Eol:
 			d.skipNL()
-		case EndList:
+		case scan.EndList:
 		default:
 			return d.unexpected()
 		}
 	}
-	if !d.is(EndList) {
+	if !d.is(scan.EndList) {
 		return d.unexpected()
 	}
 	d.next()
@@ -355,7 +356,7 @@ func (d *Decoder) decodeAssignment() error {
 	if !d.curr().IsAssign() {
 		return d.unexpected()
 	}
-	assign = d.is(Assign)
+	assign = d.is(scan.Assign)
 	d.next()
 
 	var str []string
@@ -388,7 +389,7 @@ func (d *Decoder) decodeVariable() error {
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
 	var hidden bool
-	if hidden = d.is(Hidden); hidden {
+	if hidden = d.is(scan.Hidden); hidden {
 		d.next()
 	}
 	cmd, err := NewCommandSettingsWithLocals(d.curr().Literal, d.locals)
@@ -399,17 +400,17 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	cmd.As = slices.CopyMap(d.alias)
 	cmd.Visible = !hidden
 	d.next()
-	if d.is(BegList) {
+	if d.is(scan.BegList) {
 		if err := d.decodeCommandProperties(&cmd); err != nil {
 			return err
 		}
 	}
-	if d.is(Dependency) {
+	if d.is(scan.Dependency) {
 		if err := d.decodeCommandDependencies(&cmd); err != nil {
 			return err
 		}
 	}
-	if d.is(BegScript) {
+	if d.is(scan.BegScript) {
 		if err := d.decodeCommandScripts(&cmd, mst); err != nil {
 			return err
 		}
@@ -427,13 +428,13 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 			err  error
 		)
 		switch {
-		case curr.Type == Ident:
-		case curr.Type == Keyword && curr.Literal == kwAlias:
+		case curr.Type == scan.Ident:
+		case curr.Type == scan.Keyword && curr.Literal == scan.KwAlias:
 		default:
 			return d.unexpected()
 		}
 		d.next()
-		if !d.is(Assign) {
+		if !d.is(scan.Assign) {
 			return d.unexpected()
 		}
 		d.next()
@@ -467,8 +468,8 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 
 func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 	var args []CommandArg
-	for !d.done() && !d.is(Comma) {
-		if !d.is(Ident) {
+	for !d.done() && !d.is(scan.Comma) {
+		if !d.is(scan.Ident) {
 			return nil, d.unexpected()
 		}
 		arg := CommandArg{
@@ -476,9 +477,9 @@ func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 		}
 		d.next()
 		d.skipBlank()
-		if d.is(BegList) {
+		if d.is(scan.BegList) {
 			d.next()
-			list, err := d.decodeValidationRules(EndList)
+			list, err := d.decodeValidationRules(scan.EndList)
 			if err != nil {
 				return nil, err
 			}
@@ -492,7 +493,7 @@ func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 		}
 		args = append(args, arg)
 	}
-	if !d.is(Comma) {
+	if !d.is(scan.Comma) {
 		return nil, d.unexpected()
 	}
 	return args, nil
@@ -505,11 +506,11 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 			curr = d.curr()
 			err  error
 		)
-		if curr.Type != Ident {
+		if curr.Type != scan.Ident {
 			return d.unexpected()
 		}
 		d.next()
-		if !d.is(Assign) {
+		if !d.is(scan.Assign) {
 			return d.unexpected()
 		}
 		d.next()
@@ -536,9 +537,9 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 }
 
 func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
-	for !d.done() && !d.is(EndList) {
-		if !d.is(BegList) {
-			if d.is(Ident) || d.is(String) {
+	for !d.done() && !d.is(scan.EndList) {
+		if !d.is(scan.BegList) {
+			if d.is(scan.Ident) || d.is(scan.String) {
 				return nil
 			}
 			return d.unexpected()
@@ -549,29 +550,29 @@ func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 		}
 		cmd.Options = append(cmd.Options, opt)
 		switch curr := d.curr(); curr.Type {
-		case Comma:
+		case scan.Comma:
 			d.next()
 			d.skipComment()
 			d.skipNL()
-		case Eol:
+		case scan.Eol:
 			d.skipNL()
-		case EndList:
+		case scan.EndList:
 		default:
 			return d.unexpected()
 		}
 	}
-	if !d.is(EndList) {
+	if !d.is(scan.EndList) {
 		return d.unexpected()
 	}
 	return nil
 }
 
 func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error) {
-	if !d.is(BegList) {
+	if !d.is(scan.BegList) {
 		return nil, d.unexpected()
 	}
 	d.next()
-	list, err := d.decodeValidationRules(EndList)
+	list, err := d.decodeValidationRules(scan.EndList)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +592,7 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error)
 }
 
 func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
-	list, err := d.decodeValidationRules(Comma)
+	list, err := d.decodeValidationRules(scan.Comma)
 	if err != nil {
 		return nil, err
 	}
@@ -608,7 +609,7 @@ func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
 func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 	var list []ValidateFunc
 	for !d.done() && !d.is(until) {
-		if !d.is(Ident) {
+		if !d.is(scan.Ident) {
 			return nil, d.unexpected()
 		}
 		var (
@@ -625,9 +626,9 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 			list = append(list, fn)
 			continue
 		}
-		if d.is(BegList) {
+		if d.is(scan.BegList) {
 			d.next()
-			for !d.done() && !d.is(EndList) {
+			for !d.done() && !d.is(scan.EndList) {
 				switch curr := d.curr(); {
 				case curr.IsPrimitive():
 					args = append(args, curr.Literal)
@@ -643,7 +644,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 				d.next()
 				d.skipBlank()
 			}
-			if !d.is(EndList) {
+			if !d.is(scan.EndList) {
 				return nil, d.unexpected()
 			}
 			d.next()
@@ -664,17 +665,17 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 
 func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 	d.next()
-	for !d.done() && !d.is(BegScript) {
-		if !d.is(Ident) {
+	for !d.done() && !d.is(scan.BegScript) {
+		if !d.is(scan.Ident) {
 			return d.unexpected()
 		}
 		dep := CommandDep{
 			Name: d.curr().Literal,
 		}
 		d.next()
-		if d.is(BegList) {
+		if d.is(scan.BegList) {
 			d.next()
-			for !d.done() && !d.is(EndList) {
+			for !d.done() && !d.is(scan.EndList) {
 				switch curr := d.curr(); {
 				case curr.IsPrimitive():
 					dep.Args = append(dep.Args, curr.Literal)
@@ -688,25 +689,25 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 					return d.unexpected()
 				}
 				d.next()
-				if d.is(Comma) {
+				if d.is(scan.Comma) {
 					d.next()
 				}
 			}
-			if !d.is(EndList) {
+			if !d.is(scan.EndList) {
 				return d.unexpected()
 			}
 			d.next()
 		}
 		cmd.Deps = append(cmd.Deps, dep)
 		switch curr := d.curr(); curr.Type {
-		case Comma:
+		case scan.Comma:
 			d.next()
-		case BegScript:
+		case scan.BegScript:
 		default:
 			return d.unexpected()
 		}
 	}
-	if !d.is(BegScript) {
+	if !d.is(scan.BegScript) {
 		return d.unexpected()
 	}
 	return nil
@@ -717,7 +718,7 @@ func (d *Decoder) decodeCommandHelp(cmd *CommandSettings) error {
 		help strings.Builder
 		prev string
 	)
-	for !d.done() && d.is(Comment) {
+	for !d.done() && d.is(scan.Comment) {
 		str := d.curr().Literal
 		if str == "" && prev == "" {
 			d.next()
@@ -737,10 +738,10 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 	if err := d.decodeCommandHelp(cmd); err != nil {
 		return err
 	}
-	for !d.done() && !d.is(EndScript) {
+	for !d.done() && !d.is(scan.EndScript) {
 		var err error
 		switch curr := d.curr(); curr.Type {
-		case Comment:
+		case scan.Comment:
 			d.next()
 		default:
 			line, err1 := d.decodeScriptLine()
@@ -754,7 +755,7 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 			return err
 		}
 	}
-	if !d.is(EndScript) {
+	if !d.is(scan.EndScript) {
 		return d.unexpected()
 	}
 	d.next()
@@ -762,7 +763,7 @@ func (d *Decoder) decodeCommandScripts(cmd *CommandSettings, mst *Maestro) error
 }
 
 func (d *Decoder) decodeScriptLine() (string, error) {
-	if !d.is(Script) {
+	if !d.is(scan.Script) {
 		return "", d.unexpected()
 	}
 	defer d.next()
@@ -775,7 +776,7 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 		err  error
 	)
 	d.next()
-	if !d.is(Assign) {
+	if !d.is(scan.Assign) {
 		return d.unexpected()
 	}
 	d.next()
@@ -833,7 +834,7 @@ func (d *Decoder) is(kind rune) bool {
 
 func (d *Decoder) ensureEOL() error {
 	switch d.curr().Type {
-	case Eol, Comment:
+	case scan.Eol, scan.Comment:
 		d.next()
 	default:
 		return d.unexpected()
@@ -844,7 +845,7 @@ func (d *Decoder) ensureEOL() error {
 func (d *Decoder) decodeQuote() (string, error) {
 	d.next()
 	var str []string
-	for !d.done() && d.curr().Type != Quote {
+	for !d.done() && d.curr().Type != scan.Quote {
 		if d.curr().IsVariable() {
 			vs, err := d.locals.Resolve(d.curr().Literal)
 			if err != nil {
@@ -859,7 +860,7 @@ func (d *Decoder) decodeQuote() (string, error) {
 		}
 		d.next()
 	}
-	if d.curr().Type != Quote {
+	if d.curr().Type != scan.Quote {
 		return "", d.unexpected()
 	}
 	return strings.Join(str, ""), nil
@@ -876,7 +877,7 @@ func (d *Decoder) decodeValue() ([]string, error) {
 				return nil, err
 			}
 			tmp = vs
-		case curr.Type == Quote:
+		case curr.Type == scan.Quote:
 			s, err := d.decodeQuote()
 			if err != nil {
 				return nil, err
@@ -896,7 +897,7 @@ func (d *Decoder) decodeValue() ([]string, error) {
 }
 
 func (d *Decoder) parseStringList() ([]string, error) {
-	if d.curr().Type == Eol || d.curr().Type == Comment {
+	if d.is(scan.Eol) || d.is(scan.Comment) {
 		return nil, nil
 	}
 	var str []string
@@ -915,7 +916,7 @@ func (d *Decoder) parseStringList() ([]string, error) {
 }
 
 func (d *Decoder) parseString() (string, error) {
-	if d.curr().Type == Eol || d.curr().Type == Comment {
+	if d.is(scan.Eol) || d.is(scan.Comment) {
 		return "", nil
 	}
 	if !d.curr().IsValue() {
@@ -956,15 +957,15 @@ func (d *Decoder) parseDuration() (time.Duration, error) {
 }
 
 func (d *Decoder) skipBlank() {
-	d.skip(Blank)
+	d.skip(scan.Blank)
 }
 
 func (d *Decoder) skipNL() {
-	d.skip(Eol)
+	d.skip(scan.Eol)
 }
 
 func (d *Decoder) skipComment() {
-	d.skip(Comment)
+	d.skip(scan.Comment)
 }
 
 func (d *Decoder) skip(kind rune) {
@@ -1026,16 +1027,16 @@ func (d *Decoder) pop() error {
 	return nil
 }
 
-func (d *Decoder) curr() Token {
-	var t Token
+func (d *Decoder) curr() scan.Token {
+	var t scan.Token
 	if z := len(d.frames); z > 0 {
 		t = d.frames[z-1].curr
 	}
 	return t
 }
 
-func (d *Decoder) peek() Token {
-	var t Token
+func (d *Decoder) peek() scan.Token {
+	var t scan.Token
 	if z := len(d.frames); z > 0 {
 		t = d.frames[z-1].peek
 	}
@@ -1056,13 +1057,13 @@ var (
 )
 
 type frame struct {
-	curr Token
-	peek Token
-	scan *Scanner
+	curr scan.Token
+	peek scan.Token
+	scan *scan.Scanner
 }
 
 func makeFrame(r io.Reader) (*frame, error) {
-	s, err := Scan(r)
+	s, err := scan.Scan(r)
 	if err != nil {
 		return nil, err
 	}

@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/midbel/maestro/internal/expand"
 	"github.com/midbel/slices"
 	"github.com/midbel/try"
-	"github.com/midbel/maestro/internal/expand"
 )
 
 type Executer interface {
