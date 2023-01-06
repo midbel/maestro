@@ -1,4 +1,4 @@
-package maestro
+package validate
 
 import (
 	"fmt"
@@ -14,9 +14,9 @@ import (
 type ValidateFunc func(string) error
 
 const (
-	validNot  = "not"
-	validSome = "some"
-	validAll  = "all"
+	ValidNot  = "not"
+	ValidSome = "some"
+	ValidAll  = "all"
 )
 
 var validations = map[string]func([]string) (ValidateFunc, error){
@@ -43,7 +43,7 @@ var validations = map[string]func([]string) (ValidateFunc, error){
 	"executable": validateFileIsExecutable,
 }
 
-func getValidateFunc(name string, args []string) (ValidateFunc, error) {
+func GetValidateFunc(name string, args []string) (ValidateFunc, error) {
 	make, ok := validations[name]
 	if !ok {
 		return nil, fmt.Errorf("%s: unknown validation function", name)
@@ -51,7 +51,7 @@ func getValidateFunc(name string, args []string) (ValidateFunc, error) {
 	return make(args)
 }
 
-func validateError(valid ValidateFunc) ValidateFunc {
+func ValidateError(valid ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		err := valid(value)
 		if err == nil {
@@ -61,7 +61,7 @@ func validateError(valid ValidateFunc) ValidateFunc {
 	}
 }
 
-func validateSome(valid ...ValidateFunc) ValidateFunc {
+func ValidateSome(valid ...ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		for _, fn := range valid {
 			if err := fn(value); err == nil {
@@ -72,7 +72,7 @@ func validateSome(valid ...ValidateFunc) ValidateFunc {
 	}
 }
 
-func validateAll(valid ...ValidateFunc) ValidateFunc {
+func ValidateAll(valid ...ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		for _, fn := range valid {
 			if err := fn(value); err != nil {

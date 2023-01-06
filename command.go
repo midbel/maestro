@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/help"
+	"github.com/midbel/maestro/internal/validate"
 )
 
 const DefaultSSHPort = 22
@@ -146,7 +147,7 @@ type CommandOption struct {
 	Target      string
 	TargetFlag  bool
 
-	Valid ValidateFunc
+	Valid validate.ValidateFunc
 }
 
 func (o CommandOption) Validate() error {
@@ -164,7 +165,7 @@ func (o CommandOption) Validate() error {
 
 type CommandArg struct {
 	Name  string
-	Valid ValidateFunc
+	Valid validate.ValidateFunc
 }
 
 func (a CommandArg) Validate(arg string) error {

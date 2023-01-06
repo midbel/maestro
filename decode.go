@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/midbel/maestro/internal/scan"
+	"github.com/midbel/maestro/internal/validate"
 	"github.com/midbel/slices"
 )
 
@@ -488,7 +489,7 @@ func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 			case 1:
 				arg.Valid = list[0]
 			default:
-				arg.Valid = validateAll(list...)
+				arg.Valid = validate.ValidateAll(list...)
 			}
 		}
 		args = append(args, arg)
@@ -567,7 +568,7 @@ func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 	return nil
 }
 
-func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error) {
+func (d *Decoder) decodeSpecialValidateOption(rule string) (validate.ValidateFunc, error) {
 	if !d.is(scan.BegList) {
 		return nil, d.unexpected()
 	}
@@ -576,14 +577,14 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error)
 	if err != nil {
 		return nil, err
 	}
-	var fn ValidateFunc
+	var fn validate.ValidateFunc
 	switch rule {
-	case validNot:
-		fn = validateError(validateAll(list...))
-	case validSome:
-		fn = validateSome(list...)
-	case validAll:
-		fn = validateAll(list...)
+	case validate.ValidNot:
+		fn = validate.ValidateError(validate.ValidateAll(list...))
+	case validate.ValidSome:
+		fn = validate.ValidateSome(list...)
+	case validate.ValidAll:
+		fn = validate.ValidateAll(list...)
 	default:
 		// should never happen
 		return nil, fmt.Errorf("%s: unknown validation function", rule)
@@ -591,7 +592,7 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (ValidateFunc, error)
 	return fn, nil
 }
 
-func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
+func (d *Decoder) decodeBasicValidateOption() (validate.ValidateFunc, error) {
 	list, err := d.decodeValidationRules(scan.Comma)
 	if err != nil {
 		return nil, err
@@ -602,12 +603,12 @@ func (d *Decoder) decodeBasicValidateOption() (ValidateFunc, error) {
 	case 1:
 		return list[0], nil
 	default:
-		return validateAll(list...), nil
+		return validate.ValidateAll(list...), nil
 	}
 }
 
-func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
-	var list []ValidateFunc
+func (d *Decoder) decodeValidationRules(until rune) ([]validate.ValidateFunc, error) {
+	var list []validate.ValidateFunc
 	for !d.done() && !d.is(until) {
 		if !d.is(scan.Ident) {
 			return nil, d.unexpected()
@@ -618,7 +619,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 		)
 		d.next()
 		d.skipBlank()
-		if rule == validNot || rule == validSome || rule == validAll {
+		if rule == validate.ValidNot || rule == validate.ValidSome || rule == validate.ValidAll {
 			fn, err := d.decodeSpecialValidateOption(rule)
 			if err != nil {
 				return nil, err
@@ -650,7 +651,7 @@ func (d *Decoder) decodeValidationRules(until rune) ([]ValidateFunc, error) {
 			d.next()
 			d.skipBlank()
 		}
-		fn, err := getValidateFunc(rule, args)
+		fn, err := validate.GetValidateFunc(rule, args)
 		if err != nil {
 			return nil, err
 		}
