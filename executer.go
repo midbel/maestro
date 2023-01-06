@@ -5,14 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"strings"
 	"time"
 
-	"github.com/midbel/shlex"
 	"github.com/midbel/slices"
 	"github.com/midbel/try"
+	"github.com/midbel/maestro/internal/expand"
 )
 
 type Executer interface {
@@ -55,15 +53,7 @@ func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Wri
 }
 
 func (c local) execute(ctx context.Context, line string, args []string, stdout, stderr io.Writer) error {
-	line = os.Expand(line, func(str string) string {
-		res, err := c.locals.Resolve(str)
-		if err != nil {
-			return ""
-		}
-		return strings.Join(res, "")
-	})
-
-	parts, err := shlex.Split(strings.NewReader(line))
+	parts, err := expand.ExpandString(line, c.locals)
 	if err != nil {
 		return err
 	}

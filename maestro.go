@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/midbel/maestro/internal/help"
 )
 
 const (
@@ -198,7 +200,7 @@ func (m *Maestro) help() (string, error) {
 			return cs[i].Command() < cs[j].Command()
 		})
 	}
-	return MaestroHelp(h)
+	return help.Maestro(h)
 }
 
 type MetaExec struct {
