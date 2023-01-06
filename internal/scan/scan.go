@@ -5,8 +5,6 @@ import (
 	"io"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/midbel/maestro/internal/stack"
 )
 
 const (
@@ -536,78 +534,4 @@ func isOperator(b rune) bool {
 func isDelimiter(b rune) bool {
 	return b == colon || b == comma || b == lparen || b == rparen ||
 		b == lcurly || b == rcurly || b == equal || b == plus
-}
-
-type scanState int8
-
-const (
-	scanDefault scanState = iota
-	scanValue
-	scanScript
-	scanQuote
-)
-
-type scanstack struct {
-	stack.Stack[scanState]
-}
-
-func defaultStack() *scanstack {
-	var s scanstack
-	s.Stack = stack.New[scanState]()
-	s.Stack.Push(scanDefault)
-	return &s
-}
-
-func (s *scanstack) Pop() {
-	s.Stack.Pop()
-}
-
-func (s *scanstack) Push(state scanState) {
-	s.Stack.Push(state)
-}
-
-func (s *scanstack) KeepBlank() bool {
-	curr := s.Stack.Curr()
-	return curr == scanDefault || curr == scanValue
-}
-
-func (s *scanstack) Default() bool {
-	return s.Stack.Curr() == scanDefault
-}
-
-func (s *scanstack) Value() bool {
-	return s.Stack.Curr() == scanValue
-}
-
-func (s *scanstack) Quote() bool {
-	return s.Stack.Curr() == scanQuote
-}
-
-func (s *scanstack) ToggleQuote() {
-	if s.Quote() {
-		s.Stack.Pop()
-		return
-	}
-	s.Stack.Push(scanQuote)
-}
-
-func (s *scanstack) Script() bool {
-	return s.Stack.Curr() == scanScript
-}
-
-func (s *scanstack) Curr() scanState {
-	if s.Len() == 0 {
-		return scanDefault
-	}
-	return s.Stack.Curr()
-}
-
-func (s *scanstack) Prev() scanState {
-	n := s.Stack.Len()
-	n--
-	n--
-	if n >= 0 {
-		return s.Stack.At(n)
-	}
-	return scanDefault
 }
