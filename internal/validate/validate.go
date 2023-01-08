@@ -51,7 +51,7 @@ func GetValidateFunc(name string, args []string) (ValidateFunc, error) {
 	return make(args)
 }
 
-func ValidateError(valid ValidateFunc) ValidateFunc {
+func Fail(valid ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		err := valid(value)
 		if err == nil {
@@ -61,7 +61,7 @@ func ValidateError(valid ValidateFunc) ValidateFunc {
 	}
 }
 
-func ValidateSome(valid ...ValidateFunc) ValidateFunc {
+func Some(valid ...ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		for _, fn := range valid {
 			if err := fn(value); err == nil {
@@ -72,7 +72,7 @@ func ValidateSome(valid ...ValidateFunc) ValidateFunc {
 	}
 }
 
-func ValidateAll(valid ...ValidateFunc) ValidateFunc {
+func All(valid ...ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		for _, fn := range valid {
 			if err := fn(value); err != nil {

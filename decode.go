@@ -489,7 +489,7 @@ func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {
 			case 1:
 				arg.Valid = list[0]
 			default:
-				arg.Valid = validate.ValidateAll(list...)
+				arg.Valid = validate.All(list...)
 			}
 		}
 		args = append(args, arg)
@@ -580,11 +580,11 @@ func (d *Decoder) decodeSpecialValidateOption(rule string) (validate.ValidateFun
 	var fn validate.ValidateFunc
 	switch rule {
 	case validate.ValidNot:
-		fn = validate.ValidateError(validate.ValidateAll(list...))
+		fn = validate.Fail(validate.All(list...))
 	case validate.ValidSome:
-		fn = validate.ValidateSome(list...)
+		fn = validate.Some(list...)
 	case validate.ValidAll:
-		fn = validate.ValidateAll(list...)
+		fn = validate.All(list...)
 	default:
 		// should never happen
 		return nil, fmt.Errorf("%s: unknown validation function", rule)
@@ -603,7 +603,7 @@ func (d *Decoder) decodeBasicValidateOption() (validate.ValidateFunc, error) {
 	case 1:
 		return list[0], nil
 	default:
-		return validate.ValidateAll(list...), nil
+		return validate.All(list...), nil
 	}
 }
 
