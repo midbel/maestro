@@ -144,11 +144,31 @@ func (m *Maestro) execute(name string, args []string) error {
 		}
 	}()
 
+	m.executeGroup(ctx, m.Before, os.Stdout, os.Stderr)
 	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
 	if !errors.Is(ctx.Err(), context.Canceled) {
 		cancel()
 	}
+	if err == nil {
+		m.executeGroup(ctx, m.Success, os.Stdout, os.Stderr)
+	} else {
+		m.executeGroup(ctx, m.Error, os.Stdout, os.Stderr)
+	}
+	m.executeGroup(ctx, m.After, os.Stdout, os.Stderr)
 	return err
+}
+
+func (m *Maestro) executeGroup(ctx context.Context, list []string, stdout, stderr io.Writer) {
+	if len(list) == 0 {
+		return
+	}
+	for _, name := range list {
+		cmd, err := m.Commands.Lookup(name, true)
+		if err != nil {
+			continue
+		}
+		cmd.Execute(ctx, nil, stdout, stderr)
+	}
 }
 
 func (m *Maestro) executeHelp(name string, w io.Writer) error {
