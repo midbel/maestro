@@ -16,19 +16,36 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const maxAuthTries = 1
+
 func main() {
+	var (
+		workdir  = flag.String("d", "", "working directory")
+		insecure = flag.Bool("i", false, "insecure")
+	)
 	flag.Parse()
 
+	if *workdir != "" {
+		if err := os.Chdir(*workdir); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+
+	conf := &ssh.ServerConfig{
+		NoClientAuth: *insecure,
+		MaxAuthTries: maxAuthTries,
+		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+			return &ssh.Permissions{}, nil
+		},
+		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			return &ssh.Permissions{}, nil
+		},
+	}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
-	}
-
-	conf := &ssh.ServerConfig{
-		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-			return &ssh.Permissions{}, nil
-		},
 	}
 	if sign, err := ssh.NewSignerFromKey(key); err == nil {
 		conf.AddHostKey(sign)
@@ -62,8 +79,8 @@ func handleConn(conn net.Conn, config *ssh.ServerConfig) {
 	go ssh.DiscardRequests(reqs)
 
 	for nch := range chans {
-		if kind := nc.ChannelType(); kind != "session" {
-			nc.Reject(ssh.UnknownChannelType, fmt.Sprintf("%s: unsupported channel type", kind))
+		if kind := nch.ChannelType(); kind != "session" {
+			nch.Reject(ssh.UnknownChannelType, fmt.Sprintf("%s: unsupported channel type", kind))
 			continue
 		}
 		ch, reqs, err := nch.Accept()
