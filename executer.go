@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/midbel/maestro/internal/expand"
 	"github.com/midbel/slices"
 	"github.com/midbel/try"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/sync/errgroup"
 )
 
 type Executer interface {
@@ -64,6 +67,76 @@ func (c local) execute(ctx context.Context, line string, args []string, stdout, 
 	cmd.Stderr = stderr
 
 	return cmd.Run()
+}
+
+type remote struct {
+	name    string
+	host    string
+	scripts CommandScript
+	config  *ssh.ClientConfig
+	locals  *Env
+}
+
+func (c remote) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	conn, err := ssh.Dial("tcp", c.host, c.config)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	exec := func(line string, outw, errw io.Writer) error {
+		parts, err := expand.ExpandString(line, c.locals)
+		if err != nil {
+			return err
+		}
+		sess, err := conn.NewSession()
+		if err != nil {
+			return err
+		}
+		defer sess.Close()
+		sess.Stdout = outw
+		sess.Stderr = errw
+
+		return sess.Run(strings.Join(parts, " "))
+	}
+
+	prefix := fmt.Sprintf("%s(%s)", c.name, c.host)
+	outr, outw := io.Pipe()
+	errr, errw := io.Pipe()
+	defer func() {
+		outr.Close()
+		outw.Close()
+		errr.Close()
+		errw.Close()
+	}()
+	go writeLines(prefix, stdout, outr)
+	go writeLines(prefix, stderr, errr)
+
+	for _, line := range c.scripts {
+		if err := exec(line, outw, errw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type execset struct {
+	parallel int
+	list     []Executer
+}
+
+func (c execset) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	grp, ctx := errgroup.WithContext(ctx)
+	if c.parallel > 0 {
+		grp.SetLimit(c.parallel)
+	}
+	for i := range c.list {
+		e := c.list[i]
+		grp.Go(func() error {
+			return e.Execute(ctx, args, stdout, stderr)
+		})
+	}
+	return grp.Wait()
 }
 
 type retry struct {

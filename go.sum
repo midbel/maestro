@@ -6,3 +6,10 @@ github.com/midbel/textwrap v0.1.2 h1:oq+tJyapfFWFUGVN/BU2ZsRiWRkV3XeqtNgKUFkU44M
 github.com/midbel/textwrap v0.1.2/go.mod h1:pNTIQ2A2FQzDpUB4SIdxF82UqttHBOMrO33k/mGGSsE=
 github.com/midbel/try v1.2.0 h1:PaJh2TV2uNPnCJjxh9Tr+NeyRFwTjnYCAbsvKAfa7/c=
 github.com/midbel/try v1.2.0/go.mod h1:vCPKhbkVv5vfCK104vNDbiPq6ws/u8po/uEds8Vziu8=
+golang.org/x/crypto v0.5.0 h1:U/0M97KRkSFvyD/3FSmdP5W5swImpNgle/EHFhOsQPE=
+golang.org/x/crypto v0.5.0/go.mod h1:NK/OQwhpMQP3MwtdjgLlYHnH9ebylxKWv3e0fK+mkQU=
+golang.org/x/sync v0.1.0 h1:wsuoTGHzEhffawBOhz5CYhcrV4IdKZbEyZjBMuTp12o=
+golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+golang.org/x/sys v0.4.0 h1:Zr2JFtRQNX3BCZ8YtxRE9hNJYC8J6I1MVbMg6owUp18=
+golang.org/x/sys v0.4.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/term v0.4.0 h1:O7UWfv5+A2qiuulQk30kVinPoMtoIPeVaKLEgLpVkvg=

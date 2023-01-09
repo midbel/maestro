@@ -7,11 +7,14 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"os/user"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/midbel/maestro/internal/help"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 const (
@@ -30,6 +33,8 @@ const (
 	DefaultVersion  = "0.1.0"
 	DefaultHttpAddr = ":9090"
 )
+
+const defaultKnownHosts = "~/.ssh/known_hosts"
 
 type Maestro struct {
 	MetaExec
@@ -51,6 +56,7 @@ func New() *Maestro {
 		Locals:    EmptyEnv(),
 		MetaAbout: defaultAbout(),
 		MetaHttp:  defaultHttp(),
+		MetaSSH:   defaultSSH(),
 		Commands:  make(Registry),
 	}
 }
@@ -119,11 +125,40 @@ func (m *Maestro) Execute(name string, args []string) error {
 	if hasHelp(args) {
 		return m.ExecuteHelp(name)
 	}
+	if m.Remote {
+		return m.executeRemote(name, args)
+	}
 	return m.execute(name, args)
 }
 
+func (m *Maestro) executeRemote(name string, args []string) error {
+	cmd, err := m.Commands.Remote(name, m.MetaSSH.Config())
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		defer close(sig)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+
+		select {
+		case <-ctx.Done():
+		case <-sig:
+			cancel()
+		}
+	}()
+
+	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
+	if !errors.Is(ctx.Err(), context.Canceled) {
+		cancel()
+	}
+	return err
+}
+
 func (m *Maestro) execute(name string, args []string) error {
-	cmd, err := m.Commands.Lookup(name, m.NoDeps)
+	cmd, err := m.Commands.Local(name, m.NoDeps)
 	if err != nil {
 		return err
 	}
@@ -145,6 +180,8 @@ func (m *Maestro) execute(name string, args []string) error {
 	}()
 
 	m.executeGroup(ctx, m.Before, os.Stdout, os.Stderr)
+	defer m.executeGroup(ctx, m.After, os.Stdout, os.Stderr)
+
 	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
 	if !errors.Is(ctx.Err(), context.Canceled) {
 		cancel()
@@ -154,7 +191,6 @@ func (m *Maestro) execute(name string, args []string) error {
 	} else {
 		m.executeGroup(ctx, m.Error, os.Stdout, os.Stderr)
 	}
-	m.executeGroup(ctx, m.After, os.Stdout, os.Stderr)
 	return err
 }
 
@@ -255,12 +291,41 @@ func defaultAbout() MetaAbout {
 }
 
 type MetaSSH struct {
-	Parallel int64
-	User     string
-	Pass     string
+	Parallel     int64
+	User         string
+	Pass         string
+	Key          ssh.Signer
+	KnownHosts   ssh.HostKeyCallback
+	AllowUnknown bool
 }
 
-const defaultKnownHost = "~/.ssh/known_hosts"
+func defaultSSH() MetaSSH {
+	var meta MetaSSH
+	if u, err := user.Current(); err == nil {
+		meta.User = u.Username
+	}
+	if cb, err := knownhosts.New(defaultKnownHosts); err == nil {
+		meta.KnownHosts = cb
+	}
+	return meta
+}
+
+func (m MetaSSH) Config() *ssh.ClientConfig {
+	conf := ssh.ClientConfig{
+		User:            m.User,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	if m.KnownHosts != nil && !m.AllowUnknown {
+		conf.HostKeyCallback = m.KnownHosts
+	}
+	if m.Pass != "" {
+		conf.Auth = append(conf.Auth, ssh.Password(m.Pass))
+	}
+	if m.Key != nil {
+		conf.Auth = append(conf.Auth, ssh.PublicKeys(m.Key))
+	}
+	return &conf
+}
 
 type MetaHttp struct {
 	CertFile string

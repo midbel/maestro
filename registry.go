@@ -2,7 +2,10 @@ package maestro
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type Registry map[string]CommandSettings
@@ -15,6 +18,10 @@ func (r Registry) Copy() Registry {
 	return x
 }
 
+func (r Registry) Graph(name string) ([]string, error) {
+	return nil, nil
+}
+
 func (r Registry) Help(name string) (string, error) {
 	cmd, ok := r[name]
 	if !ok {
@@ -25,6 +32,35 @@ func (r Registry) Help(name string) (string, error) {
 
 func (r Registry) Lookup(name string, nodeps bool) (Executer, error) {
 	return r.lookup(name, nodeps, isBlocked)
+}
+
+func (r Registry) Local(name string, nodeps bool) (Executer, error) {
+	return r.lookup(name, nodeps, isBlocked)
+}
+
+func (r Registry) Remote(name string, config *ssh.ClientConfig) (Executer, error) {
+	cmd, err := r.find(name)
+	if err != nil {
+		return nil, err
+	}
+	if len(cmd.Hosts) == 0 {
+		return nil, fmt.Errorf("%s: no host(s) defined", name)
+	}
+	var set execset
+	for _, h := range cmd.Hosts {
+		if u, err := url.Parse(h); err == nil {
+			_ = u
+		}
+		r := remote{
+			name:    name,
+			host:    h,
+			scripts: cmd.Lines,
+			config:  config,
+			locals:  cmd.locals.Copy(),
+		}
+		set.list = append(set.list, r)
+	}
+	return set, nil
 }
 
 func (r Registry) Exists(name string) bool {

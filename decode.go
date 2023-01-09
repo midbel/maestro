@@ -13,6 +13,8 @@ import (
 	"github.com/midbel/maestro/internal/scan"
 	"github.com/midbel/maestro/internal/validate"
 	"github.com/midbel/slices"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 const (
@@ -813,7 +815,9 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	case metaPass:
 		mst.MetaSSH.Pass, err = d.parseString()
 	case metaPubKey:
+		mst.MetaSSH.Key, err = d.parseSigner()
 	case metaKnownHosts:
+		mst.MetaSSH.KnownHosts, err = d.parseKnownHosts()
 	case metaParallel:
 		mst.MetaSSH.Parallel, err = d.parseInt()
 	case metaCertFile:
@@ -895,6 +899,26 @@ func (d *Decoder) decodeValue() ([]string, error) {
 		ret[i] = strings.Join(str[i], "")
 	}
 	return ret, nil
+}
+
+func (d *Decoder) parseSigner() (ssh.Signer, error) {
+	file, err := d.parseString()
+	if err != nil {
+		return nil, err
+	}
+	buf, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	return ssh.ParsePrivateKey(buf)
+}
+
+func (d *Decoder) parseKnownHosts() (ssh.HostKeyCallback, error) {
+	files, err := d.parseStringList()
+	if err != nil {
+		return nil, err
+	}
+	return knownhosts.New(files...)
 }
 
 func (d *Decoder) parseStringList() ([]string, error) {
