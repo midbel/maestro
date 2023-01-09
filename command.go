@@ -9,6 +9,7 @@ import (
 
 	"github.com/midbel/maestro/internal/help"
 	"github.com/midbel/maestro/internal/validate"
+	"golang.org/x/crypto/ssh"
 )
 
 const DefaultSSHPort = 22
@@ -26,7 +27,7 @@ type CommandSettings struct {
 	WorkDir string
 	Timeout time.Duration
 
-	Hosts   []string
+	Hosts   []CommandTarget
 	Deps    []CommandDep
 	Options []CommandOption
 	Args    []CommandArg
@@ -108,6 +109,33 @@ func (s CommandSettings) Blocked() bool {
 
 func (s CommandSettings) Remote() bool {
 	return len(s.Hosts) > 0
+}
+
+type CommandTarget struct {
+	Addr string
+	User string
+	Pass string
+	Key  ssh.Signer
+}
+
+func (c CommandTarget) Config(top *ssh.ClientConfig) *ssh.ClientConfig {
+	conf := &ssh.ClientConfig{
+		User:            top.User,
+		HostKeyCallback: top.HostKeyCallback,
+	}
+	if c.User != "" {
+		conf.User = c.User
+	}
+	if c.Pass != "" {
+		conf.Auth = append(conf.Auth, ssh.Password(c.Pass))
+	}
+	if c.Key != nil {
+		conf.Auth = append(conf.Auth, ssh.PublicKeys(c.Key))
+	}
+	if len(conf.Auth) == 0 {
+		conf.Auth = append(conf.Auth, top.Auth...)
+	}
+	return conf
 }
 
 type CommandScript []string

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/midbel/maestro/internal/help"
+	"github.com/midbel/maestro/internal/rw"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
@@ -150,7 +151,7 @@ func (m *Maestro) executeRemote(name string, args []string) error {
 		}
 	}()
 
-	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
+	err = cmd.Execute(ctx, args, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
 	if !errors.Is(ctx.Err(), context.Canceled) {
 		cancel()
 	}
@@ -179,17 +180,17 @@ func (m *Maestro) execute(name string, args []string) error {
 		}
 	}()
 
-	m.executeGroup(ctx, m.Before, os.Stdout, os.Stderr)
-	defer m.executeGroup(ctx, m.After, os.Stdout, os.Stderr)
+	m.executeGroup(ctx, m.Before, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
+	defer m.executeGroup(ctx, m.After, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
 
-	err = cmd.Execute(ctx, args, os.Stdout, os.Stderr)
+	err = cmd.Execute(ctx, args, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
 	if !errors.Is(ctx.Err(), context.Canceled) {
 		cancel()
 	}
 	if err == nil {
-		m.executeGroup(ctx, m.Success, os.Stdout, os.Stderr)
+		m.executeGroup(ctx, m.Success, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
 	} else {
-		m.executeGroup(ctx, m.Error, os.Stdout, os.Stderr)
+		m.executeGroup(ctx, m.Error, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
 	}
 	return err
 }

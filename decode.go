@@ -64,6 +64,13 @@ const (
 	optValid    = "check"
 )
 
+const (
+	sshAddr = "addr"
+	sshUser = "user"
+	sshPass = "pass"
+	sshKey  = "key"
+)
+
 type Decoder struct {
 	locals *Env
 	env    map[string]string
@@ -455,8 +462,9 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 		case propTimeout:
 			cmd.Timeout, err = d.parseDuration()
 		case propHosts:
-			cmd.Hosts, err = d.parseStringList()
-			sort.Strings(cmd.Hosts)
+			cmd.Hosts, err = d.decodeCommandTargets()
+			// cmd.Hosts, err = d.parseStringList()
+			// sort.Strings(cmd.Hosts)
 		case propAlias:
 			cmd.Alias, err = d.parseStringList()
 			sort.Strings(cmd.Alias)
@@ -467,6 +475,62 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 		}
 		return err
 	})
+}
+
+func (d *Decoder) decodeCommandTargets() ([]CommandTarget, error) {
+	var list []CommandTarget
+	for !d.done() && !d.is(scan.EndList) {
+		if !d.is(scan.BegList) {
+			if d.is(scan.Ident) || d.is(scan.String) {
+				break
+			}
+			return nil, d.unexpected()
+		}
+		var host CommandTarget
+		err := d.decodeObject(func() error {
+			var (
+				curr = d.curr()
+				err  error
+			)
+			d.next()
+			if !d.is(scan.Assign) {
+				return d.unexpected()
+			}
+			d.next()
+			switch curr.Literal {
+			case sshAddr:
+				host.Addr, err = d.parseString()
+			case sshUser:
+				host.User, err = d.parseString()
+			case sshPass:
+				host.Pass, err = d.parseString()
+			case sshKey:
+				host.Key, err = d.parseSigner()
+			default:
+				err = fmt.Errorf("%s: unknown property", curr.Literal)
+			}
+			return err
+		})
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, host)
+		switch curr := d.curr(); curr.Type {
+		case scan.Comma:
+			d.next()
+			d.skipComment()
+			d.skipNL()
+		case scan.Eol:
+			d.skipNL()
+		case scan.EndList:
+		default:
+			return nil, d.unexpected()
+		}
+	}
+	if !d.is(scan.EndList) {
+		return nil, d.unexpected()
+	}
+	return list, nil
 }
 
 func (d *Decoder) decodeCommandArguments() ([]CommandArg, error) {

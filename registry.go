@@ -2,7 +2,6 @@ package maestro
 
 import (
 	"fmt"
-	"net/url"
 	"sort"
 
 	"golang.org/x/crypto/ssh"
@@ -48,14 +47,11 @@ func (r Registry) Remote(name string, config *ssh.ClientConfig) (Executer, error
 	}
 	var set execset
 	for _, h := range cmd.Hosts {
-		if u, err := url.Parse(h); err == nil {
-			_ = u
-		}
 		r := remote{
 			name:    name,
-			host:    h,
+			host:    h.Addr,
 			scripts: cmd.Lines,
-			config:  config,
+			config:  h.Config(config),
 			locals:  cmd.locals.Copy(),
 		}
 		set.list = append(set.list, r)
