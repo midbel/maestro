@@ -116,12 +116,16 @@ type CommandTarget struct {
 	User string
 	Pass string
 	Key  ssh.Signer
+	KnownHosts ssh.HostKeyCallback
 }
 
 func (c CommandTarget) Config(top *ssh.ClientConfig) *ssh.ClientConfig {
 	conf := &ssh.ClientConfig{
 		User:            top.User,
 		HostKeyCallback: top.HostKeyCallback,
+	}
+	if c.KnownHosts != nil {
+		conf.HostKeyCallback = c.KnownHosts
 	}
 	if c.User != "" {
 		conf.User = c.User

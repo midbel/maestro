@@ -69,6 +69,7 @@ const (
 	sshUser = "user"
 	sshPass = "pass"
 	sshKey  = "key"
+	sshHosts = "known_hosts"
 )
 
 type Decoder struct {
@@ -477,17 +478,9 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 	})
 }
 
-func (d *Decoder) decodeCommandTargets() ([]CommandTarget, error) {
-	var list []CommandTarget
-	for !d.done() && !d.is(scan.EndList) {
-		if !d.is(scan.BegList) {
-			if d.is(scan.Ident) || d.is(scan.String) {
-				break
-			}
-			return nil, d.unexpected()
-		}
-		var host CommandTarget
-		err := d.decodeObject(func() error {
+func (d *Decoder) decodeTargetObject() (CommandTarget, error) {
+	var host CommandTarget
+	return host, d.decodeObject(func() error {
 			var (
 				curr = d.curr()
 				err  error
@@ -506,11 +499,40 @@ func (d *Decoder) decodeCommandTargets() ([]CommandTarget, error) {
 				host.Pass, err = d.parseString()
 			case sshKey:
 				host.Key, err = d.parseSigner()
+			case sshHosts:
+				host.KnownHosts, err = d.parseKnownHosts()
 			default:
-				err = fmt.Errorf("%s: unknown property", curr.Literal)
+				err = fmt.Errorf("%s: host unknown property", curr.Literal)
 			}
-			return err
-		})
+			return err		
+	})
+}
+
+func (d *Decoder) decodeCommandTargets() ([]CommandTarget, error) {
+	if !d.is(scan.BegList) {
+		list, err := d.parseStringList()
+		if err != nil {
+			return nil, err
+		}
+		sort.Strings(list)
+		var hosts []CommandTarget
+		for i := range list {
+			h := CommandTarget{
+				Addr: list[i],
+			}
+			hosts = append(hosts, h)
+		}
+		return hosts, nil
+	}
+	var list []CommandTarget
+	for !d.done() && !d.is(scan.EndList) {
+		if !d.is(scan.BegList) {
+			if d.is(scan.Ident) || d.is(scan.String) {
+				break
+			}
+			return nil, d.unexpected()
+		}
+		host, err := d.decodeTargetObject()
 		if err != nil {
 			return nil, err
 		}

@@ -21,15 +21,7 @@ exec   = maestro
 remote (
 	short = "run command to remote server",
 	tag   = "demo",
-	hosts = (
-		addr = "127.0.0.1:2022",
-		user = foo,
-		pass = bar,
-	), (
-		addr = "127.0.0.1:2023",
-		user = foo,
-		pass = bar,
-	)
+	hosts = "127.0.0.1:2022" "127.0.0.1:2023",
 ): {
 	echo foo
 	echo bar

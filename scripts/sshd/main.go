@@ -10,6 +10,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 
 	"github.com/midbel/shlex"
 	"github.com/midbel/slices"
@@ -35,11 +37,11 @@ func main() {
 	conf := &ssh.ServerConfig{
 		NoClientAuth: *insecure,
 		MaxAuthTries: maxAuthTries,
-		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-			return &ssh.Permissions{}, nil
+		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {			
+			return nil, nil
 		},
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
-			return &ssh.Permissions{}, nil
+			return nil, nil
 		},
 	}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -87,18 +89,18 @@ func handleConn(conn net.Conn, config *ssh.ServerConfig) {
 		if err != nil {
 			continue
 		}
-		go handleRequest(ch, reqs)
+		go handleRequest(c.User(), c.RemoteAddr(), ch, reqs)
 	}
 }
 
-func handleRequest(ch ssh.Channel, in <-chan *ssh.Request) {
+func handleRequest(user string, addr net.Addr, ch ssh.Channel, in <-chan *ssh.Request) {
 	defer ch.Close()
 
 	for req := range in {
 		switch req.Type {
 		case "env":
 		case "exec":
-			execute(ch, req)
+			execute(user, addr, ch, req)
 			return
 		default:
 			return
@@ -106,7 +108,7 @@ func handleRequest(ch ssh.Channel, in <-chan *ssh.Request) {
 	}
 }
 
-func execute(ch ssh.Channel, req *ssh.Request) {
+func execute(who string, addr net.Addr, ch ssh.Channel, req *ssh.Request) {
 	parts, err := split(req.Payload)
 	if err != nil {
 		if req.WantReply {
@@ -122,9 +124,13 @@ func execute(ch ssh.Channel, req *ssh.Request) {
 	)
 	cmd.Stdout = ch
 	cmd.Stderr = ch.Stderr()
+
+	now := time.Now()
 	if err := cmd.Run(); errors.As(err, &perr) {
 		code = perr.ExitCode()
 	}
+	fmt.Printf("[%s] %s(%s): %s (%s)", now.Format(time.RFC3339), who, addr, strings.Join(parts, " "), time.Since(now))
+	fmt.Println()
 	if req.WantReply {
 		req.Reply(true, nil)
 	}
