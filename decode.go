@@ -65,10 +65,10 @@ const (
 )
 
 const (
-	sshAddr = "addr"
-	sshUser = "user"
-	sshPass = "pass"
-	sshKey  = "key"
+	sshAddr  = "addr"
+	sshUser  = "user"
+	sshPass  = "pass"
+	sshKey   = "key"
 	sshHosts = "known_hosts"
 )
 
@@ -481,30 +481,30 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 func (d *Decoder) decodeTargetObject() (CommandTarget, error) {
 	var host CommandTarget
 	return host, d.decodeObject(func() error {
-			var (
-				curr = d.curr()
-				err  error
-			)
-			d.next()
-			if !d.is(scan.Assign) {
-				return d.unexpected()
-			}
-			d.next()
-			switch curr.Literal {
-			case sshAddr:
-				host.Addr, err = d.parseString()
-			case sshUser:
-				host.User, err = d.parseString()
-			case sshPass:
-				host.Pass, err = d.parseString()
-			case sshKey:
-				host.Key, err = d.parseSigner()
-			case sshHosts:
-				host.KnownHosts, err = d.parseKnownHosts()
-			default:
-				err = fmt.Errorf("%s: host unknown property", curr.Literal)
-			}
-			return err		
+		var (
+			curr = d.curr()
+			err  error
+		)
+		d.next()
+		if !d.is(scan.Assign) {
+			return d.unexpected()
+		}
+		d.next()
+		switch curr.Literal {
+		case sshAddr:
+			host.Addr, err = d.parseString()
+		case sshUser:
+			host.User, err = d.parseString()
+		case sshPass:
+			host.Pass, err = d.parseString()
+		case sshKey:
+			host.Key, err = d.parseSigner()
+		case sshHosts:
+			host.KnownHosts, err = d.parseKnownHosts()
+		default:
+			err = fmt.Errorf("%s: host unknown property", curr.Literal)
+		}
+		return err
 	})
 }
 

@@ -112,10 +112,10 @@ func (s CommandSettings) Remote() bool {
 }
 
 type CommandTarget struct {
-	Addr string
-	User string
-	Pass string
-	Key  ssh.Signer
+	Addr       string
+	User       string
+	Pass       string
+	Key        ssh.Signer
 	KnownHosts ssh.HostKeyCallback
 }
 

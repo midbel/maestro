@@ -37,7 +37,7 @@ func main() {
 	conf := &ssh.ServerConfig{
 		NoClientAuth: *insecure,
 		MaxAuthTries: maxAuthTries,
-		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {			
+		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			return nil, nil
 		},
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {

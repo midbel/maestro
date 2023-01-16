@@ -2,7 +2,6 @@ package maestro
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +15,11 @@ import (
 	"github.com/midbel/maestro/internal/rw"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+)
+
+var (
+	stdout = rw.Lock(os.Stdout)
+	stderr = rw.Lock(os.Stderr)
 )
 
 const (
@@ -44,7 +48,7 @@ type Maestro struct {
 	MetaHttp
 
 	Locals   *Env
-	Commands Registry
+	Commands *Registry
 
 	Includes   []string
 	Remote     bool
@@ -58,7 +62,7 @@ func New() *Maestro {
 		MetaAbout: defaultAbout(),
 		MetaHttp:  defaultHttp(),
 		MetaSSH:   defaultSSH(),
-		Commands:  make(Registry),
+		Commands:  Create(),
 	}
 }
 
@@ -138,24 +142,10 @@ func (m *Maestro) executeRemote(name string, args []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		sig := make(chan os.Signal, 1)
-		defer close(sig)
-		signal.Notify(sig, os.Kill, os.Interrupt)
+	ctx, cancel := interruptContext()
+	defer cancel()
 
-		select {
-		case <-ctx.Done():
-		case <-sig:
-			cancel()
-		}
-	}()
-
-	err = cmd.Execute(ctx, args, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
-	if !errors.Is(ctx.Err(), context.Canceled) {
-		cancel()
-	}
-	return err
+	return cmd.Execute(ctx, args, stdout, stderr)
 }
 
 func (m *Maestro) execute(name string, args []string) error {
@@ -167,30 +157,17 @@ func (m *Maestro) execute(name string, args []string) error {
 		cmd = Trace(cmd)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		sig := make(chan os.Signal, 1)
-		defer close(sig)
-		signal.Notify(sig, os.Kill, os.Interrupt)
+	ctx, cancel := interruptContext()
+	defer cancel()
 
-		select {
-		case <-ctx.Done():
-		case <-sig:
-			cancel()
-		}
-	}()
+	m.executeGroup(ctx, m.Before, stdout, stderr)
+	defer m.executeGroup(ctx, m.After, stdout, stderr)
 
-	m.executeGroup(ctx, m.Before, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
-	defer m.executeGroup(ctx, m.After, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
-
-	err = cmd.Execute(ctx, args, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
-	if !errors.Is(ctx.Err(), context.Canceled) {
-		cancel()
-	}
+	err = cmd.Execute(ctx, args, stdout, stderr)
 	if err == nil {
-		m.executeGroup(ctx, m.Success, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
+		m.executeGroup(ctx, m.Success, stdout, stderr)
 	} else {
-		m.executeGroup(ctx, m.Error, rw.Lock(os.Stdout), rw.Lock(os.Stderr))
+		m.executeGroup(ctx, m.Error, stdout, stderr)
 	}
 	return err
 }
@@ -200,7 +177,7 @@ func (m *Maestro) executeGroup(ctx context.Context, list []string, stdout, stder
 		return
 	}
 	for _, name := range list {
-		cmd, err := m.Commands.Lookup(name, true)
+		cmd, err := m.Commands.Local(name, true)
 		if err != nil {
 			continue
 		}
@@ -244,10 +221,7 @@ func (m *Maestro) help() (string, error) {
 		Help:     m.Help,
 		Commands: make(map[string][]CommandSettings),
 	}
-	for _, c := range m.Commands {
-		if c.Blocked() {
-			continue
-		}
+	for _, c := range m.Commands.Enable() {
 		for _, t := range c.Tags() {
 			h.Commands[t] = append(h.Commands[t], c)
 		}
@@ -369,4 +343,20 @@ func cleanFilename(str string) string {
 		str = strings.TrimSuffix(str, e)
 	}
 	return str
+}
+
+func interruptContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sig := make(chan os.Signal, 1)
+		defer close(sig)
+		signal.Notify(sig, os.Kill, os.Interrupt)
+
+		select {
+		case <-ctx.Done():
+		case <-sig:
+			cancel()
+		}
+	}()
+	return ctx, cancel
 }

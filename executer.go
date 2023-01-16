@@ -16,6 +16,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Resolver interface {
+	Resolve(string) (Executer, error)
+}
+
 type Executer interface {
 	Execute(context.Context, []string, io.Writer, io.Writer) error
 }

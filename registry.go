@@ -7,37 +7,60 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type Registry map[string]CommandSettings
+type Registry struct {
+	builtins map[string]Executer
+	commands map[string]CommandSettings
+}
 
-func (r Registry) Copy() Registry {
-	x := make(Registry)
-	for k, v := range r {
-		x[k] = v
+func Create() *Registry {
+	return &Registry{
+		commands: make(map[string]CommandSettings),
+	}
+}
+
+func (r *Registry) Resolve(name string) (Executer, error) {
+	if ex, ok := r.builtins[name]; ok {
+		return ex, nil
+	}
+	return r.Local(name, true)
+}
+
+func (r *Registry) Copy() *Registry {
+	x := Create()
+	for k, v := range r.commands {
+		x.commands[k] = v
 	}
 	return x
 }
 
-func (r Registry) Graph(name string) ([]string, error) {
+func (r *Registry) Enable() []CommandSettings {
+	var list []CommandSettings
+	for _, v := range r.commands {
+		if v.Blocked() {
+			continue
+		}
+		list = append(list, v)
+	}
+	return list
+}
+
+func (r *Registry) Graph(name string) ([]string, error) {
 	return nil, nil
 }
 
-func (r Registry) Help(name string) (string, error) {
-	cmd, ok := r[name]
+func (r *Registry) Help(name string) (string, error) {
+	cmd, ok := r.commands[name]
 	if !ok {
 		return "", fmt.Errorf("%s: command not defined", name)
 	}
 	return cmd.Help()
 }
 
-func (r Registry) Lookup(name string, nodeps bool) (Executer, error) {
+func (r *Registry) Local(name string, nodeps bool) (Executer, error) {
 	return r.lookup(name, nodeps, isBlocked)
 }
 
-func (r Registry) Local(name string, nodeps bool) (Executer, error) {
-	return r.lookup(name, nodeps, isBlocked)
-}
-
-func (r Registry) Remote(name string, config *ssh.ClientConfig) (Executer, error) {
+func (r *Registry) Remote(name string, config *ssh.ClientConfig) (Executer, error) {
 	cmd, err := r.find(name)
 	if err != nil {
 		return nil, err
@@ -59,20 +82,20 @@ func (r Registry) Remote(name string, config *ssh.ClientConfig) (Executer, error
 	return set, nil
 }
 
-func (r Registry) Exists(name string) bool {
-	_, ok := r[name]
+func (r *Registry) Exists(name string) bool {
+	_, ok := r.commands[name]
 	return ok
 }
 
-func (r Registry) Register(cmd CommandSettings) error {
+func (r *Registry) Register(cmd CommandSettings) error {
 	if r.Exists(cmd.Name) {
 		return fmt.Errorf("%s: command already registered", cmd.Name)
 	}
-	r[cmd.Name] = cmd
+	r.commands[cmd.Name] = cmd
 	return nil
 }
 
-func (r Registry) lookup(name string, nodeps bool, can canFunc) (Executer, error) {
+func (r *Registry) lookup(name string, nodeps bool, can canFunc) (Executer, error) {
 	cmd, err := r.find(name)
 	if err != nil {
 		return nil, err
@@ -92,12 +115,12 @@ func (r Registry) lookup(name string, nodeps bool, can canFunc) (Executer, error
 	return ex, nil
 }
 
-func (r Registry) find(name string) (CommandSettings, error) {
-	cmd, ok := r[name]
+func (r *Registry) find(name string) (CommandSettings, error) {
+	cmd, ok := r.commands[name]
 	if ok {
 		return cmd, nil
 	}
-	for _, c := range r {
+	for _, c := range r.commands {
 		i := sort.SearchStrings(c.Alias, name)
 		if i < len(c.Alias) && c.Alias[i] == name {
 			return c, nil
@@ -106,7 +129,7 @@ func (r Registry) find(name string) (CommandSettings, error) {
 	return cmd, fmt.Errorf("%s: command not defined", name)
 }
 
-func (r Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
+func (r *Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 	exec := local{
 		name:    cmd.Name,
 		scripts: cmd.Lines,
@@ -126,7 +149,7 @@ func (r Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 	return exec, nil
 }
 
-func (r Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) {
+func (r *Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) {
 	var (
 		seen = make(map[string]struct{})
 		list []Executer
