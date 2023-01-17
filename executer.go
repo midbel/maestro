@@ -3,7 +3,6 @@ package maestro
 import (
 	"bufio"
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os/exec"
@@ -17,10 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Resolver interface {
-	Resolve(string) (Executer, error)
-}
-
 type Executer interface {
 	Execute(context.Context, []string, io.Writer, io.Writer) error
 }
@@ -32,12 +27,11 @@ type local struct {
 	env     []string
 	workdir string
 	scripts CommandScript
-	locals  *Env
-	flagset *flag.FlagSet
+	ctx     *Context
 }
 
 func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	err := c.flagset.Parse(args)
+	err := c.ctx.ParseArgs(args)
 	if err != nil {
 		return err
 	}
@@ -65,7 +59,7 @@ func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Wri
 }
 
 func (c local) execute(ctx context.Context, line string, args []string, stdout, stderr io.Writer) error {
-	parts, err := expand.ExpandString(line, c.locals)
+	parts, err := expand.ExpandString(line, c.ctx)
 	if err != nil {
 		return err
 	}
@@ -83,7 +77,7 @@ type remote struct {
 	host    string
 	scripts CommandScript
 	config  *ssh.ClientConfig
-	locals  *Env
+	ctx *Context
 }
 
 func (c remote) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -94,7 +88,7 @@ func (c remote) Execute(ctx context.Context, args []string, stdout, stderr io.Wr
 	defer conn.Close()
 
 	exec := func(line string, outw, errw io.Writer) error {
-		parts, err := expand.ExpandString(line, c.locals)
+		parts, err := expand.ExpandString(line, c.ctx)
 		if err != nil {
 			return err
 		}

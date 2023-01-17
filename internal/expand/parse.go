@@ -214,6 +214,10 @@ func parseBrace(rs *reader, pre Expander) (Expander, error) {
 
 func parseVariable(rs *reader) (Expander, error) {
 	switch c, _ := rs.read(); {
+	case isDigit(c):
+		return parseIdent(rs)
+	case isSpecial(c):
+		return createVariable(string(c)), nil
 	case isLetter(c):
 		return parseIdent(rs)
 	case isBrace(c):
@@ -475,6 +479,10 @@ func isLetter(r rune) bool {
 
 func isDigit(r rune) bool {
 	return r >= '0' && r <= '9'
+}
+
+func isSpecial(r rune) bool {
+	return r == '@' || r == '#' || r == '*'
 }
 
 func isPound(r rune) bool {

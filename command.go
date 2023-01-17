@@ -2,7 +2,6 @@ package maestro
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -174,23 +173,8 @@ type CommandOption struct {
 
 	Default     string
 	DefaultFlag bool
-	Target      string
-	TargetFlag  bool
 
 	Valid validate.ValidateFunc
-}
-
-func (o CommandOption) Validate() error {
-	if o.Flag {
-		return nil
-	}
-	if o.Required && o.Target == "" {
-		return fmt.Errorf("%s/%s: missing value", o.Short, o.Long)
-	}
-	if o.Valid == nil {
-		return nil
-	}
-	return o.Valid(o.Target)
 }
 
 type CommandArg struct {
