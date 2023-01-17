@@ -3,6 +3,7 @@ package maestro
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os/exec"
@@ -32,10 +33,14 @@ type local struct {
 	workdir string
 	scripts CommandScript
 	locals  *Env
+	flagset *flag.FlagSet
 }
 
 func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	var err error
+	err := c.flagset.Parse(args)
+	if err != nil {
+		return err
+	}
 	for _, d := range c.deps {
 		if err = d.Execute(ctx, nil, stdout, stderr); err != nil {
 			return err

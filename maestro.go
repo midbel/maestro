@@ -328,15 +328,6 @@ func hasHelp(args []string) bool {
 	return as[i] == "-h" || as[i] == "-help" || as[i] == "--help"
 }
 
-func hasError(errs ...error) error {
-	for _, e := range errs {
-		if e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
 func cleanFilename(str string) string {
 	str = filepath.Base(str)
 	for e := filepath.Ext(str); e != ""; e = filepath.Ext(str) {

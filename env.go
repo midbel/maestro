@@ -2,12 +2,45 @@ package maestro
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/midbel/slices"
 )
 
 type Values map[string][]string
+
+type nameset map[string]string
+
+func (n nameset) All() []string {
+	var list []string
+	for k, v := range n {
+		list = append(list, fmt.Sprintf("%s=%s", k, v))
+	}
+	return list
+}
+
+type cmdEnv struct {
+	locals *Env
+	values map[string]flag.Value
+}
+
+func (e *cmdEnv) Resolve(ident string) ([]string, error) {
+	if vs, err := e.resolve(ident); err == nil {
+		return vs, nil
+	}
+	return e.locals.Resolve(ident)
+}
+
+func (e *cmdEnv) resolve(ident string) ([]string, error) {
+	return nil, nil
+}
+
+func (e *cmdEnv) attach(short, long, help, value string) error {
+	return nil
+}
+
+func (e *cmdEnv) attachFlag(short, long, help string, value bool) error {
+	return nil
+}
 
 type Env struct {
 	parent *Env
@@ -25,36 +58,23 @@ func EnclosedEnv(parent *Env) *Env {
 	}
 }
 
-func (e *Env) Set(str string) error {
-	if len(str) == 0 {
-		return fmt.Errorf("no identifier provided")
-	}
-	x := strings.Index(str, "=")
-	if x < 0 {
-		e.Define(str, nil)
-	} else {
-		e.Define(str[:x], []string{str[x+1:]})
-	}
+func (e *Env) Define(ident string, vs []string) error {
+	e.locals[ident] = append(e.locals[ident][:0], vs...)
 	return nil
 }
 
-func (e *Env) Define(key string, vs []string) error {
-	e.locals[key] = append(e.locals[key][:0], vs...)
+func (e *Env) Delete(ident string) error {
+	delete(e.locals, ident)
 	return nil
 }
 
-func (e *Env) Delete(key string) error {
-	delete(e.locals, key)
-	return nil
-}
-
-func (e *Env) Resolve(key string) ([]string, error) {
-	vs, ok := e.locals[key]
+func (e *Env) Resolve(ident string) ([]string, error) {
+	vs, ok := e.locals[ident]
 	if !ok && e.parent != nil {
-		return e.parent.Resolve(key)
+		return e.parent.Resolve(ident)
 	}
 	if !ok {
-		return nil, fmt.Errorf("%s: identifier not defined", key)
+		return nil, fmt.Errorf("%s: identifier not defined", ident)
 	}
 	return vs, nil
 }

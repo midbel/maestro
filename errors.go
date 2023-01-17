@@ -47,3 +47,12 @@ func (e UnexpectedError) Error() string {
 	}
 	return fmt.Sprintf("%s %q at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
 }
+
+func hasError(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
+}

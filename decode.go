@@ -97,8 +97,8 @@ func NewDecoderWithEnv(r io.Reader, ev *Env) (*Decoder, error) {
 	}
 	d := Decoder{
 		locals: ev,
-		env:    make(map[string]string),
-		alias:  make(map[string]string),
+		env:    make(nameset),
+		alias:  make(nameset),
 	}
 	if err := d.push(r); err != nil {
 		return nil, err

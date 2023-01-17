@@ -1,8 +1,11 @@
 package maestro
 
 import (
+	"flag"
 	"fmt"
+	"os"
 	"sort"
+	"strings"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -71,14 +74,14 @@ func (r *Registry) Remote(name string, config *ssh.ClientConfig) (Executer, erro
 	var set execset
 	for _, h := range cmd.Hosts {
 		r := remote{
-			name: name,
-			host: h.Addr,
+			name:    name,
+			host:    h.Addr,
 			scripts: cmd.Lines,
-			config: h.Config(config),
-			locals: cmd.locals.Copy(),
+			config:  h.Config(config),
+			locals:  cmd.locals.Copy(),
 		}
 		set.list = append(set.list, r)
-	}	
+	}
 	return set, nil
 }
 
@@ -135,9 +138,7 @@ func (r *Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 		scripts: cmd.Lines,
 		workdir: cmd.WorkDir,
 		locals:  cmd.locals.Copy(),
-	}
-	for k, v := range cmd.Ev {
-		exec.env = append(exec.env, fmt.Sprintf("%s=%s", k, v))
+		env:     cmd.Ev.All(),
 	}
 	if !nodeps {
 		deps, err := r.resolveDependencies(cmd)
@@ -146,6 +147,11 @@ func (r *Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 		}
 		exec.deps = deps
 	}
+	set, err := prepareArgs(cmd)
+	if err != nil {
+		return nil, err
+	}
+	exec.flagset = set
 	return exec, nil
 }
 
@@ -167,6 +173,60 @@ func (r *Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) 
 		list = append(list, ex)
 	}
 	return list, nil
+}
+
+func prepareArgs(cmd CommandSettings) (*flag.FlagSet, error) {
+	var (
+		set   = flag.NewFlagSet(cmd.Name, flag.ExitOnError)
+		seen  = make(map[string]struct{})
+		empty = struct{}{}
+	)
+	set.Usage = func() {
+		help, err := cmd.Help()
+		if err != nil {
+			return
+		}
+		fmt.Fprintln(set.Output(), strings.TrimSpace(help))
+		os.Exit(1)
+	}
+	check := func(name string) error {
+		if name == "" {
+			return nil
+		}
+		if _, ok := seen[name]; ok {
+			return fmt.Errorf("%s: option already defined", name)
+		}
+		seen[name] = empty
+		return nil
+	}
+	attach := func(name, help, value string, target *string) error {
+		err := check(name)
+		if err == nil {
+			set.StringVar(target, name, value, help)
+		}
+		return err
+	}
+	attachFlag := func(name, help string, value bool, target *bool) error {
+		err := check(name)
+		if err == nil {
+			set.BoolVar(target, name, value, help)
+		}
+		return err
+	}
+	for i, o := range cmd.Options {
+		var e1, e2 error
+		if o.Flag {
+			e1 = attachFlag(o.Short, o.Help, o.DefaultFlag, &cmd.Options[i].TargetFlag)
+			e2 = attachFlag(o.Long, o.Help, o.DefaultFlag, &cmd.Options[i].TargetFlag)
+		} else {
+			e1 = attach(o.Short, o.Help, o.Default, &cmd.Options[i].Target)
+			e2 = attach(o.Long, o.Help, o.Default, &cmd.Options[i].Target)
+		}
+		if err := hasError(e1, e2); err != nil {
+			return nil, err
+		}
+	}
+	return set, nil
 }
 
 type canFunc func(CommandSettings) error
