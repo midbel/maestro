@@ -75,7 +75,6 @@ const (
 type Decoder struct {
 	locals *Env
 	env    map[string]string
-	alias  map[string]string
 	frames []*frame
 }
 
@@ -98,7 +97,6 @@ func NewDecoderWithEnv(r io.Reader, ev *Env) (*Decoder, error) {
 	d := Decoder{
 		locals: ev,
 		env:    make(nameset),
-		alias:  make(nameset),
 	}
 	if err := d.push(r); err != nil {
 		return nil, err
@@ -149,8 +147,6 @@ func (d *Decoder) decodeKeyword(mst *Maestro) error {
 		err = d.decodeExport(mst)
 	case scan.KwDelete:
 		err = d.decodeDelete(mst)
-	case scan.KwAlias:
-		err = d.decodeAlias(mst)
 	default:
 		err = d.unexpected()
 	}
@@ -279,55 +275,6 @@ func (d *Decoder) decodeDelete(mst *Maestro) error {
 	return d.ensureEOL()
 }
 
-func (d *Decoder) decodeAlias(mst *Maestro) error {
-	decode := func() error {
-		var (
-			ident = d.curr()
-			str   []string
-		)
-		d.next()
-		if !d.curr().IsAssign() {
-			return d.unexpected()
-		}
-		d.next()
-		for !d.done() {
-			vs, err := d.decodeValue()
-			if err != nil {
-				return err
-			}
-			str = append(str, vs...)
-			if !d.curr().IsBlank() {
-				break
-			}
-			d.skipBlank()
-		}
-		d.alias[ident.Literal] = strings.Join(str, " ")
-		return d.ensureEOL()
-	}
-	d.next()
-	switch curr := d.curr(); curr.Type {
-	case scan.Ident:
-		return decode()
-	case scan.BegList:
-		d.next()
-		if err := d.ensureEOL(); err != nil {
-			return err
-		}
-		for !d.done() && !d.is(scan.EndList) {
-			if err := decode(); err != nil {
-				return err
-			}
-		}
-		if !d.is(scan.EndList) {
-			return d.unexpected()
-		}
-		d.next()
-		return d.ensureEOL()
-	default:
-		return d.unexpected()
-	}
-}
-
 func (d *Decoder) decodeObject(decode func() error) error {
 	d.next()
 	d.skipNL()
@@ -408,7 +355,6 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 		return err
 	}
 	cmd.Ev = slices.CopyMap(d.env)
-	cmd.As = slices.CopyMap(d.alias)
 	cmd.Visible = !hidden
 	d.next()
 	if d.is(scan.BegList) {
@@ -440,7 +386,7 @@ func (d *Decoder) decodeCommandProperties(cmd *CommandSettings) error {
 		)
 		switch {
 		case curr.Type == scan.Ident:
-		case curr.Type == scan.Keyword && curr.Literal == scan.KwAlias:
+		case curr.Type == scan.Keyword && curr.Literal == propAlias:
 		default:
 			return d.unexpected()
 		}

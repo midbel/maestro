@@ -33,7 +33,6 @@ type CommandSettings struct {
 	Args    []CommandArg
 	Lines   CommandScript
 
-	As nameset
 	Ev nameset
 
 	locals *Env
@@ -48,7 +47,6 @@ func NewCommandSettingsWithLocals(name string, locals *Env) (CommandSettings, er
 		Name:   name,
 		locals: locals,
 		Ev:     make(nameset),
-		As:     make(nameset),
 	}
 	if cmd.locals == nil {
 		cmd.locals = EmptyEnv()

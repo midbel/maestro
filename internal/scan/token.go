@@ -10,7 +10,6 @@ const (
 	KwInclude = "include"
 	KwExport  = "export"
 	KwDelete  = "delete"
-	KwAlias   = "alias"
 )
 
 const (
