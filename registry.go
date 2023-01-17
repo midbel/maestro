@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/midbel/maestro/internal/validate"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -176,7 +177,14 @@ func (r *Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) 
 }
 
 func createContext(cmd CommandSettings) (*Context, error) {
-	ctx := MakeContext(cmd.Name, cmd.locals)
+	var args []validate.ValidateFunc
+	for _, a := range cmd.Args {
+		args = append(args, a.Valid)
+	}
+	ctx := &Context{
+		locals: cmd.locals.Copy(),
+		flags:  createFlagset(cmd.Name, args...),
+	}
 	for _, o := range cmd.Options {
 		var err error
 		if o.Flag {

@@ -24,16 +24,7 @@ func (n nameset) All() []string {
 
 type Context struct {
 	locals *Env
-	flags  *flag.FlagSet
-}
-
-func MakeContext(name string, locals *Env) *Context {
-	ctx := &Context{
-		locals: locals.Copy(),
-		flags:  flag.NewFlagSet(name, flag.ExitOnError),
-	}
-	ctx.flags.Usage = func() {}
-	return ctx
+	flags  *flagset
 }
 
 func (e *Context) ParseArgs(args []string) error {
@@ -112,6 +103,35 @@ func (e *Context) attachFlag(short, long, help string, value bool) error {
 func (e *Context) isFlag(ident string) bool {
 	f := e.flags.Lookup(ident)
 	return f != nil
+}
+
+type flagset struct {
+	args []validate.ValidateFunc
+	*flag.FlagSet
+}
+
+func createFlagset(name string, args ...validate.ValidateFunc) *flagset {
+	set := &flagset{
+		args:    args,
+		FlagSet: flag.NewFlagSet(name, flag.ExitOnError),
+	}
+	set.FlagSet.Usage = func() {}
+	return set
+}
+
+func (f *flagset) Parse(args []string) error {
+	if err := f.FlagSet.Parse(args); err != nil {
+		return err
+	}
+	for i, validate := range f.args {
+		if validate == nil {
+			continue
+		}
+		if err := validate(f.FlagSet.Arg(i)); err != nil {
+			return fmt.Errorf("#%d: %s %w", i+1, f.FlagSet.Arg(i), err)
+		}
+	}
+	return nil
 }
 
 type boolValue bool

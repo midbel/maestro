@@ -34,7 +34,8 @@ context (
 		flag  = true,
 		default = true,
 		help  = 'get all'
-	)
+	),
+	args = arg1 arg2(file),
 ): {
 	echo "context"
 	echo "short $b - $a"

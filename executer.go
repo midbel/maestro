@@ -77,7 +77,7 @@ type remote struct {
 	host    string
 	scripts CommandScript
 	config  *ssh.ClientConfig
-	ctx *Context
+	ctx     *Context
 }
 
 func (c remote) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
