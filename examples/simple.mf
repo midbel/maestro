@@ -25,7 +25,6 @@ context (
 		short    = b,
 		long     = bind,
 		default  = "localhost:22",
-		required =  true,
 		help     = 'bind to address',
 		check    = notempty ipport,
 	), (

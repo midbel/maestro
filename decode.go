@@ -55,13 +55,12 @@ const (
 )
 
 const (
-	optShort    = "short"
-	optLong     = "long"
-	optRequired = "required"
-	optDefault  = "default"
-	optFlag     = "flag"
-	optHelp     = "help"
-	optValid    = "check"
+	optShort   = "short"
+	optLong    = "long"
+	optDefault = "default"
+	optFlag    = "flag"
+	optHelp    = "help"
+	optValid   = "check"
 )
 
 const (
@@ -558,8 +557,6 @@ func (d *Decoder) decodeOptionObject() (CommandOption, error) {
 			opt.Long, err = d.parseString()
 		case optDefault:
 			opt.Default, err = d.parseString()
-		case optRequired:
-			opt.Required, err = d.parseBool()
 		case optFlag:
 			opt.Flag, err = d.parseBool()
 		case optHelp:

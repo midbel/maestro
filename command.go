@@ -165,11 +165,10 @@ func (c CommandDep) Key() string {
 }
 
 type CommandOption struct {
-	Short    string
-	Long     string
-	Help     string
-	Required bool
-	Flag     bool
+	Short string
+	Long  string
+	Help  string
+	Flag  bool
 
 	Default     string
 	DefaultFlag bool
