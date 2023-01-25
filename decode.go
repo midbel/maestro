@@ -12,6 +12,7 @@ import (
 
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/scan"
+	"github.com/midbel/maestro/internal/validate"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
@@ -446,7 +447,7 @@ func (d *Decoder) decodeCommandOptions(cmd *CommandSettings) error {
 		case optHelp:
 			option.Help, err = d.decodeString()
 		case optValid:
-			_, err = d.decodeString()
+			option.Valid, err = d.decodeValidFunc()
 		default:
 			err = fmt.Errorf("%s option property not recognized", ident)
 		}
@@ -486,13 +487,38 @@ func (d *Decoder) decodeCommandArguments(cmd *CommandSettings) error {
 }
 
 func (d *Decoder) decodeObject(do func(string) error) error {
+	accept := func(tok scan.Token) error {
+		if tok.Type == scan.Ident {
+			return nil
+		}
+		return d.unexpected("decoding list")
+	}
+	return d.decodeList(accept, do)
+}
+
+func (d *Decoder) decodeProperties(do func(ident string) error) error {
+	accept := func(tok scan.Token) error {
+		if tok.Type == scan.Ident || (tok.Type == scan.Keyword && tok.Literal == scan.KwAlias) {
+			return nil
+		}
+		return d.unexpected("decoding properties")
+	}
+	return d.decodeList(accept, do)
+}
+
+type (
+	acceptFunc func(scan.Token) error
+	identFunc  func(string) error
+)
+
+func (d *Decoder) decodeList(accept acceptFunc, do identFunc) error {
 	if err := d.expect(scan.BegList, "expected ( at begin of list"); err != nil {
 		return err
 	}
 	d.next()
 	for !d.done() && !d.is(scan.EndList) {
 		d.skipEol()
-		if err := d.expect(scan.Ident, "identifier expected"); err != nil {
+		if err := accept(d.curr); err != nil {
 			return err
 		}
 		ident := d.curr.Literal
@@ -518,45 +544,6 @@ func (d *Decoder) decodeObject(do func(string) error) error {
 		}
 	}
 	if err := d.expect(scan.EndList, "expected ) at end of list"); err != nil {
-		return err
-	}
-	d.next()
-	return nil
-}
-
-func (d *Decoder) decodeProperties(do func(ident string) error) error {
-	d.next()
-	for !d.is(scan.EndList) && !d.done() {
-		d.skipEol()
-		switch {
-		case d.is(scan.Ident):
-		case d.is(scan.Keyword) && d.curr.Literal == scan.KwAlias:
-		default:
-			return d.unexpected("decoding properties")
-		}
-		ident := d.curr.Literal
-		d.next()
-		if err := d.expect(scan.Assign, "expected = after %s", ident); err != nil {
-			return err
-		}
-		d.next()
-		if err := do(ident); err != nil {
-			return err
-		}
-		switch d.curr.Type {
-		case scan.Comma:
-			d.next()
-		case scan.Eol, scan.Comment:
-			d.skipEol()
-			if err := d.expect(scan.EndList, "expect ) after eol/comment"); err != nil {
-				return err
-			}
-		case scan.EndList:
-		default:
-			return d.unexpected("decoding command properties")
-		}
-	}
-	if err := d.expect(scan.EndList, "expected ) at end of properties"); err != nil {
 		return err
 	}
 	d.next()
@@ -660,6 +647,85 @@ func (d *Decoder) decodeKw(do func() error) error {
 	}
 	d.next()
 	return d.ensureEol()
+}
+
+func (d *Decoder) decodeValidFunc() (validate.ValidateFunc, error) {
+	var (
+		decodeArgs func() ([]string, error)
+		decodeFunc func(func() bool) ([]validate.ValidateFunc, error)
+	)
+
+	decodeArgs = func() ([]string, error) {
+		if !d.is(scan.BegList) {
+			return nil, nil
+		}
+		d.next()
+		var args []string
+		for !d.done() && !d.is(scan.EndList) {
+			str, err := d.decodeString()
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, str)
+		}
+		if err := d.expect(scan.EndList, "expected ) after arguments list"); err != nil {
+			return nil, err
+		}
+		d.next()
+		return args, nil
+	}
+
+	decodeFunc = func(accept func() bool) ([]validate.ValidateFunc, error) {
+		var all []validate.ValidateFunc
+		for !d.done() && !accept() {
+			if err := d.expect(scan.Ident, "identifier expected"); err != nil {
+				return nil, err
+			}
+			ident := d.curr.Literal
+			d.next()
+			switch ident {
+			case validate.ValidAll, validate.ValidSome, validate.ValidNot:
+				if err := d.expect(scan.BegList, "expected ("); err != nil {
+					return nil, err
+				}
+				d.next()
+				set, err := decodeFunc(func() bool {
+					return d.is(scan.EndList)
+				})
+				if err != nil {
+					return nil, err
+				}
+				valid, err := validate.Get(ident, set...)
+				if err != nil {
+					return nil, err
+				}
+				all = append(all, valid)
+			default:
+				args, err := decodeArgs()
+				if err != nil {
+					return nil, err
+				}
+				valid, err := validate.GetValidateFunc(ident, args)
+				if err != nil {
+					return nil, err
+				}
+				all = append(all, valid)
+			}
+		}
+		if !accept() {
+			return nil, d.unexpected("decoding validation rules")
+		}
+		d.next()
+		return all, nil
+	}
+
+	set, err := decodeFunc(func() bool {
+		return d.is(scan.Eol) || d.is(scan.Comma) || d.is(scan.BegList)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return validate.All(set...), nil
 }
 
 func (d *Decoder) decodeVariable() ([]string, error) {

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/midbel/slices"
 )
 
 type ValidateFunc func(string) error
@@ -51,6 +53,24 @@ func GetValidateFunc(name string, args []string) (ValidateFunc, error) {
 	return make(args)
 }
 
+func Get(name string, valid ...ValidateFunc) (ValidateFunc, error) {
+	var (
+		fn ValidateFunc
+		err error
+	)
+	switch name {
+	case ValidAll:
+		fn = All(valid...)
+	case ValidNot:
+		fn = Fail(All(valid...))
+	case ValidSome:
+		fn = Some(valid...)
+	default:
+		fn, err = GetValidateFunc(name, nil)
+	}
+	return fn, err
+}
+
 func Fail(valid ValidateFunc) ValidateFunc {
 	return func(value string) error {
 		err := valid(value)
@@ -62,6 +82,9 @@ func Fail(valid ValidateFunc) ValidateFunc {
 }
 
 func Some(valid ...ValidateFunc) ValidateFunc {
+	if len(valid) == 1 {
+		return slices.Fst(valid)
+	}
 	return func(value string) error {
 		for _, fn := range valid {
 			if err := fn(value); err == nil {
@@ -73,6 +96,9 @@ func Some(valid ...ValidateFunc) ValidateFunc {
 }
 
 func All(valid ...ValidateFunc) ValidateFunc {
+	if len(valid) == 1 {
+		return slices.Fst(valid)
+	}
 	return func(value string) error {
 		for _, fn := range valid {
 			if err := fn(value); err != nil {
