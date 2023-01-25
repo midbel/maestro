@@ -47,7 +47,6 @@ type Maestro struct {
 	MetaSSH
 	MetaHttp
 
-	Locals   *Env
 	Commands *Registry
 
 	Includes   []string
@@ -58,7 +57,6 @@ type Maestro struct {
 
 func New() *Maestro {
 	return &Maestro{
-		Locals:    EmptyEnv(),
 		MetaAbout: defaultAbout(),
 		MetaHttp:  defaultHttp(),
 		MetaSSH:   defaultSSH(),
@@ -77,11 +75,11 @@ func (m *Maestro) Load(file string) error {
 	}
 	defer r.Close()
 
-	d, err := NewDecoderWithEnv(r, m.Locals)
+	d, err := NewDecoder(r)
 	if err != nil {
 		return err
 	}
-	if err := d.decode(m); err != nil {
+	if err := d.Decode(m); err != nil {
 		return err
 	}
 	m.MetaAbout.File = file

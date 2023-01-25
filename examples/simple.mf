@@ -18,6 +18,17 @@ exec   = maestro
 .SSH_USER     = "foobar"
 .SSH_PASSWORD = "foobar"
 
+iscript (
+	short = "demo for nested script",
+	tag   = demo
+): {
+	echo "improve script"
+	if eq val1 val2 {
+		echo "value are equals"
+		exit
+	}
+}
+
 context (
 	short = "demo of using options and arguments",
 	tag   = demo,

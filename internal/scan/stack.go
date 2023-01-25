@@ -1,116 +1,81 @@
 package scan
 
-type scanState int8
+type state int8
 
 const (
-	scanDefault scanState = iota
-	scanValue
-	scanScript
-	scanQuote
+	stateDefault state = 1 << iota
+	stateQuote
+	stateScript
 )
 
-type scanstack struct {
-	Stack stack[scanState]
+func (s state) String() string {
+	switch s {
+	default:
+		return "<other>"
+	case stateDefault:
+		return "<default>"
+	case stateQuote:
+		return "<quote>"
+	case stateScript:
+		return "<script>"
+	}
 }
 
-func defaultStack() *scanstack {
-	var s scanstack
-	s.Stack = emptyStack[scanState]()
-	s.Stack.Push(scanDefault)
+type stack []state
+
+func emptyStack() *stack {
+	var s stack
 	return &s
 }
 
-func (s *scanstack) Pop() {
-	s.Stack.Pop()
+func (s *stack) push(st state) {
+	*s = append(*s, st)
 }
 
-func (s *scanstack) Push(state scanState) {
-	s.Stack.Push(state)
+func (s *stack) pop() {
+	x := *s
+	*s = x[:len(x)-1]
 }
 
-func (s *scanstack) KeepBlank() bool {
-	curr := s.Stack.Top()
-	return curr == scanDefault || curr == scanValue
+func (s *stack) toggle() {
+	if !s.isQuote() {
+		s.push(stateQuote)
+	} else {
+		s.pop()
+	}
 }
 
-func (s *scanstack) Default() bool {
-	return s.Stack.Top() == scanDefault
+func (s *stack) enter() {
+	s.push(stateScript)
 }
 
-func (s *scanstack) Value() bool {
-	return s.Stack.Top() == scanValue
-}
-
-func (s *scanstack) Quote() bool {
-	return s.Stack.Top() == scanQuote
-}
-
-func (s *scanstack) ToggleQuote() {
-	if s.Quote() {
-		s.Stack.Pop()
+func (s *stack) leave() {
+	if !s.isScript() {
 		return
 	}
-	s.Stack.Push(scanQuote)
+	s.pop()
 }
 
-func (s *scanstack) Script() bool {
-	return s.Stack.Top() == scanScript
+func (s *stack) skipBlank() bool {
+	return s.isDefault() || s.isScript()
 }
 
-func (s *scanstack) Curr() scanState {
-	if s.Stack.Len() == 0 {
-		return scanDefault
+func (s *stack) isDefault() bool {
+	return s.last() == stateDefault
+}
+
+func (s *stack) isQuote() bool {
+	return s.last() == stateQuote
+}
+
+func (s *stack) isScript() bool {
+	return s.last() == stateScript
+}
+
+func (s *stack) last() state {
+	if len(*s) == 0 {
+		return stateDefault
 	}
-	return s.Stack.Top()
-}
-
-func (s *scanstack) Prev() scanState {
-	n := s.Stack.Len()
-	n--
-	n--
-	if n >= 0 {
-		return s.Stack.At(n)
-	}
-	return scanDefault
-}
-
-type stack[T any] struct {
-	list []T
-}
-
-func emptyStack[T any]() stack[T] {
-	var stk stack[T]
-	return stk
-}
-
-func (s *stack[T]) Len() int {
-	return len(s.list)
-}
-
-func (s *stack[T]) Pop() {
-	n := s.Len() - 1
-	if n < 0 {
-		return
-	}
-	s.list = s.list[:n]
-}
-
-func (s *stack[T]) Push(item T) {
-	s.list = append(s.list, item)
-}
-
-func (s *stack[T]) At(n int) T {
-	var ret T
-	if n >= s.Len() {
-		return ret
-	}
-	return s.list[n]
-}
-
-func (s *stack[T]) Top() T {
-	var ret T
-	if s.Len() > 0 {
-		ret = s.list[s.Len()-1]
-	}
-	return ret
+	x := *s
+	return x[len(x)-1]
 }

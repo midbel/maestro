@@ -7,6 +7,362 @@ import (
 	"unicode/utf8"
 )
 
+type Scanner struct {
+	input []byte
+	curr  int
+	next  int
+	char  rune
+
+	buf   bytes.Buffer
+	stack *stack
+
+	Position
+	prev Position
+}
+
+func Scan(r io.Reader) (*Scanner, error) {
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	s := Scanner{
+		input: bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
+		stack: emptyStack(),
+	}
+	s.Line = 1
+	return &s, nil
+}
+
+func (s *Scanner) Scan() Token {
+	defer s.reset()
+	s.read()
+
+	var tok Token
+	if s.done() {
+		tok.Type = Eof
+		return tok
+	}
+	if s.stack.skipBlank() {
+		s.skipBlank()
+	}
+	tok.Position = s.Position
+	switch {
+	case s.stack.isDefault():
+		s.scanDefault(&tok)
+	case s.stack.isQuote():
+		s.scanTemplate(&tok)
+	case s.stack.isScript():
+		s.scanScript(&tok)
+	default:
+		tok.Type = Invalid
+	}
+	return tok
+}
+
+func (s *Scanner) scanTemplate(tok *Token) {
+	switch {
+	case isDouble(s.char):
+		tok.Type = Quote
+		s.stack.toggle()
+		return
+	case isVariable(s.char):
+		s.scanVariable(tok)
+		return
+	default:
+	}
+	defer s.unread()
+	for !isVariable(s.char) && !isDouble(s.char) && !isNL(s.char) && !s.done() {
+		s.writeChar()
+		s.read()
+	}
+	tok.Type = String
+	tok.Literal = s.literal()
+}
+
+func (s *Scanner) scanDefault(tok *Token) {
+	switch {
+	case isComment(s.char):
+		s.scanComment(tok)
+	case isHeredoc(s.char, s.peek()):
+		s.scanHeredoc(tok)
+	case isMeta(s.char):
+		s.scanMeta(tok)
+	case isLetter(s.char):
+		s.scanIdent(tok)
+	case isVariable(s.char):
+		s.scanVariable(tok)
+	case isDouble(s.char):
+		tok.Type = Quote
+		s.stack.toggle()
+	case isSingle(s.char):
+		s.scanQuote(tok)
+	case isOperator(s.char):
+		s.scanOperator(tok)
+	case isDelimiter(s.char):
+		s.scanDelimiter(tok)
+	case isNL(s.char):
+		s.skipNL()
+		tok.Type = Eol
+	default:
+		s.scanLiteral(tok)
+	}
+}
+
+func (s *Scanner) scanScript(tok *Token) {
+	switch s.char {
+	case lcurly:
+		tok.Type = BegScript
+		s.stack.enter()
+	case rcurly:
+		tok.Type = EndScript
+		s.stack.leave()
+	case pound:
+		s.scanComment(tok)
+		return
+	default:
+	}
+	if isScript(s.char) {
+		s.read()
+		s.skipNL()
+		return
+	}
+	for !isNL(s.char) && !isScript(s.char) && !s.done() {
+		if s.char == backslash && isNL(s.peek()) {
+			s.read()
+			s.read()
+			s.skipBlank()
+			continue
+		}
+		s.writeChar()
+		s.read()
+	}
+	tok.Type = Script
+	tok.Literal = strings.TrimSpace(s.literal())
+	s.skipNL()
+}
+
+func (s *Scanner) scanDelimiter(tok *Token) {
+	switch s.char {
+	case comma:
+		tok.Type = Comma
+		s.read()
+		if isBlank(s.char) {
+			s.skipBlank()
+			s.unread()
+		}
+	case colon:
+		tok.Type = Dependency
+	case lparen:
+		tok.Type = BegList
+	case rparen:
+		tok.Type = EndList
+	case lcurly:
+		tok.Type = BegScript
+		s.stack.enter()
+	case rcurly:
+		tok.Type = EndScript
+		s.stack.leave()
+	}
+	if isScript(s.char) {
+		s.read()
+		s.skipNL()
+	}
+}
+
+func (s *Scanner) scanOperator(tok *Token) {
+	switch s.char {
+	case equal:
+		tok.Type = Assign
+	case plus:
+		s.read()
+		if s.char != equal {
+			tok.Type = Invalid
+			break
+		}
+		tok.Type = Append
+	case percent:
+		tok.Type = Hidden
+	}
+}
+
+func (s *Scanner) scanComment(tok *Token) {
+	s.read()
+	for !isNL(s.char) && !s.done() {
+		s.writeChar()
+		s.read()
+	}
+	tok.Type = Comment
+	tok.Literal = strings.TrimSpace(s.literal())
+}
+
+func (s *Scanner) scanLiteral(tok *Token) {
+	defer s.unread()
+	for !isBlank(s.char) && !isNL(s.char) && !s.done() {
+		s.writeChar()
+		s.read()
+	}
+	tok.Type = String
+	tok.Literal = s.literal()
+}
+
+func (s *Scanner) scanIdent(tok *Token) {
+	defer s.unread()
+	for isAlpha(s.char) {
+		s.writeChar()
+		s.read()
+	}
+	tok.Literal = s.literal()
+	switch tok.Literal {
+	case KwTrue, KwFalse:
+		tok.Type = Boolean
+	case KwAlias, KwInclude, KwDelete, KwExport:
+		tok.Type = Keyword
+	default:
+		tok.Type = Ident
+	}
+}
+
+func (s *Scanner) scanVariable(tok *Token) {
+	defer s.unread()
+	s.read()
+	if !isLetter(s.char) {
+		tok.Type = Invalid
+	}
+	for isAlpha(s.char) {
+		s.writeChar()
+		s.read()
+	}
+	if tok.Type != Invalid {
+		tok.Type = Variable
+	}
+	tok.Literal = s.literal()
+}
+
+func (s *Scanner) scanMeta(tok *Token) {
+	defer s.unread()
+	s.read()
+	for isUpper(s.char) || s.char == underscore {
+		s.writeChar()
+		s.read()
+	}
+	tok.Type = Meta
+	tok.Literal = s.literal()
+}
+
+func (s *Scanner) scanHeredoc(tok *Token) {
+	s.read()
+	s.read()
+	for !s.done() && isUpper(s.char) {
+		s.writeChar()
+		s.read()
+	}
+	tok.Literal = s.literal()
+	s.reset()
+	if !isNL(s.char) {
+		tok.Type = Invalid
+		return
+	}
+	var tmp bytes.Buffer
+	s.read()
+	for !s.done() {
+		for !isNL(s.char) && !s.done() {
+			if s.char == backslash && isNL(s.peek()) {
+				s.read()
+				s.read()
+				s.skipBlank()
+				continue
+			}
+			tmp.WriteRune(s.char)
+			s.read()
+		}
+		if tmp.String() == tok.Literal {
+			break
+		}
+		for isNL(s.char) {
+			tmp.WriteRune(nl)
+			s.read()
+		}
+		io.Copy(&s.buf, &tmp)
+	}
+	tok.Type = String
+	tok.Literal = strings.TrimSpace(s.literal())
+}
+
+func (s *Scanner) scanQuote(tok *Token) {
+	s.read()
+	for !isSingle(s.char) && !isNL(s.char) && !s.done() {
+		s.writeChar()
+		s.read()
+	}
+	tok.Type = String
+	tok.Literal = s.literal()
+	if !isSingle(s.char) {
+		tok.Type = Invalid
+	}
+}
+
+func (s *Scanner) writeChar() {
+	s.buf.WriteRune(s.char)
+}
+
+func (s *Scanner) literal() string {
+	return s.buf.String()
+}
+
+func (s *Scanner) reset() {
+	s.buf.Reset()
+}
+
+func (s *Scanner) done() bool {
+	return s.char == utf8.RuneError
+}
+
+func (s *Scanner) read() {
+	if s.curr >= len(s.input) || s.done() {
+		s.char = utf8.RuneError
+		return
+	}
+	s.prev = s.Position
+	if s.char == nl {
+		s.Line++
+		s.Column = 0
+	}
+	s.Column++
+
+	r, size := utf8.DecodeRune(s.input[s.next:])
+	s.curr = s.next
+	s.next += size
+	s.char = r
+}
+
+func (s *Scanner) unread() {
+	var size int
+	s.Position = s.prev
+	s.char, size = utf8.DecodeRune(s.input[s.curr:])
+	s.next = s.curr
+	s.curr -= size
+}
+
+func (s *Scanner) peek() rune {
+	r, _ := utf8.DecodeRune(s.input[s.next:])
+	return r
+}
+
+func (s *Scanner) skipBlank() {
+	s.skip(isBlank)
+}
+
+func (s *Scanner) skipNL() {
+	defer s.unread()
+	s.skip(isNL)
+}
+
+func (s *Scanner) skip(fn func(rune) bool) {
+	for fn(s.char) {
+		s.read()
+	}
+}
+
 const (
 	zero       = 0
 	cr         = '\r'
@@ -41,440 +397,6 @@ const (
 	star       = '*'
 )
 
-type Scanner struct {
-	input []byte
-	curr  int
-	next  int
-	char  rune
-
-	str bytes.Buffer
-
-	line   int
-	column int
-	seen   int
-
-	keepBlank bool
-	state     *scanstack
-}
-
-func Scan(r io.Reader) (*Scanner, error) {
-	buf, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	s := Scanner{
-		input:  bytes.ReplaceAll(buf, []byte{cr, nl}, []byte{nl}),
-		line:   1,
-		column: 0,
-		state:  defaultStack(),
-	}
-	s.read()
-	return &s, nil
-}
-
-func (s *Scanner) Scan() Token {
-	var tok Token
-	tok.Position = s.currentPosition()
-	if isEOF(s.char) {
-		tok.Type = Eof
-		return tok
-	}
-	if s.keepBlank && isBlank(s.char) && s.state.KeepBlank() {
-		s.skipBlank()
-		tok.Type = Blank
-		return tok
-	}
-	s.reset()
-	tok.Position = s.currentPosition()
-	if s.char != rcurly && s.state.Script() {
-		s.scanScript(&tok)
-		return tok
-	}
-	if s.state.Quote() && !isDouble(s.char) {
-		scan := s.scanText
-		if isVariable(s.char) {
-			scan = s.scanVariable
-		}
-		scan(&tok)
-		return tok
-	}
-	s.skipBlank()
-	switch {
-	case isHeredoc(s.char, s.peek()):
-		s.scanHeredoc(&tok)
-	case isComment(s.char):
-		s.scanComment(&tok)
-	case isVariable(s.char):
-		s.scanVariable(&tok)
-	case isSingle(s.char):
-		s.scanString(&tok)
-	case isDouble(s.char):
-		s.scanQuote(&tok)
-	case s.state.Default() && isOperator(s.char):
-		s.scanOperator(&tok)
-	case isDelimiter(s.char):
-		s.scanDelimiter(&tok)
-	case isMeta(s.char):
-		s.scanMeta(&tok)
-	case isNL(s.char):
-		s.scanEol(&tok)
-	default:
-		s.scanLiteral(&tok)
-	}
-	s.toggleBlank(tok)
-	return tok
-}
-
-func (s *Scanner) CurrentLine() string {
-	var (
-		pos = s.curr - s.column
-		off = bytes.IndexByte(s.input[s.curr:], nl)
-	)
-	if off < 0 {
-		off = len(s.input[s.curr:])
-	}
-	if pos < 0 {
-		pos = 0
-	}
-	b := s.input[pos : s.curr+off]
-	for i := 0; i < len(b); i++ {
-		if b[i] != nl {
-			b = b[i:]
-			break
-		}
-	}
-	for i := 0; i < len(b); i++ {
-		if b[i] == tab {
-			b[i] = space
-		}
-	}
-	return string(b)
-}
-
-func (s *Scanner) scanScript(tok *Token) {
-	s.skipNL()
-	s.skipBlank()
-	if isComment(s.char) {
-		s.scanComment(tok)
-		return
-	}
-	for !isNL(s.char) && !s.done() {
-		if s.char == backslash && isNL(s.peek()) {
-			s.read()
-			s.read()
-			s.skipBlank()
-		}
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Literal = s.str.String()
-	tok.Type = Script
-	s.skipNL()
-	s.skipBlank()
-}
-
-func (s *Scanner) scanEol(tok *Token) {
-	tok.Type = Eol
-	s.skipNL()
-}
-
-func (s *Scanner) scanMeta(tok *Token) {
-	s.read()
-	for isUpper(s.char) || s.char == underscore {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Literal = s.str.String()
-	tok.Type = Meta
-}
-
-func (s *Scanner) scanHeredoc(tok *Token) {
-	s.read()
-	s.read()
-	for !s.done() && isUpper(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	if !isNL(s.char) {
-		tok.Type = Invalid
-		return
-	}
-	var (
-		tmp    bytes.Buffer
-		prefix = s.str.String()
-	)
-	s.str.Reset()
-	s.skipNL()
-	for !s.done() {
-		for !isNL(s.char) {
-			tmp.WriteRune(s.char)
-			s.read()
-		}
-		if tmp.String() == prefix {
-			break
-		}
-		for isNL(s.char) {
-			tmp.WriteRune(s.char)
-			s.read()
-		}
-		io.Copy(&s.str, &tmp)
-	}
-	tok.Literal = strings.TrimSpace(s.str.String())
-	tok.Type = String
-}
-
-func (s *Scanner) scanQuote(tok *Token) {
-	tok.Type = Quote
-	s.state.ToggleQuote()
-	s.read()
-	if !s.keepBlank && !s.state.Quote() {
-		s.skipBlank()
-	}
-}
-
-func (s *Scanner) scanText(tok *Token) {
-	accept := func(r rune) bool {
-		return !isDouble(r) && !isVariable(r)
-	}
-	for accept(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Literal = s.str.String()
-	tok.Type = String
-}
-
-func (s *Scanner) scanString(tok *Token) {
-	quote := s.char
-	s.read()
-	for s.char != quote && !s.done() {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	if s.char != quote {
-		tok.Type = Invalid
-		return
-	}
-	s.read()
-	tok.Literal = s.str.String()
-	tok.Type = String
-}
-
-func (s *Scanner) scanVariable(tok *Token) {
-	s.read()
-	if s.char == lparen {
-		s.read()
-		for !s.done() && s.char != rparen {
-			s.str.WriteRune(s.char)
-			s.read()
-		}
-		tok.Literal = s.str.String()
-		tok.Type = Script
-		if s.char != rparen {
-			tok.Type = Invalid
-		} else {
-			s.read()
-		}
-		return
-	}
-	var enclosed bool
-	if s.char == lcurly {
-		s.read()
-		enclosed = true
-	}
-	for isIdent(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Type = Variable
-	tok.Literal = s.str.String()
-	if enclosed {
-		if s.char != rcurly {
-			tok.Type = Invalid
-			return
-		}
-		s.read()
-	}
-}
-
-func (s *Scanner) scanLiteral(tok *Token) {
-	var (
-		ident  = true
-		accept = isValue
-	)
-	if s.state.Default() {
-		accept = isLiteral
-	}
-	for accept(s.char) {
-		if ident && !isIdent(s.char) {
-			ident = !ident
-		}
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	tok.Literal = s.str.String()
-	if !ident {
-		tok.Type = String
-		return
-	}
-	switch tok.Literal {
-	case KwTrue, KwFalse:
-		tok.Type = Boolean
-	case KwInclude, KwExport, KwDelete:
-		tok.Type = Keyword
-	default:
-		tok.Type = Ident
-	}
-}
-
-func (s *Scanner) scanOperator(tok *Token) {
-	switch s.char {
-	case ampersand:
-		tok.Type = Background
-	case question:
-		tok.Type = Optional
-	case star:
-		tok.Type = Mandatory
-	case percent:
-		tok.Type = Hidden
-	default:
-		tok.Type = Invalid
-	}
-	s.read()
-}
-
-func (s *Scanner) scanDelimiter(tok *Token) {
-	switch s.char {
-	case colon:
-		tok.Type = Dependency
-	case plus:
-		tok.Type = Append
-		s.read()
-		if s.char != equal {
-			tok.Type = Invalid
-		}
-	case equal:
-		tok.Type = Assign
-	case comma:
-		tok.Type = Comma
-	case lparen:
-		tok.Type = BegList
-	case rparen:
-		tok.Type = EndList
-	case lcurly:
-		tok.Type = BegScript
-		s.state.Push(scanScript)
-	case rcurly:
-		tok.Type = EndScript
-		s.state.Pop()
-	default:
-		tok.Type = Invalid
-	}
-	s.read()
-	if s.state.Script() && isNL(s.char) {
-		s.skipNL()
-	}
-	if tok.Type == Comma {
-		s.skipBlank()
-	}
-}
-
-func (s *Scanner) scanComment(tok *Token) {
-	s.read()
-	s.skipBlank()
-	for !isNL(s.char) {
-		s.str.WriteRune(s.char)
-		s.read()
-	}
-	s.skipNL()
-	tok.Literal = s.str.String()
-	tok.Type = Comment
-}
-
-func (s *Scanner) done() bool {
-	return s.char == zero || s.char == utf8.RuneError
-}
-
-func (s *Scanner) toggleBlank(tok Token) {
-	if !s.state.Default() && !s.state.Value() {
-		return
-	}
-	switch tok.Type {
-	case Assign, Append:
-		s.keepBlank = true
-		s.skipBlank()
-		s.state.Push(scanValue)
-	case Comment, Comma, BegList, EndList, Dependency, Eol:
-		s.keepBlank = false
-		s.skipBlank()
-		s.state.Pop()
-	default:
-	}
-}
-
-func (s *Scanner) currentPosition() Position {
-	return Position{
-		Line:   s.line,
-		Column: s.column,
-	}
-}
-
-func (s *Scanner) reset() {
-	s.str.Reset()
-}
-
-func (s *Scanner) peek() rune {
-	r, _ := utf8.DecodeRune(s.input[s.next:])
-	return r
-}
-
-func (s *Scanner) read() {
-	if s.curr >= len(s.input) {
-		s.char = 0
-		return
-	}
-	r, n := utf8.DecodeRune(s.input[s.next:])
-	if r == utf8.RuneError {
-		s.char = 0
-		s.next = len(s.input)
-	}
-	last := s.char
-	s.char, s.curr, s.next = r, s.next, s.next+n
-
-	if last == nl {
-		s.line++
-		s.seen, s.column = s.column, 1
-	} else {
-		s.column++
-	}
-}
-
-func (s *Scanner) skipBlank() {
-	s.skip(isBlank)
-}
-
-func (s *Scanner) skipNL() {
-	s.skip(isNL)
-}
-
-func (s *Scanner) skip(fn func(rune) bool) {
-	for fn(s.char) {
-		s.read()
-	}
-}
-
-func isValue(b rune) bool {
-	return !isVariable(b) && !isBlank(b) && !isNL(b) && !isDelimiter(b)
-}
-
-func isLiteral(b rune) bool {
-	return isValue(b) && !isOperator(b)
-}
-
-func isHeredoc(c, p rune) bool {
-	return c == p && c == langle
-}
-
 func isNL(b rune) bool {
 	return b == nl || b == cr
 }
@@ -488,7 +410,7 @@ func isBlank(b rune) bool {
 }
 
 func isIdent(b rune) bool {
-	return isLetter(b) || isDigit(b) || b == underscore
+	return isLetter(b) || isDigit(b)
 }
 
 func isDigit(b rune) bool {
@@ -503,8 +425,12 @@ func isDouble(b rune) bool {
 	return b == dquote
 }
 
+func isAlpha(b rune) bool {
+	return isLetter(b) || isDigit(b)
+}
+
 func isLetter(b rune) bool {
-	return isLower(b) || isUpper(b)
+	return isLower(b) || isUpper(b) || b == underscore
 }
 
 func isLower(b rune) bool {
@@ -527,11 +453,22 @@ func isVariable(b rune) bool {
 	return b == dollar
 }
 
-func isOperator(b rune) bool {
-	return b == ampersand || b == question || b == star || b == percent
+func isDelimiter(b rune) bool {
+	return b == colon || b == comma || isList(b) || isScript(b)
 }
 
-func isDelimiter(b rune) bool {
-	return b == colon || b == comma || b == lparen || b == rparen ||
-		b == lcurly || b == rcurly || b == equal || b == plus
+func isOperator(b rune) bool {
+	return b == equal || b == plus || b == percent
+}
+
+func isHeredoc(b, p rune) bool {
+	return b == langle && p == b
+}
+
+func isList(b rune) bool {
+	return b == lparen || b == rparen
+}
+
+func isScript(b rune) bool {
+	return b == lcurly || b == rcurly
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/validate"
 	"golang.org/x/crypto/ssh"
 )
@@ -139,7 +140,7 @@ func (r *Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 		name:    cmd.Name,
 		scripts: cmd.Lines,
 		workdir: cmd.WorkDir,
-		env:     cmd.Ev.All(),
+		// env:     cmd.Ev.All(),
 	}
 	if !nodeps {
 		deps, err := r.resolveDependencies(cmd)
@@ -176,21 +177,18 @@ func (r *Registry) resolveDependencies(cmd CommandSettings) ([]Executer, error) 
 	return list, nil
 }
 
-func createContext(cmd CommandSettings) (*Context, error) {
+func createContext(cmd CommandSettings) (*env.Context, error) {
 	var args []validate.ValidateFunc
 	for _, a := range cmd.Args {
 		args = append(args, a.Valid)
 	}
-	ctx := &Context{
-		locals: cmd.locals.Copy(),
-		flags:  createFlagset(cmd.Name, args...),
-	}
+	ctx := env.NewContext(cmd.Name, cmd.vars, args...)
 	for _, o := range cmd.Options {
 		var err error
 		if o.Flag {
-			err = ctx.attachFlag(o.Short, o.Long, o.Help, o.DefaultFlag)
+			err = ctx.AttachFlag(o.Short, o.Long, o.Help, o.DefaultFlag)
 		} else {
-			err = ctx.attach(o.Short, o.Long, o.Help, o.Default, o.Valid)
+			err = ctx.Attach(o.Short, o.Long, o.Help, o.Default, o.Valid)
 		}
 		if err != nil {
 			return nil, err

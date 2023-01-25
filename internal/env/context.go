@@ -1,4 +1,4 @@
-package maestro
+package env
 
 import (
 	"flag"
@@ -7,24 +7,18 @@ import (
 	"strings"
 
 	"github.com/midbel/maestro/internal/validate"
-	"github.com/midbel/slices"
 )
 
-type Values map[string][]string
-
-type nameset map[string]string
-
-func (n nameset) All() []string {
-	var list []string
-	for k, v := range n {
-		list = append(list, fmt.Sprintf("%s=%s", k, v))
-	}
-	return list
+type Context struct {
+	vars *Env
+	flags  *flagset
 }
 
-type Context struct {
-	locals *Env
-	flags  *flagset
+func NewContext(name string, vars *Env, args ...validate.ValidateFunc) *Context {
+	return &Context{
+		vars: vars.Copy(),
+		flags: createFlagset(name, args...),
+	}
 }
 
 func (e *Context) ParseArgs(args []string) error {
@@ -35,7 +29,7 @@ func (e *Context) Resolve(ident string) ([]string, error) {
 	if vs, err := e.resolve(ident); err == nil {
 		return vs, nil
 	}
-	return e.locals.Resolve(ident)
+	return e.vars.Resolve(ident)
 }
 
 func (e *Context) resolve(ident string) ([]string, error) {
@@ -63,7 +57,7 @@ func (e *Context) resolve(ident string) ([]string, error) {
 	return []string{str}, nil
 }
 
-func (e *Context) attach(short, long, help, value string, valid validate.ValidateFunc) error {
+func (e *Context) Attach(short, long, help, value string, valid validate.ValidateFunc) error {
 	if e.isFlag(short) || e.isFlag(long) {
 		return fmt.Errorf("%s/%s already set", short, long)
 	}
@@ -86,7 +80,7 @@ func (e *Context) attach(short, long, help, value string, valid validate.Validat
 	return nil
 }
 
-func (e *Context) attachFlag(short, long, help string, value bool) error {
+func (e *Context) AttachFlag(short, long, help string, value bool) error {
 	if e.isFlag(short) || e.isFlag(long) {
 		return fmt.Errorf("%s/%s already set", short, long)
 	}
@@ -173,58 +167,4 @@ func (v *stringValue) String() string {
 func (v *stringValue) Set(str string) error {
 	*v = stringValue(str)
 	return nil
-}
-
-type Env struct {
-	parent *Env
-	locals Values
-}
-
-func EmptyEnv() *Env {
-	return EnclosedEnv(nil)
-}
-
-func EnclosedEnv(parent *Env) *Env {
-	return &Env{
-		parent: parent,
-		locals: make(Values),
-	}
-}
-
-func (e *Env) Define(ident string, vs []string) error {
-	e.locals[ident] = append(e.locals[ident][:0], vs...)
-	return nil
-}
-
-func (e *Env) Delete(ident string) error {
-	delete(e.locals, ident)
-	return nil
-}
-
-func (e *Env) Resolve(ident string) ([]string, error) {
-	vs, ok := e.locals[ident]
-	if !ok && e.parent != nil {
-		return e.parent.Resolve(ident)
-	}
-	if !ok {
-		return nil, fmt.Errorf("%s: identifier not defined", ident)
-	}
-	return vs, nil
-}
-
-func (e *Env) Unwrap() *Env {
-	if e.parent == nil {
-		return e
-	}
-	return e.parent
-}
-
-func (e *Env) Copy() *Env {
-	x := Env{
-		locals: slices.CopyMap(e.locals),
-	}
-	if e.parent != nil {
-		x.parent = e.parent.Copy()
-	}
-	return &x
 }

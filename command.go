@@ -1,11 +1,10 @@
 package maestro
 
 import (
-	"bytes"
-	"io"
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/help"
 	"github.com/midbel/maestro/internal/validate"
 	"golang.org/x/crypto/ssh"
@@ -30,25 +29,24 @@ type CommandSettings struct {
 	Deps    []CommandDep
 	Options []CommandOption
 	Args    []CommandArg
-	Lines   CommandScript
+	Lines   []CommandScript
 
-	Ev nameset
-
-	locals *Env
+	env  *env.Env
+	vars *env.Env
 }
 
 func NewCommmandSettings(name string) (CommandSettings, error) {
-	return NewCommandSettingsWithLocals(name, EmptyEnv())
+	return NewCommandSettingsWithLocals(name, env.Empty())
 }
 
-func NewCommandSettingsWithLocals(name string, locals *Env) (CommandSettings, error) {
+func NewCommandSettingsWithLocals(name string, vars *env.Env) (CommandSettings, error) {
 	cmd := CommandSettings{
-		Name:   name,
-		locals: locals,
-		Ev:     make(nameset),
+		Name: name,
+		vars: vars,
+		env:  env.Empty(),
 	}
-	if cmd.locals == nil {
-		cmd.locals = EmptyEnv()
+	if cmd.vars == nil {
+		cmd.vars = env.Empty()
 	}
 	return cmd, nil
 }
@@ -116,6 +114,12 @@ type CommandTarget struct {
 	KnownHosts ssh.HostKeyCallback
 }
 
+func createTarget(addr string) CommandTarget {
+	return CommandTarget{
+		Addr: addr,
+	}
+}
+
 func (c CommandTarget) Config(top *ssh.ClientConfig) *ssh.ClientConfig {
 	conf := &ssh.ClientConfig{
 		User:            top.User,
@@ -139,17 +143,15 @@ func (c CommandTarget) Config(top *ssh.ClientConfig) *ssh.ClientConfig {
 	return conf
 }
 
-type CommandScript []string
+type CommandScript struct {
+	Line string
+	Body []CommandScript
+}
 
-func (c CommandScript) Reader() io.Reader {
-	var str bytes.Buffer
-	for i := range c {
-		if i > 0 {
-			str.WriteString("\n")
-		}
-		str.WriteString(c[i])
+func createScript(line string) CommandScript {
+	return CommandScript{
+		Line: line,
 	}
-	return &str
 }
 
 type CommandDep struct {
@@ -158,6 +160,12 @@ type CommandDep struct {
 	// Bg        bool
 	// Optional  bool
 	// Mandatory bool
+}
+
+func createDep(ident string) CommandDep {
+	return CommandDep{
+		Name: ident,
+	}
 }
 
 func (c CommandDep) Key() string {
@@ -179,6 +187,12 @@ type CommandOption struct {
 type CommandArg struct {
 	Name  string
 	Valid validate.ValidateFunc
+}
+
+func createArg(name string) CommandArg {
+	return CommandArg{
+		Name: name,
+	}
 }
 
 func (a CommandArg) Validate(arg string) error {

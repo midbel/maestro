@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/expand"
 	"github.com/midbel/slices"
 	"github.com/midbel/try"
@@ -26,8 +27,8 @@ type local struct {
 	name    string
 	env     []string
 	workdir string
-	scripts CommandScript
-	ctx     *Context
+	scripts []CommandScript
+	ctx     *env.Context
 }
 
 func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -51,7 +52,7 @@ func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Wri
 	go writeLines(c.name, stdout, outr)
 	go writeLines(c.name, stderr, errr)
 	for _, line := range c.scripts {
-		if err = c.execute(ctx, line, args, outw, errw); err != nil {
+		if err = c.execute(ctx, line.Line, args, outw, errw); err != nil {
 			break
 		}
 	}
@@ -75,9 +76,9 @@ func (c local) execute(ctx context.Context, line string, args []string, stdout, 
 type remote struct {
 	name    string
 	host    string
-	scripts CommandScript
+	scripts []CommandScript
 	config  *ssh.ClientConfig
-	ctx     *Context
+	ctx     *env.Context
 }
 
 func (c remote) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -116,7 +117,7 @@ func (c remote) Execute(ctx context.Context, args []string, stdout, stderr io.Wr
 	go writeLines(prefix, stderr, errr)
 
 	for _, line := range c.scripts {
-		if err := exec(line, outw, errw); err != nil {
+		if err := exec(line.Line, outw, errw); err != nil {
 			return err
 		}
 	}

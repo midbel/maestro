@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
+	// "path/filepath"
 	"sort"
 	"strings"
 
@@ -85,7 +85,7 @@ func main() {
 		{Short: "r", Long: "remote", Desc: "execute command on remote server(s)", Ptr: &mst.Remote},
 		{Short: "t", Long: "trace", Desc: "add tracing information command execution", Ptr: &mst.MetaExec.Trace},
 		{Short: "v", Long: "version", Desc: "print maestro version and exit", Ptr: &version},
-		{Short: "D", Long: "define", Desc: "set variables", Ptr: &mst.Locals},
+		// {Short: "D", Long: "define", Desc: "set variables", Ptr: &mst.Locals},
 		{Short: "p", Long: "with-prefix", Desc: "add a prefix to each output line", Ptr: &mst.WithPrefix},
 	}
 
@@ -133,47 +133,47 @@ func exit(err error, file string) {
 		return
 	}
 	switch err := err.(type) {
+	// case maestro.UnexpectedError:
+	// 	printUnexpected(err, file)
 	case maestro.SuggestionError:
 		printSuggestion(err)
-	case maestro.UnexpectedError:
-		printUnexpected(err, file)
 	default:
 		fmt.Fprintln(os.Stderr, err)
 	}
 	os.Exit(1)
 }
 
-func printUnexpected(err maestro.UnexpectedError, file string) {
-	file = filepath.Base(file)
-	if err.Line == "" {
-		fmt.Fprintf(os.Stderr, "%s: %s", file, err)
-		fmt.Fprintln(os.Stderr, err)
-		return
-	}
-	var (
-		prefix = strings.Repeat("~", err.Invalid.Column-1)
-		n, _   = fmt.Fprintf(os.Stderr, "(%d:%d) ", err.Invalid.Line, err.Invalid.Column)
-	)
-	fmt.Fprintln(os.Stderr, err.Line)
-	fmt.Fprintf(os.Stderr, "%s%s", strings.Repeat(" ", n), prefix)
+// func printUnexpected(err maestro.UnexpectedError, file string) {
+// 	file = filepath.Base(file)
+// 	if err.Line == "" {
+// 		fmt.Fprintf(os.Stderr, "%s: %s", file, err)
+// 		fmt.Fprintln(os.Stderr, err)
+// 		return
+// 	}
+// 	var (
+// 		prefix = strings.Repeat("~", err.Invalid.Column-1)
+// 		n, _   = fmt.Fprintf(os.Stderr, "(%d:%d) ", err.Invalid.Line, err.Invalid.Column)
+// 	)
+// 	fmt.Fprintln(os.Stderr, err.Line)
+// 	fmt.Fprintf(os.Stderr, "%s%s", strings.Repeat(" ", n), prefix)
 
-	n = len(err.Invalid.Literal)
-	if n == 0 {
-		n++
-	}
-	fmt.Fprintln(os.Stderr, strings.Repeat("^", n))
+// 	n = len(err.Invalid.Literal)
+// 	if n == 0 {
+// 		n++
+// 	}
+// 	fmt.Fprintln(os.Stderr, strings.Repeat("^", n))
 
-	var msg string
-	if err.Invalid.IsInvalid() {
-		msg = "unexpected character found"
-	} else {
-		// TODO: improve alternative with err.Expected slice once filled by Decoder
-		msg = err.Invalid.String()
-	}
+// 	var msg string
+// 	if err.Invalid.IsInvalid() {
+// 		msg = "unexpected character found"
+// 	} else {
+// 		// TODO: improve alternative with err.Expected slice once filled by Decoder
+// 		msg = err.Invalid.String()
+// 	}
 
-	fmt.Fprintf(os.Stderr, "%s: syntax error - %s", file, msg)
-	fmt.Fprintln(os.Stderr)
-}
+// 	fmt.Fprintf(os.Stderr, "%s: syntax error - %s", file, msg)
+// 	fmt.Fprintln(os.Stderr)
+// }
 
 func printSuggestion(err maestro.SuggestionError) {
 	sort.Strings(err.Others)

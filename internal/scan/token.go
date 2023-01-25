@@ -4,13 +4,14 @@ import (
 	"fmt"
 )
 
-const (
-	KwTrue    = "true"
-	KwFalse   = "false"
-	KwInclude = "include"
-	KwExport  = "export"
-	KwDelete  = "delete"
-)
+type Position struct {
+	Line   int
+	Column int
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("%d:%d", p.Line, p.Column)
+}
 
 const (
 	Eof rune = -(iota + 1)
@@ -28,27 +29,23 @@ const (
 	Assign
 	Append
 	Comma
-	Background
 	Dependency
 	BegList
 	EndList
 	BegScript
 	EndScript
-	Reverse
-	Invalid
-	Optional
-	Mandatory
 	Hidden
+	Invalid
 )
 
-type Position struct {
-	Line   int
-	Column int
-}
-
-func (p Position) String() string {
-	return fmt.Sprintf("<%d:%d>", p.Line, p.Column)
-}
+const (
+	KwTrue    = "true"
+	KwFalse   = "false"
+	KwExport  = "export"
+	KwAlias   = "alias"
+	KwDelete  = "delete"
+	KwInclude = "include"
+)
 
 type Token struct {
 	Literal string
@@ -56,32 +53,17 @@ type Token struct {
 	Position
 }
 
-func createToken(str string, kind rune) Token {
-	return Token{
-		Literal: str,
-		Type:    kind,
-	}
-}
-
 func (t Token) String() string {
 	var prefix string
 	switch t.Type {
 	default:
 		prefix = "unknown"
-	case Optional:
-		return "<optional>"
-	case Mandatory:
-		return "<mandatory>"
 	case Hidden:
 		return "<hidden>"
-	case Reverse:
-		return "<reverse>"
 	case Eof:
 		return "<eof>"
 	case Eol:
 		return "<eol>"
-	case Blank:
-		return "<blank>"
 	case Assign:
 		return "<assign>"
 	case Append:
@@ -90,8 +72,6 @@ func (t Token) String() string {
 		return "<comma>"
 	case Dependency:
 		return "<dependency>"
-	case Background:
-		return "<background>"
 	case BegList:
 		return "<beg-list>"
 	case EndList:
@@ -122,44 +102,4 @@ func (t Token) String() string {
 		prefix = "keyword"
 	}
 	return fmt.Sprintf("%s(%s)", prefix, t.Literal)
-}
-
-func (t Token) IsAssign() bool {
-	return t.Type == Append || t.Type == Assign
-}
-
-func (t Token) IsVariable() bool {
-	return t.Type == Variable
-}
-
-func (t Token) IsValue() bool {
-	return t.IsVariable() || t.IsPrimitive() || t.IsScript()
-}
-
-func (t Token) IsScript() bool {
-	return t.Type == Script
-}
-
-func (t Token) IsPrimitive() bool {
-	return t.Type == Ident || t.Type == String || t.Type == Boolean || t.Type == Quote
-}
-
-func (t Token) IsEOF() bool {
-	return t.Type == Eof
-}
-
-func (t Token) IsEOL() bool {
-	return t.Type == Eol
-}
-
-func (t Token) IsBlank() bool {
-	return t.Type == Blank
-}
-
-func (t Token) IsComment() bool {
-	return t.Type == Comment
-}
-
-func (t Token) IsInvalid() bool {
-	return t.Type == Invalid
 }

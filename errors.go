@@ -1,10 +1,7 @@
 package maestro
 
 import (
-	"fmt"
-
 	"github.com/midbel/distance"
-	"github.com/midbel/maestro/internal/scan"
 )
 
 type SuggestionError struct {
@@ -25,27 +22,6 @@ func Suggest(err error, name string, names []string) error {
 
 func (s SuggestionError) Error() string {
 	return s.Err.Error()
-}
-
-type UnexpectedError struct {
-	Line     string
-	Invalid  scan.Token
-	Expected []string
-}
-
-func unexpected(token scan.Token, line string) error {
-	return UnexpectedError{
-		Line:    line,
-		Invalid: token,
-	}
-}
-
-func (e UnexpectedError) Error() string {
-	str := e.Invalid.Literal
-	if str == "" {
-		str = e.Invalid.String()
-	}
-	return fmt.Sprintf("%s %q at %d:%d", errUnexpected, str, e.Invalid.Line, e.Invalid.Column)
 }
 
 func hasError(errs ...error) error {
