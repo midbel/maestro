@@ -75,7 +75,7 @@ type Decoder struct {
 
 	env   *env.Env // environment variables
 	vars  *env.Env // locals variables
-	alias map[string]string
+	alias *env.Env // alias definitions
 
 	scan *scan.Scanner
 	curr scan.Token
@@ -95,7 +95,7 @@ func NewDecoderWithEnv(r io.Reader, vars *env.Env) (*Decoder, error) {
 		scan:  scan,
 		vars:  vars,
 		env:   env.Empty(),
-		alias: make(map[string]string),
+		alias: env.Empty(),
 	}
 	if n, ok := r.(interface{ Name() string }); ok {
 		dec.dir = filepath.Dir(n.Name())
@@ -243,11 +243,13 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 	if hidden = d.is(scan.Hidden); hidden {
 		d.next()
 	}
-	cmd, err := NewCommmandSettings(d.curr.Literal)
-	if err != nil {
-		return err
+	cmd := CommandSettings{
+		Name:    d.curr.Literal,
+		Visible: !hidden,
+		vars:    d.vars.Copy(),
+		env:     d.env.Copy(),
+		alias:   d.env.Copy(),
 	}
-	cmd.Visible = !hidden
 	d.next()
 	if d.is(scan.BegList) {
 		if err = d.decodeCommandProperties(&cmd); err != nil {
@@ -566,9 +568,9 @@ func (d *Decoder) decodeAlias(mst *Maestro) error {
 			return err
 		}
 		d.next()
-		alias, err := d.decodeString()
+		alias, err := d.decodeStringList()
 		if err == nil {
-			d.alias[ident] = alias
+			d.alias.Define(ident, alias)
 		}
 		return d.ensureEol()
 	}

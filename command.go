@@ -31,24 +31,9 @@ type CommandSettings struct {
 	Args    []CommandArg
 	Lines   []CommandScript
 
-	env  *env.Env
-	vars *env.Env
-}
-
-func NewCommmandSettings(name string) (CommandSettings, error) {
-	return NewCommandSettingsWithLocals(name, env.Empty())
-}
-
-func NewCommandSettingsWithLocals(name string, vars *env.Env) (CommandSettings, error) {
-	cmd := CommandSettings{
-		Name: name,
-		vars: vars,
-		env:  env.Empty(),
-	}
-	if cmd.vars == nil {
-		cmd.vars = env.Empty()
-	}
-	return cmd, nil
+	env   *env.Env
+	vars  *env.Env
+	alias *env.Env
 }
 
 func (s CommandSettings) Command() string {
