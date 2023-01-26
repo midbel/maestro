@@ -204,7 +204,7 @@ func (d *Decoder) decodeMeta(mst *Maestro) error {
 	case metaKeyFile:
 		mst.MetaHttp.KeyFile, err = d.decodeString()
 	default:
-		err = fmt.Errorf("%s unknown meta", ident)
+		err = fmt.Errorf(".%s meta not recognized", ident)
 	}
 	if err == nil {
 		err = d.ensureEol()
@@ -477,11 +477,16 @@ func (d *Decoder) decodeCommandArguments(cmd *CommandSettings) error {
 		if err := d.expect(scan.Ident, "identifier expected"); err != nil {
 			return err
 		}
-		cmd.Args = append(cmd.Args, createArg(d.curr.Literal))
+		arg := createArg(d.curr.Literal)
 		d.next()
 		if d.is(scan.BegList) {
-
+			a, err := d.decodeValidFunc()
+			if err != nil {
+				return err
+			}
+			arg.Valid = a
 		}
+		cmd.Args = append(cmd.Args, arg)
 	}
 	return nil
 }
@@ -719,9 +724,15 @@ func (d *Decoder) decodeValidFunc() (validate.ValidateFunc, error) {
 		return all, nil
 	}
 
-	set, err := decodeFunc(func() bool {
-		return d.is(scan.Eol) || d.is(scan.Comma) || d.is(scan.BegList)
-	})
+	until := func() bool {
+		return d.is(scan.Eol) || d.is(scan.Comma) || d.is(scan.EndList)
+	}
+	if d.is(scan.BegList) {
+		d.next()
+		until = func() bool { return d.is(scan.EndList) }
+	}
+
+	set, err := decodeFunc(until)
 	if err != nil {
 		return nil, err
 	}
