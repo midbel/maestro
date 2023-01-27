@@ -239,7 +239,10 @@ func (d *Decoder) decodeAssign(mst *Maestro) error {
 }
 
 func (d *Decoder) decodeCommand(mst *Maestro) error {
-	var hidden bool
+	var (
+		hidden bool
+		err    error
+	)
 	if hidden = d.is(scan.Hidden); hidden {
 		d.next()
 	}
@@ -248,7 +251,7 @@ func (d *Decoder) decodeCommand(mst *Maestro) error {
 		Visible: !hidden,
 		vars:    d.vars.Copy(),
 		env:     d.env.Copy(),
-		alias:   d.env.Copy(),
+		alias:   d.alias.Copy(),
 	}
 	d.next()
 	if d.is(scan.BegList) {

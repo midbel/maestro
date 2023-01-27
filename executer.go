@@ -17,6 +17,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Finder interface {
+	Find(context.Context, string, []string) (*exec.Cmd, error)
+	Substitute(string) ([]string, error)
+}
+
 type Executer interface {
 	Execute(context.Context, []string, io.Writer, io.Writer) error
 }
@@ -25,10 +30,12 @@ type local struct {
 	deps []Executer
 
 	name    string
-	env     []string
 	workdir string
+	env     []string
 	scripts []CommandScript
+
 	ctx     *env.Context
+	find    Finder
 }
 
 func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -64,7 +71,10 @@ func (c local) execute(ctx context.Context, line string, args []string, stdout, 
 	if err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, slices.Fst(parts), slices.Rest(parts)...)
+	cmd, err := c.find.Find(ctx, slices.Fst(parts), slices.Rest(parts))
+	if err != nil {
+		return err
+	}
 	cmd.Dir = c.workdir
 	cmd.Env = c.env
 	cmd.Stdout = stdout
@@ -202,4 +212,34 @@ func writeLines(name string, w io.Writer, r io.Reader) {
 		fmt.Fprintf(w, "[%s] %s", name, scan.Text())
 		fmt.Fprintln(w)
 	}
+}
+
+type locator struct {
+	env *env.Env
+}
+
+func Localize(env *env.Env) Finder {
+	return locator{
+		env: env,
+	}
+}
+
+func (i locator) Find(ctx context.Context, name string, args []string) (*exec.Cmd, error) {
+	names, err := i.Substitute(name)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := exec.LookPath(slices.Fst(names)); err != nil {
+		return nil, err
+	}
+	names = append(names, args...)
+	return exec.CommandContext(ctx, slices.Fst(names), slices.Rest(names)...), nil
+}
+
+func (i locator) Substitute(name string) ([]string, error) {
+	vs, err := i.env.Resolve(name)
+	if err != nil {
+		return []string{name}, nil
+	}
+	return vs, err
 }

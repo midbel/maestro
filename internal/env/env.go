@@ -2,6 +2,7 @@ package env
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/midbel/slices"
 )
@@ -52,6 +53,18 @@ func (e *Env) Resolve(ident string) ([]string, error) {
 		return nil, fmt.Errorf("%s: identifier not defined", ident)
 	}
 	return vs, nil
+}
+
+func (e *Env) Join() []string {
+	var list []string
+	for i, vs := range e.locals {
+		if len(vs) == 0 {
+			continue
+		}
+		str := fmt.Sprintf("%s=%s", i, strings.Join(vs, ":"))
+		list = append(list, str)
+	}
+	return list
 }
 
 func (e *Env) Unwrap() *Env {
