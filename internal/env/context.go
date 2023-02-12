@@ -10,13 +10,13 @@ import (
 )
 
 type Context struct {
-	vars *Env
-	flags  *flagset
+	vars  *Env
+	flags *flagset
 }
 
 func NewContext(name string, vars *Env, args ...validate.ValidateFunc) *Context {
 	return &Context{
-		vars: vars.Copy(),
+		vars:  vars.Copy(),
 		flags: createFlagset(name, args...),
 	}
 }

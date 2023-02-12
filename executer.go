@@ -34,8 +34,8 @@ type local struct {
 	env     []string
 	scripts []CommandScript
 
-	ctx     *env.Context
-	find    Finder
+	ctx  *env.Context
+	find Finder
 }
 
 func (c local) Execute(ctx context.Context, args []string, stdout, stderr io.Writer) error {

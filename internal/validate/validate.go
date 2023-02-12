@@ -55,7 +55,7 @@ func GetValidateFunc(name string, args []string) (ValidateFunc, error) {
 
 func Get(name string, valid ...ValidateFunc) (ValidateFunc, error) {
 	var (
-		fn ValidateFunc
+		fn  ValidateFunc
 		err error
 	)
 	switch name {

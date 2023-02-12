@@ -327,41 +327,23 @@ func (d *Decoder) decodeCommandDependencies(cmd *CommandSettings) error {
 }
 
 func (d *Decoder) decodeCommandScript(cmd *CommandSettings) error {
-	var body func() ([]CommandScript, error)
-	body = func() ([]CommandScript, error) {
-		var lines []CommandScript
-		for !d.done() && !d.is(scan.EndScript) {
-			d.skipEol()
-			switch d.curr.Type {
-			case scan.Script:
-				lines = append(lines, createScript(d.curr.Literal))
-				d.next()
-			case scan.BegScript:
-				d.next()
-				ls, err := body()
-				if err != nil {
-					return nil, err
-				}
-				lines[len(lines)-1].Body = ls
-			default:
-				return nil, d.unexpected("decoding script body")
-			}
-		}
-		if err := d.expect(scan.EndScript, "expected } at end of script"); err != nil {
-			return nil, err
-		}
-		d.next()
-		return lines, nil
-	}
 	d.next()
 	if err := d.decodeCommandHelp(cmd); err != nil {
 		return err
 	}
-	lines, err := body()
-	if err == nil {
-		cmd.Lines = lines
+	for !d.done() && !d.is(scan.EndScript) {
+		d.skipEol()
+		if !d.is(scan.Script) {
+			return d.unexpected("decoding script body")
+		}
+		cmd.Lines = append(cmd.Lines, createScript(d.curr.Literal))
+		d.next()
 	}
-	return err
+	if err := d.expect(scan.EndScript, "expected } at end of script"); err != nil {
+		return err
+	}
+	d.next()
+	return nil
 }
 
 func (d *Decoder) decodeCommandHelp(cmd *CommandSettings) error {

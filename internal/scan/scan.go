@@ -109,24 +109,18 @@ func (s *Scanner) scanDefault(tok *Token) {
 }
 
 func (s *Scanner) scanScript(tok *Token) {
-	switch s.char {
-	case lcurly:
-		tok.Type = BegScript
-		s.stack.enter()
-	case rcurly:
-		tok.Type = EndScript
-		s.stack.leave()
-	case pound:
+	if s.char == pound {
 		s.scanComment(tok)
 		return
-	default:
 	}
-	if isScript(s.char) {
+	if s.char == rcurly {
+		tok.Type = EndScript
+		s.stack.leave()
 		s.read()
 		s.skipNL()
 		return
 	}
-	for !isNL(s.char) && !isScript(s.char) && !s.done() {
+	for !isNL(s.char) && !s.done() {
 		if s.char == backslash && isNL(s.peek()) {
 			s.read()
 			s.read()

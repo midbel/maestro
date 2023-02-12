@@ -130,7 +130,6 @@ func (c CommandTarget) Config(top *ssh.ClientConfig) *ssh.ClientConfig {
 
 type CommandScript struct {
 	Line string
-	Body []CommandScript
 }
 
 func createScript(line string) CommandScript {
