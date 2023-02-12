@@ -141,7 +141,6 @@ func (r *Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
 		scripts: cmd.Lines,
 		workdir: cmd.WorkDir,
 		env:     cmd.env.Join(),
-		find:    Localize(cmd.alias),
 	}
 	if !nodeps {
 		deps, err := r.resolveDependencies(cmd)
