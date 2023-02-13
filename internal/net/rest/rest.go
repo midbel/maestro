@@ -8,9 +8,19 @@ import (
 )
 
 func Listen(addr string, mst *maestro.Maestro) error {
-	h := Rest(mst)
-	http.Handle("/", h)
-	return http.ListenAndServe(addr, nil)
+	serv := http.Server{
+		Addr:    addr,
+		Handler: Rest(mst),
+	}
+	if mst.MetaHttp.Addr != "" {
+		serv.Addr = mst.MetaHttp.Addr
+	}
+	cfg, err := mst.MetaHttp.Config()
+	if err != nil {
+		return err
+	}
+	serv.TLSConfig = cfg
+	return serv.ListenAndServe()
 }
 
 func Rest(mst *maestro.Maestro) http.Handler {

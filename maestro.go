@@ -2,6 +2,8 @@ package maestro
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"os"
@@ -304,13 +306,31 @@ type MetaHttp struct {
 	CertFile string
 	KeyFile  string
 	Addr     string
-	Base     string
 }
 
 func defaultHttp() MetaHttp {
 	return MetaHttp{
 		Addr: DefaultHttpAddr,
 	}
+}
+
+func (m MetaHttp) Config() (*tls.Config, error) {
+	if m.CertFile == "" && m.KeyFile == "" {
+		return nil, nil
+	}
+	cert, err := tls.LoadX509KeyPair(m.CertFile, m.KeyFile)
+	if err != nil {
+		return nil, err
+	}
+	var cfg tls.Config
+	cfg.Certificates = append(cfg.Certificates, cert)
+
+	ca, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
+	cfg.RootCAs = ca
+	return &cfg, nil
 }
 
 func hasHelp(args []string) bool {
