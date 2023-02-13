@@ -15,43 +15,6 @@ HELP
 bindir = bin
 exec   = maestro
 
-.SSH_USER     = "foobar"
-.SSH_PASSWORD = "foobar"
-
-context (
-	short = "demo of using options and arguments",
-	tag   = demo,
-	options = (
-		short    = b,
-		long     = bind,
-		default  = "localhost:22",
-		help     = 'bind to address',
-		check    = notempty ipport,
-	), (
-		short = "a",
-		long  = "all",
-		flag  = true,
-		default = true,
-		help  = 'get all'
-	),
-	args = arg1 arg2(file),
-): {
-	echo "context"
-	echo "short $b - $a"
-	echo "long $bind - $all"
-	echo "arguments: $@ - number: $#"
-	echo "command name: $0"
-}
-
-remote (
-	short = "run command to remote server",
-	tag   = "demo",
-	hosts = "127.0.0.1:2022" "127.0.0.1:2023",
-): {
-	echo foo
-	echo bar
-}
-
 test(
 	short = "run test in current directory",
 	tag   = build test,
@@ -60,7 +23,7 @@ test(
 }
 
 build(
-	short = "build the binaries of the project",
+	short = "build the binary of the project",
 	tag   = build,
 	alias = compile,
 ): test, format {

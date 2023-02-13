@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	// "path/filepath"
 	"sort"
 	"strings"
 
@@ -50,11 +49,9 @@ schedule: run commands that have a schedule property set properly at the given
 
 Options:
 
-  -d, --dry                               only print commands that will be executed
   -D NAME[=VALUE], --define NAME[=VALUE]  define NAME with optional value
   -f FILE, --file FILE                    read FILE as a maestro file
   -i, --ignore                            ignore all errors from command
-  -I DIR, --includes DIR                  search DIR for included maestro files
   -k, --skip                              don't execute command's dependencies
   -p, --with-prefix                       prefix each output line with the name of the command
   -r, --remote                            execute commands on remote server
@@ -142,38 +139,6 @@ func exit(err error, file string) {
 	}
 	os.Exit(1)
 }
-
-// func printUnexpected(err maestro.UnexpectedError, file string) {
-// 	file = filepath.Base(file)
-// 	if err.Line == "" {
-// 		fmt.Fprintf(os.Stderr, "%s: %s", file, err)
-// 		fmt.Fprintln(os.Stderr, err)
-// 		return
-// 	}
-// 	var (
-// 		prefix = strings.Repeat("~", err.Invalid.Column-1)
-// 		n, _   = fmt.Fprintf(os.Stderr, "(%d:%d) ", err.Invalid.Line, err.Invalid.Column)
-// 	)
-// 	fmt.Fprintln(os.Stderr, err.Line)
-// 	fmt.Fprintf(os.Stderr, "%s%s", strings.Repeat(" ", n), prefix)
-
-// 	n = len(err.Invalid.Literal)
-// 	if n == 0 {
-// 		n++
-// 	}
-// 	fmt.Fprintln(os.Stderr, strings.Repeat("^", n))
-
-// 	var msg string
-// 	if err.Invalid.IsInvalid() {
-// 		msg = "unexpected character found"
-// 	} else {
-// 		// TODO: improve alternative with err.Expected slice once filled by Decoder
-// 		msg = err.Invalid.String()
-// 	}
-
-// 	fmt.Fprintf(os.Stderr, "%s: syntax error - %s", file, msg)
-// 	fmt.Fprintln(os.Stderr)
-// }
 
 func printSuggestion(err maestro.SuggestionError) {
 	sort.Strings(err.Others)
