@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/midbel/maestro"
+	"github.com/midbel/maestro/internal/net/rest"
+	"github.com/midbel/slices"
 )
 
 var (
@@ -101,6 +103,7 @@ func main() {
 	switch cmd, args := arguments(); cmd {
 	case maestro.CmdListen, maestro.CmdServe:
 		// err = mst.ListenAndServe(args)
+		err = rest.Listen(slices.Fst(args), mst)
 	case maestro.CmdHelp:
 		if cmd = ""; len(args) > 0 {
 			cmd = args[0]
