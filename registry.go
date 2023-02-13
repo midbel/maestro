@@ -6,6 +6,7 @@ import (
 
 	"github.com/midbel/maestro/internal/env"
 	"github.com/midbel/maestro/internal/validate"
+	"github.com/midbel/slices"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -132,7 +133,8 @@ func (r *Registry) find(name string) (CommandSettings, error) {
 			return c, nil
 		}
 	}
-	return cmd, fmt.Errorf("%s: command not defined", name)
+	err := fmt.Errorf("%s: command not defined", name)
+	return cmd, Suggest(err, name, slices.MapKeys(r.commands))
 }
 
 func (r *Registry) prepare(cmd CommandSettings, nodeps bool) (Executer, error) {
