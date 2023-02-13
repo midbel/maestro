@@ -141,9 +141,6 @@ func createScript(line string) CommandScript {
 type CommandDep struct {
 	Name string
 	Args []string
-	// Bg        bool
-	// Optional  bool
-	// Mandatory bool
 }
 
 func createDep(ident string) CommandDep {
