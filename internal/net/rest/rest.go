@@ -8,9 +8,12 @@ import (
 )
 
 func Listen(addr string, mst *maestro.Maestro) error {
+	mux := http.NewServeMux()
+	mux.Handle(mst.MetaHttp.Base, Rest(mst))
+
 	serv := http.Server{
 		Addr:    addr,
-		Handler: Rest(mst),
+		Handler: mux,
 	}
 	if mst.MetaHttp.Addr != "" {
 		serv.Addr = mst.MetaHttp.Addr
@@ -38,16 +41,17 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	var args, options []string
+	var (
+		query = r.URL.Query()
+		args  = query["args"]
+		rest  []string
+	)
+	query.Del("args")
 	for k, v := range r.URL.Query() {
-		if k == "args" {
-			args = v
-			continue
-		}
-		options = append(options, k)
-		options = append(options, v...)
+		rest = append(rest, k)
+		rest = append(rest, v...)
 	}
-	args = append(options, args...)
+	args = append(rest, args...)
 	code := http.StatusOK
 	if err := h.Maestro.Execute(path.Base(r.URL.Path), args); err != nil {
 		code = http.StatusInternalServerError

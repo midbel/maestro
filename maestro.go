@@ -25,20 +25,20 @@ var (
 )
 
 const (
-	CmdHelp     = "help"
-	CmdVersion  = "version"
-	CmdAll      = "all"
-	CmdDefault  = "default"
-	CmdListen   = "listen"
-	CmdServe    = "serve"
-	CmdGraph    = "graph"
-	CmdSchedule = "schedule"
+	CmdHelp    = "help"
+	CmdVersion = "version"
+	CmdAll     = "all"
+	CmdDefault = "default"
+	CmdListen  = "listen"
+	CmdServe   = "serve"
+	CmdGraph   = "graph"
 )
 
 const (
 	DefaultFile     = "maestro.mf"
 	DefaultVersion  = "0.1.0"
 	DefaultHttpAddr = ":9090"
+	DefaultHttpBase = "/"
 )
 
 const defaultKnownHosts = "~/.ssh/known_hosts"
@@ -306,11 +306,13 @@ type MetaHttp struct {
 	CertFile string
 	KeyFile  string
 	Addr     string
+	Base     string
 }
 
 func defaultHttp() MetaHttp {
 	return MetaHttp{
 		Addr: DefaultHttpAddr,
+		Base: DefaultHttpBase,
 	}
 }
 

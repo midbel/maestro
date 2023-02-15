@@ -77,7 +77,6 @@ func main() {
 
 	options := []Option{
 		// {Short: "I", Long: "includes", Desc: "search include files in directories", Ptr: &mst.Includes},
-		{Short: "d", Long: "dry", Desc: "only print commands that will be executed", Ptr: &mst.MetaExec.Dry},
 		{Short: "i", Long: "ignore", Desc: "ignore errors from command", Ptr: &mst.MetaExec.Ignore},
 		{Short: "f", Long: "file", Desc: "read file as maestro file", Ptr: &file},
 		{Short: "k", Long: "skip", Desc: "skip command dependencies", Ptr: &mst.NoDeps},
@@ -101,9 +100,10 @@ func main() {
 		exit(err, file)
 	}
 	switch cmd, args := arguments(); cmd {
-	case maestro.CmdListen, maestro.CmdServe:
-		// err = mst.ListenAndServe(args)
+	case maestro.CmdListen:
 		err = rest.Listen(slices.Fst(args), mst)
+	case maestro.CmdServe:
+		// err = ssd.Listen(slices.Fst(args), mst)
 	case maestro.CmdHelp:
 		if cmd = ""; len(args) > 0 {
 			cmd = args[0]
@@ -115,8 +115,6 @@ func main() {
 		err = mst.ExecuteAll(args)
 	case maestro.CmdDefault:
 		err = mst.ExecuteDefault(args)
-	case maestro.CmdSchedule:
-		// err = mst.Schedule(args)
 	case maestro.CmdGraph:
 		if len(args) > 0 {
 			cmd = args[0]
